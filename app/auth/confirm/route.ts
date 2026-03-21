@@ -7,12 +7,13 @@ export async function GET(request: NextRequest) {
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
 
+  console.log("[auth/confirm] token_hash:", token_hash ? "présent" : "absent", "| type:", type);
+
   if (!token_hash || !type) {
-    return NextResponse.redirect(`${origin}/login?error=lien_invalide`);
+    console.error("[auth/confirm] Paramètres manquants — vérifie le template email Supabase");
+    return NextResponse.redirect(`${origin}/login?error=invalid-token`);
   }
 
-  // La réponse finale : redirect vers set-password
-  // On la prépare en avance pour pouvoir y écrire les cookies de session
   const redirectResponse = NextResponse.redirect(`${origin}/auth/set-password`);
 
   const supabase = createServerClient(
@@ -23,7 +24,6 @@ export async function GET(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        // Les cookies de session sont écrits directement dans la réponse redirect
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             redirectResponse.cookies.set(name, value, options);
@@ -36,9 +36,10 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase.auth.verifyOtp({ token_hash, type });
 
   if (error) {
-    console.error("[auth/confirm] verifyOtp error:", error.message);
-    return NextResponse.redirect(`${origin}/login?error=lien_expire`);
+    console.error("[auth/confirm] verifyOtp échoué :", error.message);
+    return NextResponse.redirect(`${origin}/login?error=invalid-token`);
   }
 
+  console.log("[auth/confirm] Succès → /auth/set-password");
   return redirectResponse;
 }

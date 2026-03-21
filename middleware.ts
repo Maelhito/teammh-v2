@@ -3,7 +3,16 @@ import { NextRequest, NextResponse } from "next/server";
 
 const ADMIN_EMAIL = "mael.ld@hotmail.fr";
 
+// Routes accessibles sans session — vérifiées en premier, sans appel réseau
+const PUBLIC_PATHS = ["/login", "/auth/confirm", "/auth/set-password"];
+
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -28,13 +37,7 @@ export async function middleware(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  const { pathname } = request.nextUrl;
   const isAdmin = user?.email === ADMIN_EMAIL;
-
-  // Laisse passer les routes auth sans vérification
-  if (pathname.startsWith("/auth")) {
-    return response;
-  }
 
   // Non connecté → /login
   if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/admin"))) {
