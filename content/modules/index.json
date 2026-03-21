@@ -1,0 +1,74 @@
+{
+  "modules": [
+    {
+      "slug": "module-1",
+      "title": "Le Point de Départ",
+      "description": "Comprends ta situation actuelle et pose les bases de ta transformation.",
+      "category": "Introduction",
+      "order": 1,
+      "duration": "15 min",
+      "type": "document",
+      "emoji": "🚀"
+    },
+    {
+      "slug": "module-2",
+      "title": "Maîtriser Azeoo",
+      "description": "Apprends à utiliser l'application Azeoo pour suivre ton alimentation au quotidien.",
+      "category": "Outils",
+      "order": 2,
+      "duration": "20 min",
+      "type": "video",
+      "emoji": "📱"
+    },
+    {
+      "slug": "module-3",
+      "title": "Ton plan alimentaire",
+      "description": "Découvre ton plan alimentaire personnalisé et comment l'appliquer chaque jour.",
+      "category": "Nutrition",
+      "order": 3,
+      "duration": "30 min",
+      "type": "document",
+      "emoji": "🥗"
+    },
+    {
+      "slug": "module-4",
+      "title": "Les équivalences alimentaires",
+      "description": "Comment remplacer intelligemment les aliments tout en respectant ton plan.",
+      "category": "Nutrition",
+      "order": 4,
+      "duration": "20 min",
+      "type": "document",
+      "emoji": "🔄"
+    },
+    {
+      "slug": "module-5",
+      "title": "Gérer la faim émotionnelle",
+      "description": "Identifie les déclencheurs émotionnels et développe des stratégies pour les gérer.",
+      "category": "Mental",
+      "order": 5,
+      "duration": "25 min",
+      "type": "document",
+      "emoji": "🧘"
+    },
+    {
+      "slug": "module-6",
+      "title": "Sorties & restaurants",
+      "description": "Mange intelligemment au restaurant sans sacrifier tes objectifs ni te priver.",
+      "category": "Lifestyle",
+      "order": 6,
+      "duration": "15 min",
+      "type": "document",
+      "emoji": "🍽️"
+    },
+    {
+      "slug": "module-7",
+      "title": "Mission Caddie",
+      "description": "Faire ses courses intelligemment : les bons rayons, les bonnes marques, sans prise de tête.",
+      "category": "Lifestyle",
+      "order": 7,
+      "duration": "20 min",
+      "type": "mixed",
+      "emoji": "🛒"
+    }
+  ]
+}
