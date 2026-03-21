@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 
+const ADMIN_EMAIL = "mael.ld@hotmail.fr";
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -27,15 +29,32 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
+  const isAdmin = user?.email === ADMIN_EMAIL;
 
-  // Protège /dashboard — redirige vers /login si non connecté
-  if (pathname.startsWith("/dashboard") && !user) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    const redirectResponse = NextResponse.redirect(loginUrl);
-    response.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
+  // Non connecté → /login
+  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/admin"))) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((c) => redirectResponse.cookies.set(c.name, c.value));
+    return redirectResponse;
+  }
+
+  // Admin sur /dashboard → /admin
+  if (user && isAdmin && pathname.startsWith("/dashboard")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin";
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((c) => redirectResponse.cookies.set(c.name, c.value));
+    return redirectResponse;
+  }
+
+  // Cliente sur /admin → /dashboard
+  if (user && !isAdmin && pathname.startsWith("/admin")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((c) => redirectResponse.cookies.set(c.name, c.value));
     return redirectResponse;
   }
 
