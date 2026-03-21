@@ -31,6 +31,11 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isAdmin = user?.email === ADMIN_EMAIL;
 
+  // Laisse passer les routes auth sans vérification
+  if (pathname.startsWith("/auth")) {
+    return response;
+  }
+
   // Non connecté → /login
   if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/admin"))) {
     const url = request.nextUrl.clone();
