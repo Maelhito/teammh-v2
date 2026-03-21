@@ -1,6 +1,18 @@
 import type { Metadata, Viewport } from "next";
+import { Bebas_Neue, DM_Sans } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
+
+const bebasNeue = Bebas_Neue({
+  weight: "400",
+  variable: "--font-bebas",
+  subsets: ["latin"],
+});
+
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
   title: "Time to Move",
@@ -18,6 +30,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -27,10 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-      </head>
-      <body style={{ margin: 0, fontFamily: "system-ui, sans-serif" }}>
+      <body className={`${bebasNeue.variable} ${dmSans.variable} antialiased`}>
         <ServiceWorkerRegistration />
         {children}
       </body>
