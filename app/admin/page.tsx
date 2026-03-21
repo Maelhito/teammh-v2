@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import InviteForm from "./InviteForm";
 
@@ -26,6 +27,24 @@ export default async function AdminPage() {
       </p>
 
       <InviteForm />
+
+      <Link
+        href="/dashboard?preview=1"
+        style={{
+          display: "inline-block",
+          marginTop: 32,
+          padding: "10px 20px",
+          backgroundColor: "transparent",
+          border: "1px solid rgba(255,255,255,0.2)",
+          borderRadius: 8,
+          color: "rgba(255,255,255,0.5)",
+          fontSize: 13,
+          textDecoration: "none",
+          letterSpacing: "0.04em",
+        }}
+      >
+        Voir l&apos;espace cliente →
+      </Link>
     </div>
   );
 }

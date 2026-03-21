@@ -48,8 +48,9 @@ export async function middleware(request: NextRequest) {
     return redirectResponse;
   }
 
-  // Admin sur /dashboard → /admin
-  if (user && isAdmin && pathname.startsWith("/dashboard")) {
+  // Admin sur /dashboard → /admin (sauf si ?preview=1)
+  const isPreview = request.nextUrl.searchParams.get("preview") === "1";
+  if (user && isAdmin && pathname.startsWith("/dashboard") && !isPreview) {
     const url = request.nextUrl.clone();
     url.pathname = "/admin";
     const redirectResponse = NextResponse.redirect(url);
