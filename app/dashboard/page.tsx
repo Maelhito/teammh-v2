@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import InviteForm from "./InviteForm";
 
 export const dynamic = "force-dynamic";
 
@@ -8,10 +8,6 @@ export default async function DashboardPage() {
   const {
     data: { session },
   } = await supabase.auth.getSession();
-
-  if (!session) {
-    redirect("/login");
-  }
 
   return (
     <div
@@ -26,8 +22,10 @@ export default async function DashboardPage() {
         MON ESPACE
       </h1>
       <p style={{ color: "rgba(255,255,255,0.5)", marginTop: 8 }}>
-        Connecté en tant que {session.user.email}
+        Connecté en tant que {session?.user.email}
       </p>
+      <InviteForm />
+
       {/* Modules à venir */}
       <p style={{ color: "rgba(255,255,255,0.3)", marginTop: 40, textAlign: "center", fontSize: 14 }}>
         Les modules arrivent bientôt...
