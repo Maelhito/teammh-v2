@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
   const isAdmin = user?.email === ADMIN_EMAIL;
 
   // Non connecté → /login
-  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/admin"))) {
+  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/admin") || pathname.startsWith("/profil"))) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     const redirectResponse = NextResponse.redirect(url);

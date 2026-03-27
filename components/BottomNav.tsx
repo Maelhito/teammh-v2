@@ -2,19 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 export default function BottomNav() {
   const pathname = usePathname();
   const active = "#B22222";
   const inactive = "#444";
   const isModules = pathname.startsWith("/dashboard") || pathname.startsWith("/modules");
-
-  async function handleSignOut() {
-    const supabase = createSupabaseBrowserClient();
-    await supabase.auth.signOut();
-    window.location.href = "/login";
-  }
+  const isProfil = pathname.startsWith("/profil");
 
   return (
     <nav
@@ -39,15 +33,15 @@ export default function BottomNav() {
           </span>
         </Link>
 
-        <button onClick={handleSignOut} className="flex-1 flex flex-col items-center justify-center gap-1 py-3">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={inactive} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <Link href="/profil" className="flex-1 flex flex-col items-center justify-center gap-1 py-3">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={isProfil ? active : inactive} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="7" r="4" />
             <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
           </svg>
-          <span className="font-body font-semibold" style={{ fontSize: "0.62rem", color: inactive, letterSpacing: "0.06em" }}>
+          <span className="font-body font-semibold" style={{ fontSize: "0.62rem", color: isProfil ? active : inactive, letterSpacing: "0.06em" }}>
             PROFIL
           </span>
-        </button>
+        </Link>
 
       </div>
     </nav>

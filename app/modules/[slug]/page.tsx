@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
 import { getModuleBySlug, getModules } from "@/lib/modules";
 import { getModuleContent } from "@/lib/modules-content";
+import { getModuleCompletions } from "@/lib/user-profile";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
+import ValidateButton from "./ValidateButton";
 import fs from "fs";
 import path from "path";
 
@@ -119,10 +122,17 @@ export default async function ModulePage({ params }: PageProps) {
   const moduleData = getModuleBySlug(slug);
   if (!moduleData) notFound();
 
-  const [rawContent, dbContent] = await Promise.all([
+  const supabase = await createSupabaseServerClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user.id ?? "";
+
+  const [rawContent, dbContent, completedSlugs] = await Promise.all([
     Promise.resolve(getMdxContent(slug)),
     getModuleContent(slug),
+    userId ? getModuleCompletions(userId) : Promise.resolve([]),
   ]);
+
+  const isCompleted = completedSlugs.includes(slug);
 
   const ctx: RenderCtx = {
     videos: [dbContent?.video_url_1, dbContent?.video_url_2, dbContent?.video_url_3],
@@ -164,6 +174,7 @@ export default async function ModulePage({ params }: PageProps) {
         <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 18, padding: "20px 20px 24px" }}>
           <article className="prose-module" dangerouslySetInnerHTML={{ __html: htmlContent }} />
         </div>
+        <ValidateButton slug={slug} initialCompleted={isCompleted} />
       </div>
 
       <BottomNav />
