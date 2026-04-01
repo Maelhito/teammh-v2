@@ -1,4 +1,4 @@
-const CACHE_NAME = "timetomove-v1";
+const CACHE_NAME = "timetomove-v2";
 const STATIC_ASSETS = ["/", "/dashboard", "/login", "/manifest.json"];
 
 self.addEventListener("install", (event) => {
@@ -27,5 +27,38 @@ self.addEventListener("fetch", (event) => {
         return res;
       })
       .catch(() => caches.match(event.request))
+  );
+});
+
+// Notifications push
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+  let data = { title: "Time to Move", body: "", url: "/dashboard" };
+  try { data = { ...data, ...event.data.json() }; } catch (_) {}
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: "/logo.jpeg",
+      badge: "/logo.jpeg",
+      data: { url: data.url },
+      vibrate: [200, 100, 200],
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url ?? "/dashboard";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && "focus" in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      return clients.openWindow(url);
+    })
   );
 });

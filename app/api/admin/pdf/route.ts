@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { sendPushToAll } from "@/lib/push";
+import { getModuleBySlug } from "@/lib/modules";
 
 const ADMIN_EMAIL = "mael.ld@hotmail.fr";
 
@@ -41,6 +43,14 @@ export async function POST(request: NextRequest) {
     .upsert({ slug, pdf_url: publicUrl, pdf_name: file.name }, { onConflict: "slug" });
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
+
+  const moduleData = getModuleBySlug(slug);
+  const moduleTitle = moduleData?.title ?? slug;
+  await sendPushToAll({
+    title: "📄 Nouveau document disponible",
+    body: `Un document PDF est disponible dans le module "${moduleTitle}".`,
+    url: `/modules/${slug}`,
+  }).catch(() => {});
 
   return NextResponse.json({ success: true, url: publicUrl, name: file.name });
 }

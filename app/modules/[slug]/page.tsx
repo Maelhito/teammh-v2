@@ -1,7 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getModuleBySlug, getModules } from "@/lib/modules";
 import { getModuleContent } from "@/lib/modules-content";
-import { getModuleCompletions } from "@/lib/user-profile";
+import { getModuleCompletionsWithDates } from "@/lib/user-profile";
+import { computeUnlockStatuses } from "@/lib/module-unlock";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
@@ -126,13 +127,25 @@ export default async function ModulePage({ params }: PageProps) {
   const { data: { session } } = await supabase.auth.getSession();
   const userId = session?.user.id ?? "";
 
-  const [rawContent, dbContent, completedSlugs] = await Promise.all([
+  const modules = getModules();
+  const slugs = modules.map((m) => m.slug);
+
+  const [rawContent, dbContent, completionsWithDates] = await Promise.all([
     Promise.resolve(getMdxContent(slug)),
     getModuleContent(slug),
-    userId ? getModuleCompletions(userId) : Promise.resolve([]),
+    userId ? getModuleCompletionsWithDates(userId) : Promise.resolve([]),
   ]);
 
-  const isCompleted = completedSlugs.includes(slug);
+  // Vérifier si le module est accessible
+  const unlockStatuses = computeUnlockStatuses(slugs, completionsWithDates);
+  const slugIndex = slugs.indexOf(slug);
+  const unlockStatus = unlockStatuses[slugIndex];
+
+  if (unlockStatus && !unlockStatus.unlocked) {
+    redirect("/dashboard?locked=1");
+  }
+
+  const isCompleted = completionsWithDates.some((c) => c.module_slug === slug);
 
   const ctx: RenderCtx = {
     videos: [dbContent?.video_url_1, dbContent?.video_url_2, dbContent?.video_url_3],

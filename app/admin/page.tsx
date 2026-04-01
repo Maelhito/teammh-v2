@@ -6,6 +6,7 @@ import { getModules } from "@/lib/modules";
 import { getAllModulesContent } from "@/lib/modules-content";
 import InviteForm from "./InviteForm";
 import ModuleManager, { type ModuleWithVideos } from "./ModuleManager";
+import SendNotificationForm from "./SendNotificationForm";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,8 @@ export default async function AdminPage() {
       <InviteForm />
 
       <ModuleManager modules={modulesWithVideos} initialContent={modulesContent} />
+
+      <SendNotificationForm />
 
       <Link
         href="/dashboard?preview=1"

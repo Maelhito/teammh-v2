@@ -1,13 +1,21 @@
-import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getModules } from "@/lib/modules";
-import { getUserProfile, getModuleCompletions } from "@/lib/user-profile";
+import { getUserProfile, getModuleCompletionsWithDates } from "@/lib/user-profile";
+import { computeUnlockStatuses } from "@/lib/module-unlock";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
+import DashboardModules from "@/components/DashboardModules";
+import PushSubscriber from "@/components/PushSubscriber";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+interface PageProps {
+  searchParams: Promise<{ locked?: string }>;
+}
+
+export default async function DashboardPage({ searchParams }: PageProps) {
+  const { locked } = await searchParams;
+
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
 
@@ -17,14 +25,16 @@ export default async function DashboardPage() {
     ?? "";
 
   const modules = getModules();
+  const slugs = modules.map((m) => m.slug);
 
-  const [profile, completedSlugs] = await Promise.all([
+  const [profile, completionsWithDates] = await Promise.all([
     userId ? getUserProfile(userId) : Promise.resolve(null),
-    userId ? getModuleCompletions(userId) : Promise.resolve([]),
+    userId ? getModuleCompletionsWithDates(userId) : Promise.resolve([]),
   ]);
 
-  const completedSet = new Set(completedSlugs);
-  const completedCount = completedSlugs.length;
+  const completedSet = new Set(completionsWithDates.map((c) => c.module_slug));
+  const completedCount = completedSet.size;
+  const unlockStatuses = computeUnlockStatuses(slugs, completionsWithDates);
 
   // Calcul semaine courante
   let semaineLabel = "";
@@ -38,11 +48,31 @@ export default async function DashboardPage() {
     semaineProgress = semaine / 16;
   }
 
+  const moduleItems = modules.map((m, i) => ({
+    slug: m.slug,
+    title: m.title,
+    category: m.category,
+    duration: m.duration,
+    completed: completedSet.has(m.slug),
+    unlock: unlockStatuses[i],
+    index: i + 1,
+  }));
+
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 90 }}>
       <AppHeader />
+      <PushSubscriber />
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>
+
+        {/* Message module verrouillé */}
+        {locked === "1" && (
+          <div style={{ margin: "12px 16px 0", backgroundColor: "#1a1a1a", border: "1px solid rgba(178,34,34,0.3)", borderRadius: 10, padding: "12px 16px" }}>
+            <p className="font-body" style={{ fontSize: "0.8rem", color: "#F87171", margin: 0 }}>
+              🔒 Ce module n&apos;est pas encore disponible.
+            </p>
+          </div>
+        )}
 
         {/* Greeting */}
         <div style={{ padding: "20px 16px 6px" }}>
@@ -89,45 +119,7 @@ export default async function DashboardPage() {
           </span>
         </div>
 
-        {/* Module cards */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 16px 16px" }}>
-          {modules.map((module, i) => {
-            const done = completedSet.has(module.slug);
-            return (
-              <Link key={module.slug} href={`/modules/${module.slug}`} style={{ textDecoration: "none" }}>
-                <div
-                  style={{
-                    backgroundColor: "#111111",
-                    borderRadius: 12,
-                    border: done ? "1px solid rgba(74,222,128,0.2)" : "1px solid #1a1a1a",
-                    padding: "14px 16px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 12,
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-                    <span className="font-title" style={{ fontSize: "1.1rem", color: done ? "#4ADE80" : "#B22222", flexShrink: 0, lineHeight: 1 }}>
-                      {done ? "✓" : String(i + 1).padStart(2, "0")}
-                    </span>
-                    <div style={{ minWidth: 0 }}>
-                      <p className="font-body" style={{ fontWeight: 700, fontSize: "0.85rem", color: done ? "rgba(245,245,240,0.6)" : "#F5F5F0", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {module.title}
-                      </p>
-                      <p className="font-body" style={{ fontSize: "0.72rem", color: "#555", marginTop: 2 }}>
-                        {module.category}{module.duration ? ` · ${module.duration}` : ""}
-                      </p>
-                    </div>
-                  </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={done ? "rgba(74,222,128,0.4)" : "#B22222"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+        <DashboardModules items={moduleItems} />
 
       </div>
 

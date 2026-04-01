@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { sendPushToAll } from "@/lib/push";
+import { getModuleBySlug } from "@/lib/modules";
 
 const ADMIN_EMAIL = "mael.ld@hotmail.fr";
 const ALLOWED_FIELDS = ["video_url_1", "video_url_2", "video_url_3"] as const;
@@ -28,6 +30,16 @@ export async function POST(request: NextRequest) {
     .upsert({ slug, [field]: url || null }, { onConflict: "slug" });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (url) {
+    const moduleData = getModuleBySlug(slug);
+    const moduleTitle = moduleData?.title ?? slug;
+    await sendPushToAll({
+      title: "🎥 Nouvelle vidéo disponible",
+      body: `Une nouvelle vidéo est disponible dans le module "${moduleTitle}".`,
+      url: `/modules/${slug}`,
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ success: true });
 }

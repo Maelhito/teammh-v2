@@ -30,3 +30,17 @@ export async function getModuleCompletions(userId: string): Promise<string[]> {
     .eq("user_id", userId);
   return (data ?? []).map((r: { module_slug: string }) => r.module_slug);
 }
+
+export interface ModuleCompletion {
+  module_slug: string;
+  completed_at: string;
+}
+
+export async function getModuleCompletionsWithDates(userId: string): Promise<ModuleCompletion[]> {
+  const admin = createSupabaseAdminClient();
+  const { data } = await admin
+    .from("module_completions")
+    .select("module_slug, completed_at")
+    .eq("user_id", userId);
+  return (data ?? []) as ModuleCompletion[];
+}
