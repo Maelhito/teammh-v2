@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getModules } from "@/lib/modules";
 import { getAllModulesContent } from "@/lib/modules-content";
 import InviteForm from "./InviteForm";
+import ClientsTable from "./ClientsTable";
 import ModuleManager, { type ModuleWithVideos } from "./ModuleManager";
 import SendNotificationForm from "./SendNotificationForm";
 
@@ -41,6 +42,8 @@ export default async function AdminPage() {
       </p>
 
       <InviteForm />
+
+      <ClientsTable />
 
       <ModuleManager modules={modulesWithVideos} initialContent={modulesContent} />
 

@@ -4,7 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 const ADMIN_EMAIL = "mael.ld@hotmail.fr";
 
 // Routes accessibles sans session — vérifiées en premier, sans appel réseau
-const PUBLIC_PATHS = ["/login", "/auth/confirm", "/auth/set-password"];
+const PUBLIC_PATHS = ["/login", "/auth/confirm", "/auth/set-password", "/acces-suspendu"];
+
+// Routes protégées pour les clientes (vérification statut)
+const CLIENT_PROTECTED = ["/dashboard", "/profil", "/modules"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -40,12 +43,35 @@ export async function middleware(request: NextRequest) {
   const isAdmin = user?.email === ADMIN_EMAIL;
 
   // Non connecté → /login
-  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/admin") || pathname.startsWith("/profil"))) {
+  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/admin") || pathname.startsWith("/profil") || pathname.startsWith("/modules"))) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     const redirectResponse = NextResponse.redirect(url);
     response.cookies.getAll().forEach((c) => redirectResponse.cookies.set(c.name, c.value));
     return redirectResponse;
+  }
+
+  // Vérification statut pour les clientes sur les routes protégées
+  if (user && !isAdmin && CLIENT_PROTECTED.some((p) => pathname.startsWith(p))) {
+    const profileRes = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${user.id}&select=statut`,
+      {
+        headers: {
+          apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
+        },
+      }
+    );
+    const [profile] = await profileRes.json().catch(() => [null]);
+    const statut = profile?.statut ?? "active";
+
+    if (statut === "pause" || statut === "terminee") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/acces-suspendu";
+      const redirectResponse = NextResponse.redirect(url);
+      response.cookies.getAll().forEach((c) => redirectResponse.cookies.set(c.name, c.value));
+      return redirectResponse;
+    }
   }
 
   // Admin sur /dashboard → /admin (sauf si ?preview=1)
