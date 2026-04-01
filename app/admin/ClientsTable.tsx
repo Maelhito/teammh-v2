@@ -151,7 +151,7 @@ function ClientCard({
             disabled={loading !== null}
             style={actionBtn("#4ADE80", "rgba(74,222,128,0.12)", loading === "active")}
           >
-            {loading === "active" ? "…" : "✓ Réactiver"}
+            {loading === "active" ? "…" : "Réactiver"}
           </button>
         )}
         {client.statut === "active" && (
@@ -160,7 +160,7 @@ function ClientCard({
             disabled={loading !== null}
             style={actionBtn("#FB923C", "rgba(251,146,60,0.1)", loading === "pause")}
           >
-            {loading === "pause" ? "…" : "⏸ Mettre en pause"}
+            {loading === "pause" ? "…" : "Pause"}
           </button>
         )}
         {(client.statut === "active" || client.statut === "pause") && (
@@ -169,7 +169,7 @@ function ClientCard({
             disabled={loading !== null}
             style={actionBtn("#F87171", "rgba(248,113,113,0.1)", loading === "terminee")}
           >
-            {loading === "terminee" ? "…" : "✕ Terminer l'accès"}
+            {loading === "terminee" ? "…" : "Terminer"}
           </button>
         )}
       </div>
@@ -198,10 +198,10 @@ export default function ClientsTable() {
 
   const fetchClients = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/clients");
+    const res = await fetch("/api/admin/users");
     if (res.ok) {
       const data = await res.json();
-      setClients(data.clients);
+      setClients(data.users);
     } else {
       setError("Impossible de charger les clientes");
     }
@@ -211,7 +211,7 @@ export default function ClientsTable() {
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
   async function handleStatusChange(userId: string, statut: Statut) {
-    await fetch("/api/admin/clients", {
+    await fetch("/api/admin/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, statut }),
