@@ -188,9 +188,10 @@ function ClientCard({
 
 interface Props {
   initialClients: ClientData[];
+  fetchError?: string | null;
 }
 
-export default function ClientsTable({ initialClients }: Props) {
+export default function ClientsTable({ initialClients, fetchError }: Props) {
   async function handleStatusChange(userId: string, statut: Statut) {
     await fetch("/api/admin/users", {
       method: "PATCH",
@@ -211,7 +212,15 @@ export default function ClientsTable({ initialClients }: Props) {
         </span>
       </div>
 
-      {initialClients.length === 0 ? (
+      {fetchError && (
+        <div style={{ backgroundColor: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 8, padding: "12px 14px", marginBottom: 12 }}>
+          <p style={{ fontSize: 12, color: "#F87171", margin: 0, lineHeight: 1.5 }}>
+            ⚠ {fetchError}
+          </p>
+        </div>
+      )}
+
+      {!fetchError && initialClients.length === 0 ? (
         <p style={{ fontSize: 13, color: "#555", fontStyle: "italic" }}>Aucune cliente pour le moment.</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

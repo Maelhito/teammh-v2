@@ -23,22 +23,63 @@ function parseVideoLabels(slug: string): string[] {
     .map((l) => l.slice(8).split(" | ")[0]?.trim() ?? "Vidéo");
 }
 
-async function fetchClients(): Promise<ClientData[]> {
+interface FetchResult {
+  clients: ClientData[];
+  error: string | null;
+}
+
+async function fetchClients(): Promise<FetchResult> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  // Diagnostic : variable d'env manquante
+  if (!serviceKey) {
+    console.error("[admin] SUPABASE_SERVICE_ROLE_KEY manquante dans les variables d'environnement Vercel");
+    return { clients: [], error: "SUPABASE_SERVICE_ROLE_KEY non configurée. Ajoute-la dans les variables d'environnement Vercel." };
+  }
+
+  // Fetch REST direct vers l'API Auth Supabase (évite auth.admin.listUsers)
+  let authUsers: { id: string; email?: string; created_at: string }[] = [];
+  try {
+    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=500`, {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      console.error("[admin] Auth API error:", res.status, body);
+      return { clients: [], error: `Erreur API Auth (${res.status}): ${body.slice(0, 120)}` };
+    }
+
+    const json = await res.json();
+    // Supabase retourne { users: [...] } ou directement un tableau selon la version
+    authUsers = json.users ?? json ?? [];
+  } catch (err) {
+    console.error("[admin] Fetch auth users exception:", err);
+    return { clients: [], error: `Exception lors du fetch des utilisateurs: ${String(err)}` };
+  }
+
+  const clients = authUsers.filter((u) => u.email !== ADMIN_EMAIL);
+  if (!clients.length) return { clients: [], error: null };
+
+  const clientIds = clients.map((u) => u.id);
+  const totalModules = getModules().length;
+
   try {
     const admin = createSupabaseAdminClient();
-    const { data: { users }, error } = await admin.auth.admin.listUsers({ perPage: 500 });
-    if (error || !users) return [];
-
-    const clients = users.filter((u) => u.email !== ADMIN_EMAIL);
-    if (!clients.length) return [];
-
-    const clientIds = clients.map((u) => u.id);
-    const totalModules = getModules().length;
-
-    const [{ data: profiles }, { data: completions }] = await Promise.all([
+    const [{ data: profiles, error: profilesError }, { data: completions }] = await Promise.all([
       admin.from("user_profiles").select("user_id, prenom, nom, statut, date_demarrage").in("user_id", clientIds),
       admin.from("module_completions").select("user_id").in("user_id", clientIds),
     ]);
+
+    if (profilesError) {
+      console.error("[admin] user_profiles query error:", profilesError.message);
+      // On continue sans profils — au moins les emails s'affichent
+    }
 
     const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.user_id, p]));
     const completionCount: Record<string, number> = {};
@@ -46,19 +87,23 @@ async function fetchClients(): Promise<ClientData[]> {
       completionCount[c.user_id] = (completionCount[c.user_id] ?? 0) + 1;
     }
 
-    return clients.map((u) => ({
-      id: u.id,
-      email: u.email ?? "",
-      created_at: u.created_at,
-      prenom: profileMap[u.id]?.prenom ?? null,
-      nom: profileMap[u.id]?.nom ?? null,
-      statut: (profileMap[u.id]?.statut ?? "active") as "active" | "pause" | "terminee",
-      date_demarrage: profileMap[u.id]?.date_demarrage ?? null,
-      completedCount: completionCount[u.id] ?? 0,
-      totalModules,
-    }));
-  } catch {
-    return [];
+    return {
+      clients: clients.map((u) => ({
+        id: u.id,
+        email: u.email ?? "",
+        created_at: u.created_at,
+        prenom: profileMap[u.id]?.prenom ?? null,
+        nom: profileMap[u.id]?.nom ?? null,
+        statut: (profileMap[u.id]?.statut ?? "active") as "active" | "pause" | "terminee",
+        date_demarrage: profileMap[u.id]?.date_demarrage ?? null,
+        completedCount: completionCount[u.id] ?? 0,
+        totalModules,
+      })),
+      error: null,
+    };
+  } catch (err) {
+    console.error("[admin] DB query exception:", err);
+    return { clients: [], error: `Erreur base de données: ${String(err)}` };
   }
 }
 
@@ -67,7 +112,7 @@ export default async function AdminPage() {
   const { data: { session } } = await supabase.auth.getSession();
 
   const modules = getModules();
-  const [modulesContent, clients] = await Promise.all([
+  const [modulesContent, { clients, error: clientsError }] = await Promise.all([
     getAllModulesContent(),
     fetchClients(),
   ]);
@@ -88,7 +133,7 @@ export default async function AdminPage() {
 
       <InviteForm />
 
-      <ClientsTable initialClients={clients} />
+      <ClientsTable initialClients={clients} fetchError={clientsError} />
 
       <ModuleManager modules={modulesWithVideos} initialContent={modulesContent} />
 
