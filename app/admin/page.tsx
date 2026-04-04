@@ -134,6 +134,10 @@ export default async function AdminPage() {
 
       <InviteForm />
 
+      <div style={{ marginTop: 32, padding: "10px 14px", backgroundColor: "#1a0a0a", border: "1px solid #B22222", borderRadius: 8, fontSize: 12, color: "#F87171" }}>
+        🔴 DEBUG — {clients.length} cliente(s) | erreur: {clientsError ?? "aucune"} | v2
+      </div>
+
       <ClientsTable initialClients={clients} fetchError={clientsError} />
 
       <ModuleManager modules={modulesWithVideos} initialContent={modulesContent} />
