@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const [{ data: profiles }, { data: completions }] = await Promise.all([
     admin
       .from("user_profiles")
-      .select("user_id, prenom, nom, statut, date_demarrage")
+      .select("user_id, prenom, nom, statut, date_demarrage, acces_app")
       .in("user_id", clientIds),
     admin
       .from("module_completions")
@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
     date_demarrage: profileMap[u.id]?.date_demarrage ?? null,
     completedCount: completionCount[u.id] ?? 0,
     totalModules,
+    acces_app: profileMap[u.id]?.acces_app ?? true,
   }));
 
   return NextResponse.json({ users: result });
@@ -71,19 +72,64 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 
-  const { userId, statut } = await request.json();
+  const body = await request.json();
+  const { userId, action } = body;
 
-  if (!userId || !["active", "pause", "terminee"].includes(statut)) {
+  if (!userId) {
     return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
   }
 
   const admin = createSupabaseAdminClient();
+
+  if (action === "toggle_access") {
+    const { acces_app } = body;
+    if (typeof acces_app !== "boolean") {
+      return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
+    }
+    const { error } = await admin
+      .from("user_profiles")
+      .upsert(
+        { user_id: userId, acces_app, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" }
+      );
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
+  // Mise à jour du statut (comportement historique)
+  const { statut } = body;
+  if (!statut || !["active", "pause", "terminee"].includes(statut)) {
+    return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
+  }
+
   const { error } = await admin
     .from("user_profiles")
     .upsert(
       { user_id: userId, statut, updated_at: new Date().toISOString() },
       { onConflict: "user_id" }
     );
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ success: true });
+}
+
+export async function POST(request: NextRequest) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user || user.email !== ADMIN_EMAIL) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  }
+
+  const { userId, action } = await request.json();
+
+  if (!userId || action !== "disconnect") {
+    return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.auth.admin.signOut(userId, "global");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
