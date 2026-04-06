@@ -1,11 +1,22 @@
 import webpush from "web-push";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
-webpush.setVapidDetails(
-  `mailto:${process.env.VAPID_EMAIL}`,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
+function getWebPush() {
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  const email = process.env.VAPID_EMAIL;
+
+  if (!publicKey || !privateKey || !email) {
+    return null;
+  }
+
+  try {
+    webpush.setVapidDetails(`mailto:${email}`, publicKey, privateKey);
+    return webpush;
+  } catch {
+    return null;
+  }
+}
 
 interface PushPayload {
   title: string;
@@ -14,6 +25,9 @@ interface PushPayload {
 }
 
 export async function sendPushToUser(userId: string, payload: PushPayload) {
+  const wp = getWebPush();
+  if (!wp) return;
+
   const admin = createSupabaseAdminClient();
   const { data: subs } = await admin
     .from("push_subscriptions")
@@ -28,7 +42,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
   await Promise.allSettled(
     subs.map(async (row) => {
       try {
-        await webpush.sendNotification(row.subscription, message);
+        await wp.sendNotification(row.subscription, message);
       } catch (err: unknown) {
         const status = (err as { statusCode?: number }).statusCode;
         if (status === 410 || status === 404) expired.push(row.id);
@@ -42,6 +56,9 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
 }
 
 export async function sendPushToAll(payload: PushPayload) {
+  const wp = getWebPush();
+  if (!wp) return;
+
   const admin = createSupabaseAdminClient();
   const { data: subs } = await admin
     .from("push_subscriptions")
@@ -55,7 +72,7 @@ export async function sendPushToAll(payload: PushPayload) {
   await Promise.allSettled(
     subs.map(async (row) => {
       try {
-        await webpush.sendNotification(row.subscription, message);
+        await wp.sendNotification(row.subscription, message);
       } catch (err: unknown) {
         const status = (err as { statusCode?: number }).statusCode;
         if (status === 410 || status === 404) expired.push(row.id);
