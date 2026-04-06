@@ -5,7 +5,11 @@ import { sendPushToAll } from "@/lib/push";
 import { getModuleBySlug } from "@/lib/modules";
 
 const ADMIN_EMAIL = "mael.ld@hotmail.fr";
-const ALLOWED_FIELDS = ["video_url_1", "video_url_2", "video_url_3"] as const;
+const ALLOWED_FIELDS = [
+  "video_url_1", "video_url_2", "video_url_3",
+  "video_url_4", "video_url_5", "video_url_6",
+  "video_url_7", "video_url_8", "video_url_9", "video_url_10",
+] as const;
 
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
