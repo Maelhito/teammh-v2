@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { Module } from "@/lib/modules";
 import type { ModuleContent } from "@/lib/modules-content";
 
 export interface ModuleWithVideos extends Module {
-  videoLabels: string[]; // titres des VIDEO:: # dans le MDX
+  videoLabels: string[];
 }
 
 interface Props {
@@ -13,7 +13,26 @@ interface Props {
   initialContent: Record<string, ModuleContent>;
 }
 
+// Modules qui ont un second slot PDF, avec son label
+const MODULE_PDF2_LABEL: Record<string, string> = {
+  "module-3": "Batch cooking",
+};
+
 export default function ModuleManager({ modules, initialContent }: Props) {
+  const [content, setContent] = useState<Record<string, ModuleContent>>(initialContent);
+
+  // Fetch fresh content from Supabase on mount (fiabilise l'affichage des badges PDF)
+  useEffect(() => {
+    fetch("/api/admin/modules-content")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && typeof data === "object" && !data.error) {
+          setContent(data as Record<string, ModuleContent>);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div style={{ marginTop: 48 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
@@ -29,7 +48,7 @@ export default function ModuleManager({ modules, initialContent }: Props) {
             key={module.slug}
             index={idx + 1}
             module={module}
-            initialContent={initialContent[module.slug] ?? null}
+            initialContent={content[module.slug] ?? null}
           />
         ))}
       </div>
@@ -37,26 +56,32 @@ export default function ModuleManager({ modules, initialContent }: Props) {
   );
 }
 
-// Modules qui ont un second slot PDF
-const MODULE_PDF2_LABEL: Record<string, string> = {
-  "module-3": "Batch cooking",
-};
+// ─── PDF Section ─────────────────────────────────────────────────────────────
 
 function PdfSection({
   label,
-  initialPdfInfo,
   slug,
   slot,
+  pdfUrl,
+  pdfName,
 }: {
   label: string;
-  initialPdfInfo: { url: string; name: string } | null;
   slug: string;
   slot: "1" | "2";
+  pdfUrl: string | null | undefined;
+  pdfName: string | null | undefined;
 }) {
-  const [pdfInfo, setPdfInfo] = useState<{ url: string; name: string } | null>(initialPdfInfo);
+  const [uploaded, setUploaded] = useState<{ name: string } | null>(
+    pdfUrl ? { name: pdfName ?? "document.pdf" } : null
+  );
   const [uploading, setUploading] = useState(false);
   const [pdfMsg, setPdfMsg] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Sync si les props changent (après fetch initial dans le parent)
+  useEffect(() => {
+    setUploaded(pdfUrl ? { name: pdfName ?? "document.pdf" } : null);
+  }, [pdfUrl, pdfName]);
 
   async function uploadPdf(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -74,7 +99,7 @@ function PdfSection({
     setUploading(false);
 
     if (res.ok) {
-      setPdfInfo({ url: data.url, name: data.name });
+      setUploaded({ name: data.name });
       setPdfMsg("✓ PDF uploadé");
     } else {
       setPdfMsg(data.error ?? "Erreur upload");
@@ -88,38 +113,43 @@ function PdfSection({
         📄 {label}
       </label>
 
-      {pdfInfo ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* Badge vert PDF ajouté */}
-          <span style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 5,
-            backgroundColor: "rgba(74,222,128,0.12)",
-            border: "1px solid rgba(74,222,128,0.35)",
-            borderRadius: 6,
-            padding: "5px 10px",
-            fontSize: 12,
-            color: "#4ADE80",
-            fontWeight: 600,
-            flexShrink: 0,
-          }}>
-            ✅ PDF ajouté
-          </span>
+      {uploaded ? (
+        /* ── PDF présent ── */
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {/* Badge vert */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              backgroundColor: "rgba(74,222,128,0.15)",
+              border: "1px solid rgba(74,222,128,0.4)",
+              borderRadius: 6,
+              padding: "5px 10px",
+              fontSize: 12,
+              color: "#4ADE80",
+              fontWeight: 700,
+            }}>
+              ✅ PDF ajouté
+            </span>
+          </div>
+          {/* Nom du fichier */}
           <span style={{
             fontSize: 11,
-            color: "rgba(255,255,255,0.35)",
-            flex: 1,
+            color: "rgba(255,255,255,0.3)",
+            paddingLeft: 2,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
           }}>
-            {pdfInfo.name}
+            {uploaded.name}
           </span>
+          {/* Bouton remplacer */}
           <button
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
             style={{
+              alignSelf: "flex-start",
               backgroundColor: "transparent",
               border: "1px solid rgba(255,255,255,0.2)",
               borderRadius: 8,
@@ -127,13 +157,13 @@ function PdfSection({
               color: "rgba(255,255,255,0.5)",
               fontSize: 11,
               cursor: uploading ? "not-allowed" : "pointer",
-              flexShrink: 0,
             }}
           >
-            {uploading ? "…" : "Remplacer le PDF"}
+            {uploading ? "…" : "🔄 Remplacer le PDF"}
           </button>
         </div>
       ) : (
+        /* ── Pas de PDF ── */
         <button
           onClick={() => fileRef.current?.click()}
           disabled={uploading}
@@ -155,13 +185,15 @@ function PdfSection({
 
       <input ref={fileRef} type="file" accept=".pdf" style={{ display: "none" }} onChange={uploadPdf} />
       {pdfMsg && (
-        <p style={{ fontSize: 11, marginTop: 4, margin: "4px 0 0", color: pdfMsg.startsWith("✓") ? "#4ADE80" : "#F87171" }}>
+        <p style={{ fontSize: 11, margin: "6px 0 0", color: pdfMsg.startsWith("✓") ? "#4ADE80" : "#F87171" }}>
           {pdfMsg}
         </p>
       )}
     </div>
   );
 }
+
+// ─── Module Row ───────────────────────────────────────────────────────────────
 
 function ModuleRow({
   index,
@@ -183,6 +215,16 @@ function ModuleRow({
   const [savingVideo, setSavingVideo] = useState<boolean[]>(Array(count).fill(false));
   const [videoMsg, setVideoMsg] = useState<string[]>(Array(count).fill(""));
 
+  // Sync video URLs quand initialContent change (après fetch dans le parent)
+  useEffect(() => {
+    setVideoUrls(
+      Array.from({ length: count }, (_, i) => {
+        const key = `video_url_${i + 1}` as keyof ModuleContent;
+        return (initialContent?.[key] as string | null) ?? "";
+      })
+    );
+  }, [initialContent, count]);
+
   async function saveVideo(i: number) {
     setSavingVideo((p) => { const n = [...p]; n[i] = true; return n; });
     setVideoMsg((p) => { const n = [...p]; n[i] = ""; return n; });
@@ -196,14 +238,14 @@ function ModuleRow({
     const data = await res.json();
 
     setSavingVideo((p) => { const n = [...p]; n[i] = false; return n; });
-    setVideoMsg((p) => { const n = [...p]; n[i] = res.ok ? "✓ Sauvegardé" : (data.error ?? "Erreur"); return n; });
+    setVideoMsg((p) => {
+      const n = [...p];
+      n[i] = res.ok ? "✓ Sauvegardé" : (data.error ?? "Erreur");
+      return n;
+    });
   }
 
-  // Déterminer le label PDF pour le slot 2 si ce module en a un
   const pdf2Label = MODULE_PDF2_LABEL[module.slug];
-
-  // Vidéo 2 est l'index 1 → slot PDF 2 s'affiche juste après
-  const video2Index = 1;
 
   return (
     <div style={{ backgroundColor: "#1A1A1A", borderRadius: 12, padding: "18px 20px", border: "1px solid #2a2a2a" }}>
@@ -264,38 +306,32 @@ function ModuleRow({
               </button>
             </div>
             {videoMsg[i] && (
-              <p style={{ fontSize: 11, marginTop: 4, margin: "4px 0 0", color: videoMsg[i].startsWith("✓") ? "#4ADE80" : "#F87171" }}>
+              <p style={{ fontSize: 11, margin: "4px 0 0", color: videoMsg[i].startsWith("✓") ? "#4ADE80" : "#F87171" }}>
                 {videoMsg[i]}
               </p>
             )}
           </div>
 
-          {/* PDF slot 2 après vidéo 2 (index 1) si ce module en a un */}
-          {pdf2Label && i === video2Index && (
+          {/* PDF Batch cooking juste après Vidéo 2 (index 1) pour module-3 */}
+          {pdf2Label && i === 1 && (
             <PdfSection
               label={pdf2Label}
-              initialPdfInfo={
-                initialContent?.pdf_url_2
-                  ? { url: initialContent.pdf_url_2, name: initialContent.pdf_name_2 ?? "document.pdf" }
-                  : null
-              }
               slug={module.slug}
               slot="2"
+              pdfUrl={initialContent?.pdf_url_2}
+              pdfName={initialContent?.pdf_name_2}
             />
           )}
         </div>
       ))}
 
-      {/* Section PDF principale */}
+      {/* PDF principal */}
       <PdfSection
         label="PDF"
-        initialPdfInfo={
-          initialContent?.pdf_url
-            ? { url: initialContent.pdf_url, name: initialContent.pdf_name ?? "document.pdf" }
-            : null
-        }
         slug={module.slug}
         slot="1"
+        pdfUrl={initialContent?.pdf_url}
+        pdfName={initialContent?.pdf_name}
       />
     </div>
   );
