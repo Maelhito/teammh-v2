@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { titre, date, recurrence, message } = body;
+  const { titre, date, heure, recurrence, message, rappel } = body;
 
   if (!titre || !date) {
     return NextResponse.json({ error: "Titre et date requis" }, { status: 400 });
@@ -29,8 +29,10 @@ export async function POST(request: NextRequest) {
       target_user_id: session.user.id,
       titre: String(titre).slice(0, 200),
       date,
+      heure: heure || null,
       recurrence: recurrence ?? "none",
       message: message ? String(message).slice(0, 1000) : null,
+      rappel: rappel === true,
       created_by: "cliente",
     })
     .select()

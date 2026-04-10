@@ -6,9 +6,11 @@ interface CalendarEvent {
   id: string;
   titre: string;
   date: string;
+  heure: string | null;
   recurrence: "none" | "daily" | "weekly" | "monthly";
   message: string | null;
   lien: string | null;
+  rappel: boolean;
   created_by: "admin" | "cliente";
   user_id: string | null;
   target_user_id: string | null;
@@ -44,7 +46,14 @@ const MONTH_NAMES = [
 ];
 const DAY_NAMES = ["L", "M", "M", "J", "V", "S", "D"];
 
+const RECURRENCE_LABELS: Record<string, string> = {
+  daily: "Quotidien",
+  weekly: "Hebdomadaire",
+  monthly: "Mensuel",
+};
+
 export default function CalendrierClient({ userId, initialEvents }: Props) {
+  void userId;
   const todayRaw = new Date();
   todayRaw.setHours(0, 0, 0, 0);
 
@@ -56,8 +65,10 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
   const [form, setForm] = useState({
     titre: "",
     date: todayRaw.toISOString().slice(0, 10),
+    heure: "",
     recurrence: "none",
     message: "",
+    rappel: false,
   });
   const [saving, setSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -83,13 +94,13 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
       const res = await fetch("/api/calendrier", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, heure: form.heure || null }),
       });
       if (res.ok) {
         const { event } = await res.json();
         setEvents((prev) => [...prev, event]);
         setShowAddModal(false);
-        setForm({ titre: "", date: todayRaw.toISOString().slice(0, 10), recurrence: "none", message: "" });
+        setForm({ titre: "", date: todayRaw.toISOString().slice(0, 10), heure: "", recurrence: "none", message: "", rappel: false });
       } else {
         const { error } = await res.json().catch(() => ({ error: "Erreur inconnue" }));
         setAddError(error ?? "Erreur");
@@ -222,7 +233,16 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                 borderRadius: 8,
                 borderLeft: `3px solid ${evt.created_by === "admin" ? "#B22222" : "#7C3AED"}`,
               }}>
-                <p style={{ fontWeight: 600, color: "#F5F5F0", fontSize: "0.9rem", margin: 0 }}>{evt.titre}</p>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                  <p style={{ fontWeight: 600, color: "#F5F5F0", fontSize: "0.9rem", margin: 0 }}>
+                    {evt.rappel ? "🔔 " : ""}{evt.titre}
+                  </p>
+                  {evt.heure && (
+                    <span style={{ fontSize: "0.75rem", color: "#B22222", fontWeight: 600 }}>
+                      {evt.heure.slice(0, 5)}
+                    </span>
+                  )}
+                </div>
                 {evt.message && (
                   <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.78rem", margin: "4px 0 0" }}>{evt.message}</p>
                 )}
@@ -233,7 +253,7 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                 )}
                 {evt.recurrence !== "none" && (
                   <span style={{ fontSize: "0.68rem", color: "#555", marginTop: 4, display: "block" }}>
-                    {evt.recurrence === "daily" ? "Quotidien" : evt.recurrence === "weekly" ? "Hebdomadaire" : "Mensuel"}
+                    {RECURRENCE_LABELS[evt.recurrence] ?? evt.recurrence}
                   </span>
                 )}
               </div>
@@ -301,13 +321,21 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                 onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value }))}
                 style={inputStyle}
               />
-              <input
-                type="date"
-                required
-                value={form.date}
-                onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                style={inputStyle}
-              />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <input
+                  type="date"
+                  required
+                  value={form.date}
+                  onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+                  style={inputStyle}
+                />
+                <input
+                  type="time"
+                  value={form.heure}
+                  onChange={(e) => setForm((f) => ({ ...f, heure: e.target.value }))}
+                  style={{ ...inputStyle, color: form.heure ? "#F5F5F0" : "#555" }}
+                />
+              </div>
               <select
                 value={form.recurrence}
                 onChange={(e) => setForm((f) => ({ ...f, recurrence: e.target.value }))}
@@ -321,8 +349,19 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                 placeholder="Message personnel (optionnel)"
                 value={form.message}
                 onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
-                style={{ ...inputStyle, minHeight: 72, resize: "none" }}
+                style={{ ...inputStyle, minHeight: 64, resize: "none" }}
               />
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "2px 0" }}>
+                <input
+                  type="checkbox"
+                  checked={form.rappel}
+                  onChange={(e) => setForm((f) => ({ ...f, rappel: e.target.checked }))}
+                  style={{ width: 16, height: 16, accentColor: "#7C3AED", cursor: "pointer", flexShrink: 0 }}
+                />
+                <span style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.7)" }}>
+                  🔔 Rappel — notification push la veille
+                </span>
+              </label>
               {addError && <p style={{ color: "#F87171", fontSize: "0.82rem", margin: 0 }}>{addError}</p>}
               <button
                 type="submit"
