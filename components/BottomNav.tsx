@@ -8,6 +8,7 @@ export default function BottomNav() {
   const active = "#B22222";
   const inactive = "#444";
   const isModules = pathname.startsWith("/dashboard") || pathname.startsWith("/modules");
+  const isCalendrier = pathname.startsWith("/calendrier");
   const isProfil = pathname.startsWith("/profil");
 
   return (
@@ -30,6 +31,18 @@ export default function BottomNav() {
           </svg>
           <span className="font-body font-semibold" style={{ fontSize: "0.62rem", color: isModules ? active : inactive, letterSpacing: "0.06em" }}>
             MES PLANS
+          </span>
+        </Link>
+
+        <Link href="/calendrier" className="flex-1 flex flex-col items-center justify-center gap-1 py-3">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={isCalendrier ? active : inactive} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          <span className="font-body font-semibold" style={{ fontSize: "0.62rem", color: isCalendrier ? active : inactive, letterSpacing: "0.06em" }}>
+            CALENDRIER
           </span>
         </Link>
 

@@ -7,7 +7,7 @@ const ADMIN_EMAIL = "mael.ld@hotmail.fr";
 const PUBLIC_PATHS = ["/login", "/auth/confirm", "/auth/set-password", "/acces-suspendu"];
 
 // Routes protégées pour les clientes (vérification statut)
-const CLIENT_PROTECTED = ["/dashboard", "/profil", "/modules"];
+const CLIENT_PROTECTED = ["/dashboard", "/profil", "/modules", "/calendrier"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -43,7 +43,7 @@ export async function middleware(request: NextRequest) {
   const isAdmin = user?.email === ADMIN_EMAIL;
 
   // Non connecté → /login
-  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/admin") || pathname.startsWith("/profil") || pathname.startsWith("/modules"))) {
+  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/admin") || pathname.startsWith("/profil") || pathname.startsWith("/modules") || pathname.startsWith("/calendrier"))) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     const redirectResponse = NextResponse.redirect(url);

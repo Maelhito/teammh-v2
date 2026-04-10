@@ -9,6 +9,7 @@ import InviteForm from "./InviteForm";
 import ClientsTable, { type ClientData } from "./ClientsTable";
 import ModuleManager, { type ModuleWithVideos } from "./ModuleManager";
 import SendNotificationForm from "./SendNotificationForm";
+import CalendrierAdmin from "./CalendrierAdmin";
 
 export const dynamic = "force-dynamic";
 
@@ -143,6 +144,8 @@ export default async function AdminPage() {
       <ModuleManager modules={modulesWithVideos} initialContent={modulesContent} />
 
       <SendNotificationForm />
+
+      <CalendrierAdmin clients={clients.map((c) => ({ id: c.id, email: c.email, prenom: c.prenom, nom: c.nom }))} />
 
       <Link
         href="/dashboard?preview=1"
