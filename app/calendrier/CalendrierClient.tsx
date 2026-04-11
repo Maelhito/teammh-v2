@@ -41,6 +41,10 @@ function isEventOnDay(event: CalendarEvent, day: Date): boolean {
   }
 }
 
+function toLocalDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function eventColor(evt: CalendarEvent): string {
   if (evt.created_by === "cliente") return "#7C3AED";
   if (evt.event_type === "nutrition") return "#22C55E";
@@ -71,7 +75,7 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState({
     titre: "",
-    date: todayRaw.toISOString().slice(0, 10),
+    date: toLocalDate(todayRaw),
     heure: "",
     recurrence: "none",
     message: "",
@@ -118,7 +122,7 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
         const { event } = await res.json();
         setEvents((prev) => [...prev, event]);
         setShowAddModal(false);
-        setForm({ titre: "", date: todayRaw.toISOString().slice(0, 10), heure: "", recurrence: "none", message: "", rappel: false });
+        setForm({ titre: "", date: toLocalDate(todayRaw), heure: "", recurrence: "none", message: "", rappel: false });
       } else {
         const { error } = await res.json().catch(() => ({ error: "Erreur inconnue" }));
         setAddError(error ?? "Erreur");
@@ -284,7 +288,7 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
             </span>
             <button
               onClick={() => {
-                setForm((f) => ({ ...f, date: selectedDay.toISOString().slice(0, 10) }));
+                setForm((f) => ({ ...f, date: toLocalDate(selectedDay) }));
                 setShowAddModal(true);
               }}
               style={{ width: 28, height: 28, borderRadius: "50%", backgroundColor: "#7C3AED", color: "#fff", border: "none", cursor: "pointer", fontSize: "1.1rem", display: "flex", alignItems: "center", justifyContent: "center" }}
