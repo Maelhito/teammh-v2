@@ -205,6 +205,7 @@ function ModuleRow({
   initialContent: ModuleContent | null;
 }) {
   const count = module.videoLabels.length;
+  const [isOpen, setIsOpen] = useState(false);
 
   const [videoUrls, setVideoUrls] = useState<string[]>(
     Array.from({ length: count }, (_, i) => {
@@ -248,91 +249,112 @@ function ModuleRow({
   const pdf2Label = MODULE_PDF2_LABEL[module.slug];
 
   return (
-    <div style={{ backgroundColor: "#1A1A1A", borderRadius: 12, padding: "18px 20px", border: "1px solid #2a2a2a" }}>
-      {/* En-tête module */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <span className="font-title" style={{ fontSize: "1rem", color: "#B22222", flexShrink: 0 }}>
-          {String(index).padStart(2, "0")}
-        </span>
-        <span className="font-body" style={{ fontWeight: 700, fontSize: "0.85rem", color: "#F5F5F0" }}>
-          {module.title.toUpperCase()}
-        </span>
-      </div>
-
-      {/* Champs vidéo */}
-      {module.videoLabels.map((label, i) => (
-        <div key={i}>
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6, letterSpacing: "0.04em" }}>
-              🎥 {label}
-            </label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="url"
-                value={videoUrls[i] ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setVideoUrls((p) => { const n = [...p]; n[i] = val; return n; });
-                }}
-                placeholder="https://youtube.com/watch?v=..."
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  backgroundColor: "#0D0D0D",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  borderRadius: 8,
-                  padding: "9px 12px",
-                  color: "#FFFFFF",
-                  fontSize: 13,
-                  outline: "none",
-                }}
-              />
-              <button
-                onClick={() => saveVideo(i)}
-                disabled={savingVideo[i]}
-                style={{
-                  backgroundColor: savingVideo[i] ? "#8B1515" : "#B22222",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 8,
-                  padding: "0 16px",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: savingVideo[i] ? "not-allowed" : "pointer",
-                  flexShrink: 0,
-                }}
-              >
-                {savingVideo[i] ? "…" : "OK"}
-              </button>
-            </div>
-            {videoMsg[i] && (
-              <p style={{ fontSize: 11, margin: "4px 0 0", color: videoMsg[i].startsWith("✓") ? "#4ADE80" : "#F87171" }}>
-                {videoMsg[i]}
-              </p>
-            )}
-          </div>
-
-          {/* PDF Batch cooking juste après Vidéo 2 (index 1) pour module-3 */}
-          {pdf2Label && i === 1 && (
-            <PdfSection
-              label={pdf2Label}
-              slug={module.slug}
-              slot="2"
-              pdfUrl={initialContent?.pdf_url_2}
-              pdfName={initialContent?.pdf_name_2}
-            />
-          )}
+    <div style={{ backgroundColor: "#1A1A1A", borderRadius: 12, border: "1px solid #2a2a2a", overflow: "hidden" }}>
+      {/* En-tête accordéon */}
+      <button
+        onClick={() => setIsOpen((o) => !o)}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "16px 20px",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span className="font-title" style={{ fontSize: "1rem", color: "#B22222", flexShrink: 0 }}>
+            {String(index).padStart(2, "0")}
+          </span>
+          <span className="font-body" style={{ fontWeight: 700, fontSize: "0.85rem", color: "#F5F5F0" }}>
+            {module.title.toUpperCase()}
+          </span>
         </div>
-      ))}
+        <span style={{ fontSize: "0.7rem", color: "#555", flexShrink: 0 }}>{isOpen ? "▲" : "▼"}</span>
+      </button>
 
-      {/* PDF principal */}
-      <PdfSection
-        label="PDF"
-        slug={module.slug}
-        slot="1"
-        pdfUrl={initialContent?.pdf_url}
-        pdfName={initialContent?.pdf_name}
-      />
+      {/* Contenu dépliable */}
+      {isOpen && (
+        <div style={{ padding: "0 20px 18px" }}>
+          {/* Champs vidéo */}
+          {module.videoLabels.map((label, i) => (
+            <div key={i}>
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6, letterSpacing: "0.04em" }}>
+                  🎥 {label}
+                </label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="url"
+                    value={videoUrls[i] ?? ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setVideoUrls((p) => { const n = [...p]; n[i] = val; return n; });
+                    }}
+                    placeholder="https://youtube.com/watch?v=..."
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      backgroundColor: "#0D0D0D",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      borderRadius: 8,
+                      padding: "9px 12px",
+                      color: "#FFFFFF",
+                      fontSize: 13,
+                      outline: "none",
+                    }}
+                  />
+                  <button
+                    onClick={() => saveVideo(i)}
+                    disabled={savingVideo[i]}
+                    style={{
+                      backgroundColor: savingVideo[i] ? "#8B1515" : "#B22222",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 8,
+                      padding: "0 16px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: savingVideo[i] ? "not-allowed" : "pointer",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {savingVideo[i] ? "…" : "OK"}
+                  </button>
+                </div>
+                {videoMsg[i] && (
+                  <p style={{ fontSize: 11, margin: "4px 0 0", color: videoMsg[i].startsWith("✓") ? "#4ADE80" : "#F87171" }}>
+                    {videoMsg[i]}
+                  </p>
+                )}
+              </div>
+
+              {/* PDF Batch cooking juste après Vidéo 2 (index 1) pour module-3 */}
+              {pdf2Label && i === 1 && (
+                <PdfSection
+                  label={pdf2Label}
+                  slug={module.slug}
+                  slot="2"
+                  pdfUrl={initialContent?.pdf_url_2}
+                  pdfName={initialContent?.pdf_name_2}
+                />
+              )}
+            </div>
+          ))}
+
+          {/* PDF principal */}
+          <PdfSection
+            label="PDF"
+            slug={module.slug}
+            slot="1"
+            pdfUrl={initialContent?.pdf_url}
+            pdfName={initialContent?.pdf_name}
+          />
+        </div>
+      )}
     </div>
   );
 }

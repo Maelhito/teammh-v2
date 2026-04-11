@@ -148,7 +148,18 @@ export default async function ModulePage({ params }: PageProps) {
   const isCompleted = completionsWithDates.some((c) => c.module_slug === slug);
 
   const ctx: RenderCtx = {
-    videos: [dbContent?.video_url_1, dbContent?.video_url_2, dbContent?.video_url_3],
+    videos: [
+      dbContent?.video_url_1,
+      dbContent?.video_url_2,
+      dbContent?.video_url_3,
+      dbContent?.video_url_4,
+      dbContent?.video_url_5,
+      dbContent?.video_url_6,
+      dbContent?.video_url_7,
+      dbContent?.video_url_8,
+      dbContent?.video_url_9,
+      dbContent?.video_url_10,
+    ],
     pdfUrl: dbContent?.pdf_url,
     pdfName: dbContent?.pdf_name,
   };
