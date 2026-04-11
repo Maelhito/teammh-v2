@@ -1,5 +1,8 @@
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
+export type ProgrammeType = "N1" | "N2";
+export type ProgrammeDuree = "16_semaines" | "6_mois" | "12_mois";
+
 export interface UserProfile {
   user_id: string;
   prenom: string | null;
@@ -9,6 +12,8 @@ export interface UserProfile {
   objectif_12mois_poids: string | null;
   objectif_12mois_bienetre: string | null;
   date_demarrage: string | null;
+  programme_type: ProgrammeType | null;
+  programme_duree: ProgrammeDuree | null;
   updated_at: string | null;
 }
 

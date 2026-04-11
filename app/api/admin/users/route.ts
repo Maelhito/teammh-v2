@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const [{ data: profiles }, { data: completions }] = await Promise.all([
     admin
       .from("user_profiles")
-      .select("user_id, prenom, nom, statut, date_demarrage, acces_app")
+      .select("user_id, prenom, nom, statut, date_demarrage, acces_app, programme_type, programme_duree")
       .in("user_id", clientIds),
     admin
       .from("module_completions")
@@ -59,6 +59,8 @@ export async function GET(request: NextRequest) {
     completedCount: completionCount[u.id] ?? 0,
     totalModules,
     acces_app: profileMap[u.id]?.acces_app ?? true,
+    programme_type: profileMap[u.id]?.programme_type ?? "N1",
+    programme_duree: profileMap[u.id]?.programme_duree ?? "16_semaines",
   }));
 
   return NextResponse.json({ users: result });
@@ -90,6 +92,23 @@ export async function PATCH(request: NextRequest) {
       .from("user_profiles")
       .upsert(
         { user_id: userId, acces_app, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" }
+      );
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
+  if (action === "update_programme") {
+    const { programme_type, programme_duree } = body;
+    const validTypes = ["N1", "N2"];
+    const validDurees = ["16_semaines", "6_mois", "12_mois"];
+    if (!validTypes.includes(programme_type) || !validDurees.includes(programme_duree)) {
+      return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
+    }
+    const { error } = await admin
+      .from("user_profiles")
+      .upsert(
+        { user_id: userId, programme_type, programme_duree, updated_at: new Date().toISOString() },
         { onConflict: "user_id" }
       );
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

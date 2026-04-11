@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { UserProfile } from "@/lib/user-profile";
+import type { UserProfile, ProgrammeType, ProgrammeDuree } from "@/lib/user-profile";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 interface Props {
@@ -64,6 +64,81 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+// Durées par configuration programme
+const PROGRAMME_CONFIG: Record<ProgrammeDuree, { days: number; weeks: number; label: string }> = {
+  "16_semaines": { days: 112, weeks: 16, label: "16 semaines" },
+  "6_mois":      { days: 183, weeks: 26, label: "6 mois" },
+  "12_mois":     { days: 365, weeks: 52, label: "12 mois" },
+};
+
+function ProgrammeSelector({
+  type,
+  duree,
+  onTypeChange,
+  onDureeChange,
+}: {
+  type: ProgrammeType;
+  duree: ProgrammeDuree;
+  onTypeChange: (t: ProgrammeType) => void;
+  onDureeChange: (d: ProgrammeDuree) => void;
+}) {
+  const pillBase: React.CSSProperties = {
+    flex: 1,
+    padding: "9px 0",
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 700,
+    letterSpacing: "0.04em",
+    cursor: "pointer",
+    border: "none",
+    textAlign: "center",
+    transition: "background 0.15s, color 0.15s",
+  };
+  const pillActive: React.CSSProperties = {
+    ...pillBase,
+    backgroundColor: "#B22222",
+    color: "#FFFFFF",
+  };
+  const pillInactive: React.CSSProperties = {
+    ...pillBase,
+    backgroundColor: "#1a1a1a",
+    color: "rgba(255,255,255,0.4)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  };
+
+  return (
+    <div>
+      {/* Toggle N1 / N2 */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <button style={type === "N1" ? pillActive : pillInactive} onClick={() => { onTypeChange("N1"); onDureeChange("16_semaines"); }}>
+          N1
+        </button>
+        <button style={type === "N2" ? pillActive : pillInactive} onClick={() => onTypeChange("N2")}>
+          N2
+        </button>
+      </div>
+
+      {/* Sous-option durée si N2 */}
+      {type === "N2" && (
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            style={duree === "6_mois" ? pillActive : pillInactive}
+            onClick={() => onDureeChange("6_mois")}
+          >
+            6 mois
+          </button>
+          <button
+            style={duree === "12_mois" ? pillActive : pillInactive}
+            onClick={() => onDureeChange("12_mois")}
+          >
+            12 mois
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProfileClient({ initialProfile, email, completedCount, totalModules }: Props) {
   const [prenom, setPrenom] = useState(initialProfile?.prenom ?? "");
   const [nom, setNom] = useState(initialProfile?.nom ?? "");
@@ -72,6 +147,8 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
   const [obj4Bienetre, setObj4Bienetre] = useState(initialProfile?.objectif_4mois_bienetre ?? "");
   const [obj12Poids, setObj12Poids] = useState(initialProfile?.objectif_12mois_poids ?? "");
   const [obj12Bienetre, setObj12Bienetre] = useState(initialProfile?.objectif_12mois_bienetre ?? "");
+  const [programmeType, setProgrammeType] = useState<ProgrammeType>(initialProfile?.programme_type ?? "N1");
+  const [programmeDuree, setProgrammeDuree] = useState<ProgrammeDuree>(initialProfile?.programme_duree ?? "16_semaines");
 
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -90,6 +167,8 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
         objectif_4mois_bienetre: obj4Bienetre,
         objectif_12mois_poids: obj12Poids,
         objectif_12mois_bienetre: obj12Bienetre,
+        programme_type: programmeType,
+        programme_duree: programmeType === "N1" ? "16_semaines" : programmeDuree,
       }),
     });
     setSaving(false);
@@ -102,14 +181,25 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
     window.location.href = "/login";
   }
 
-  // Calcul semaine courante
+  // Calcul de la progression temporelle selon le programme
+  const effectiveDuree: ProgrammeDuree = programmeType === "N1" ? "16_semaines" : programmeDuree;
+  const cfg = PROGRAMME_CONFIG[effectiveDuree];
+
   let semaineLabel = "";
+  let timeProgress = 0;
+  let dateFin = "";
+
   if (dateDemarrage) {
     const start = new Date(dateDemarrage);
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    const semaine = Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), 16);
-    semaineLabel = `Semaine ${semaine} / 16`;
+    const semaine = Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), cfg.weeks);
+    semaineLabel = `Semaine ${semaine} / ${cfg.weeks}`;
+    timeProgress = Math.min(Math.max(diffDays / cfg.days, 0), 1) * 100;
+
+    const end = new Date(start);
+    end.setDate(end.getDate() + cfg.days);
+    dateFin = end.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
   }
 
   return (
@@ -121,11 +211,6 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
         <Field label="PRÉNOM" value={prenom} onChange={setPrenom} placeholder="Ton prénom" />
         <Field label="NOM" value={nom} onChange={setNom} placeholder="Ton nom" />
         <Field label="DATE DE DÉMARRAGE" value={dateDemarrage} onChange={setDateDemarrage} type="date" />
-        {semaineLabel && (
-          <p style={{ fontSize: 12, color: "#B22222", fontWeight: 700, letterSpacing: "0.04em", marginTop: -8 }}>
-            {semaineLabel}
-          </p>
-        )}
       </Section>
 
       {/* Progression modules */}
@@ -147,6 +232,48 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
             />
           </div>
         </div>
+      </Section>
+
+      {/* Programme N1 / N2 */}
+      <Section title="MON PROGRAMME">
+        <ProgrammeSelector
+          type={programmeType}
+          duree={programmeDuree}
+          onTypeChange={setProgrammeType}
+          onDureeChange={setProgrammeDuree}
+        />
+
+        {dateDemarrage && (
+          <div style={{ marginTop: 16 }}>
+            {/* Barre de progression temporelle */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{semaineLabel}</span>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>{Math.round(timeProgress)}%</span>
+            </div>
+            <div style={{ height: 6, backgroundColor: "#1a1a1a", borderRadius: 3, overflow: "hidden" }}>
+              <div
+                style={{
+                  height: "100%",
+                  width: `${timeProgress}%`,
+                  backgroundColor: "#B22222",
+                  borderRadius: 3,
+                  transition: "width 0.3s ease",
+                }}
+              />
+            </div>
+            {dateFin && (
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 6, letterSpacing: "0.03em" }}>
+                Fin prévue : {dateFin}
+              </p>
+            )}
+          </div>
+        )}
+
+        {!dateDemarrage && (
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginTop: 12, fontStyle: "italic" }}>
+            Renseigne ta date de démarrage dans &quot;Mon compte&quot; pour voir ta progression.
+          </p>
+        )}
       </Section>
 
       {/* Objectifs 4 mois */}

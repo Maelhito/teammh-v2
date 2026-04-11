@@ -73,7 +73,7 @@ async function fetchClients(): Promise<FetchResult> {
   try {
     const admin = createSupabaseAdminClient();
     const [{ data: profiles, error: profilesError }, { data: completions }] = await Promise.all([
-      admin.from("user_profiles").select("user_id, prenom, nom, statut, date_demarrage, acces_app").in("user_id", clientIds),
+      admin.from("user_profiles").select("user_id, prenom, nom, statut, date_demarrage, acces_app, programme_type, programme_duree").in("user_id", clientIds),
       admin.from("module_completions").select("user_id").in("user_id", clientIds),
     ]);
 
@@ -100,6 +100,8 @@ async function fetchClients(): Promise<FetchResult> {
         completedCount: completionCount[u.id] ?? 0,
         totalModules,
         acces_app: profileMap[u.id]?.acces_app ?? true,
+        programme_type: (profileMap[u.id]?.programme_type ?? "N1") as "N1" | "N2",
+        programme_duree: (profileMap[u.id]?.programme_duree ?? "16_semaines") as "16_semaines" | "6_mois" | "12_mois",
       })),
       error: null,
     };

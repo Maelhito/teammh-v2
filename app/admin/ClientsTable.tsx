@@ -3,6 +3,8 @@
 import { useState } from "react";
 
 export type Statut = "active" | "pause" | "terminee";
+export type ProgrammeType = "N1" | "N2";
+export type ProgrammeDuree = "16_semaines" | "6_mois" | "12_mois";
 
 export interface ClientData {
   id: string;
@@ -15,6 +17,8 @@ export interface ClientData {
   completedCount: number;
   totalModules: number;
   acces_app: boolean;
+  programme_type: ProgrammeType;
+  programme_duree: ProgrammeDuree;
 }
 
 function AccesDot({ acces }: { acces: boolean }) {
@@ -56,18 +60,45 @@ function btn(color: string, bg: string, disabled: boolean): React.CSSProperties 
   };
 }
 
+// Combinaison programme_type + programme_duree en une valeur pour le select
+type ProgrammeCombo = "N1" | "N2_6mois" | "N2_12mois";
+
+function toCombo(type: ProgrammeType, duree: ProgrammeDuree): ProgrammeCombo {
+  if (type === "N2" && duree === "6_mois") return "N2_6mois";
+  if (type === "N2" && duree === "12_mois") return "N2_12mois";
+  return "N1";
+}
+
+function fromCombo(combo: ProgrammeCombo): { programme_type: ProgrammeType; programme_duree: ProgrammeDuree } {
+  if (combo === "N2_6mois") return { programme_type: "N2", programme_duree: "6_mois" };
+  if (combo === "N2_12mois") return { programme_type: "N2", programme_duree: "12_mois" };
+  return { programme_type: "N1", programme_duree: "16_semaines" };
+}
+
+const COMBO_LABELS: Record<ProgrammeCombo, string> = {
+  N1: "N1 · 16s",
+  N2_6mois: "N2 · 6m",
+  N2_12mois: "N2 · 12m",
+};
+
 function ClientRow({
   client,
   onToggleAcces,
   onDisconnect,
+  onUpdateProgramme,
 }: {
   client: ClientData;
   onToggleAcces: (id: string, current: boolean) => Promise<void>;
   onDisconnect: (id: string) => Promise<void>;
+  onUpdateProgramme: (id: string, type: ProgrammeType, duree: ProgrammeDuree) => Promise<void>;
 }) {
   const [acces, setAcces] = useState(client.acces_app);
   const [loadingAcces, setLoadingAcces] = useState(false);
   const [loadingDisconnect, setLoadingDisconnect] = useState(false);
+  const [combo, setCombo] = useState<ProgrammeCombo>(
+    toCombo(client.programme_type, client.programme_duree)
+  );
+  const [savingProg, setSavingProg] = useState(false);
 
   async function handleToggle() {
     setLoadingAcces(true);
@@ -80,6 +111,14 @@ function ClientRow({
     setLoadingDisconnect(true);
     await onDisconnect(client.id);
     setLoadingDisconnect(false);
+  }
+
+  async function handleProgrammeChange(newCombo: ProgrammeCombo) {
+    setCombo(newCombo);
+    setSavingProg(true);
+    const { programme_type, programme_duree } = fromCombo(newCombo);
+    await onUpdateProgramme(client.id, programme_type, programme_duree);
+    setSavingProg(false);
   }
 
   const dateDemarrage = client.date_demarrage
@@ -96,6 +135,30 @@ function ClientRow({
       <td style={tdStyle}>{client.prenom ?? <span style={{ color: "#444", fontStyle: "italic" }}>—</span>}</td>
       <td style={{ ...tdStyle, color: "rgba(255,255,255,0.45)", fontSize: 12 }}>{client.email}</td>
       <td style={{ ...tdStyle, color: "rgba(255,255,255,0.45)", fontSize: 12, whiteSpace: "nowrap" }}>{dateDemarrage}</td>
+      <td style={{ ...tdStyle }}>
+        <select
+          value={combo}
+          onChange={(e) => handleProgrammeChange(e.target.value as ProgrammeCombo)}
+          disabled={savingProg}
+          style={{
+            backgroundColor: "#0D0D0D",
+            border: "1px solid rgba(255,255,255,0.15)",
+            borderRadius: 6,
+            padding: "4px 8px",
+            color: combo === "N1" ? "#F5F5F0" : "#B22222",
+            fontSize: 11,
+            fontWeight: 700,
+            cursor: savingProg ? "not-allowed" : "pointer",
+            outline: "none",
+          }}
+        >
+          {(Object.keys(COMBO_LABELS) as ProgrammeCombo[]).map((k) => (
+            <option key={k} value={k} style={{ backgroundColor: "#1A1A1A" }}>
+              {COMBO_LABELS[k]}
+            </option>
+          ))}
+        </select>
+      </td>
       <td style={{ ...tdStyle, textAlign: "center" }}>
         <AccesDot acces={acces} />
       </td>
@@ -147,6 +210,14 @@ export default function ClientsTable({ initialClients, fetchError }: Props) {
     });
   }
 
+  async function handleUpdateProgramme(userId: string, programme_type: ProgrammeType, programme_duree: ProgrammeDuree) {
+    await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, action: "update_programme", programme_type, programme_duree }),
+    });
+  }
+
   return (
     <div style={{ marginTop: 48 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
@@ -185,6 +256,7 @@ export default function ClientsTable({ initialClients, fetchError }: Props) {
                   { label: "PRÉNOM", align: "left" as const },
                   { label: "EMAIL", align: "left" as const },
                   { label: "DÉMARRAGE", align: "left" as const },
+                  { label: "PROGRAMME", align: "left" as const },
                   { label: "ACCÈS APP", align: "center" as const },
                   { label: "ACTIONS", align: "left" as const },
                 ].map(({ label, align }) => (
@@ -212,6 +284,7 @@ export default function ClientsTable({ initialClients, fetchError }: Props) {
                   client={client}
                   onToggleAcces={handleToggleAcces}
                   onDisconnect={handleDisconnect}
+                  onUpdateProgramme={handleUpdateProgramme}
                 />
               ))}
             </tbody>

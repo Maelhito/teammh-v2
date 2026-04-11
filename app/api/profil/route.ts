@@ -19,6 +19,8 @@ export async function POST(request: NextRequest) {
     objectif_12mois_poids,
     objectif_12mois_bienetre,
     date_demarrage,
+    programme_type,
+    programme_duree,
   } = body;
 
   const admin = createSupabaseAdminClient();
@@ -34,6 +36,8 @@ export async function POST(request: NextRequest) {
         objectif_12mois_poids: objectif_12mois_poids || null,
         objectif_12mois_bienetre: objectif_12mois_bienetre || null,
         date_demarrage: date_demarrage || null,
+        programme_type: programme_type || "N1",
+        programme_duree: programme_duree || "16_semaines",
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" }
