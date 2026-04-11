@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 import type { Module } from "@/lib/modules";
 import type { ModuleContent } from "@/lib/modules-content";
 
@@ -75,6 +76,7 @@ function PdfSection({
     pdfUrl ? { name: pdfName ?? "document.pdf" } : null
   );
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [pdfMsg, setPdfMsg] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -87,24 +89,61 @@ function PdfSection({
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
+    setProgress(0);
     setPdfMsg("");
 
-    const form = new FormData();
-    form.append("slug", slug);
-    form.append("file", file);
-    form.append("slot", slot);
+    try {
+      // Étape 1 : obtenir la signed upload URL (côté serveur, auth admin)
+      const urlRes = await fetch("/api/admin/pdf-signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, filename: file.name, slot }),
+      });
+      if (!urlRes.ok) {
+        const d = await urlRes.json();
+        setPdfMsg(d.error ?? "Erreur génération URL");
+        return;
+      }
+      const { signedUrl, token, path: storagePath } = await urlRes.json();
 
-    const res = await fetch("/api/admin/pdf", { method: "POST", body: form });
-    const data = await res.json();
-    setUploading(false);
+      // Étape 2 : upload direct navigateur → Supabase Storage (bypass limite 4.5 MB Vercel)
+      const supabase = createSupabaseBrowserClient();
+      const { error: uploadError } = await supabase.storage
+        .from("module-pdfs")
+        .uploadToSignedUrl(storagePath, token, file, {
+          contentType: "application/pdf",
+          // @ts-expect-error — onUploadProgress disponible dans @supabase/storage-js récent
+          onUploadProgress: (evt: { loaded: number; total: number }) => {
+            if (evt.total > 0) setProgress(Math.round((evt.loaded / evt.total) * 100));
+          },
+        });
 
-    if (res.ok) {
-      setUploaded({ name: data.name });
-      setPdfMsg("✓ PDF uploadé");
-    } else {
-      setPdfMsg(data.error ?? "Erreur upload");
+      if (uploadError) {
+        setPdfMsg(uploadError.message ?? "Erreur upload");
+        return;
+      }
+
+      // Étape 3 : confirmer côté serveur (mise à jour DB + push notification)
+      const confirmRes = await fetch("/api/admin/pdf-confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, filename: file.name, slot }),
+      });
+      const confirmData = await confirmRes.json();
+
+      if (confirmRes.ok) {
+        setUploaded({ name: confirmData.name });
+        setPdfMsg("✓ PDF uploadé");
+      } else {
+        setPdfMsg(confirmData.error ?? "Erreur confirmation");
+      }
+    } catch (err) {
+      setPdfMsg(err instanceof Error ? err.message : "Erreur inattendue");
+    } finally {
+      setUploading(false);
+      setProgress(0);
+      if (fileRef.current) fileRef.current.value = "";
     }
-    if (fileRef.current) fileRef.current.value = "";
   }
 
   return (
@@ -159,7 +198,7 @@ function PdfSection({
               cursor: uploading ? "not-allowed" : "pointer",
             }}
           >
-            {uploading ? "…" : "🔄 Remplacer le PDF"}
+            {uploading ? `Upload… ${progress > 0 ? `${progress}%` : ""}` : "🔄 Remplacer le PDF"}
           </button>
         </div>
       ) : (
@@ -179,8 +218,30 @@ function PdfSection({
             textAlign: "center",
           }}
         >
-          {uploading ? "Upload en cours..." : "↑ Uploader un PDF"}
+          {uploading ? `Upload en cours… ${progress > 0 ? `${progress}%` : ""}` : "↑ Uploader un PDF"}
         </button>
+      )}
+
+      {/* Barre de progression */}
+      {uploading && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ height: 4, backgroundColor: "#1a1a1a", borderRadius: 2, overflow: "hidden" }}>
+            <div
+              style={{
+                height: "100%",
+                width: `${progress}%`,
+                backgroundColor: "#B22222",
+                borderRadius: 2,
+                transition: "width 0.2s ease",
+              }}
+            />
+          </div>
+          {progress > 0 && (
+            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", margin: "4px 0 0", textAlign: "right" }}>
+              {progress}%
+            </p>
+          )}
+        </div>
       )}
 
       <input ref={fileRef} type="file" accept=".pdf" style={{ display: "none" }} onChange={uploadPdf} />
