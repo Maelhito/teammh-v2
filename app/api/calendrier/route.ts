@@ -45,3 +45,47 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ event: data });
 }
+
+export async function DELETE(request: NextRequest) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const id = request.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin
+    .from("calendar_events")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", session.user.id)
+    .eq("created_by", "cliente");
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
+}
+
+export async function PATCH(request: NextRequest) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  const body = await request.json();
+  const { id, date, heure } = body;
+
+  if (!id || !date) return NextResponse.json({ error: "id et date requis" }, { status: 400 });
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("calendar_events")
+    .update({ date, heure: heure || null })
+    .eq("id", id)
+    .eq("user_id", session.user.id)
+    .eq("created_by", "cliente")
+    .select()
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ event: data });
+}

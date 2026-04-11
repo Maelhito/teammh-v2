@@ -44,6 +44,7 @@ export default function CalendrierAdmin({ clients }: Props) {
     lien: "",
     target_user_id: "",
     rappel: false,
+    event_type: "coach",
   });
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
@@ -68,13 +69,14 @@ export default function CalendrierAdmin({ clients }: Props) {
           ...form,
           heure: form.heure || null,
           target_user_id: form.target_user_id || null,
+          event_type: form.event_type,
         }),
       });
       if (res.ok) {
         const { event } = await res.json();
         setStatus("success");
         setAdminEvents((prev) => [...prev, event]);
-        setForm({ titre: "", date: "", heure: "", recurrence: "none", message: "", lien: "", target_user_id: "", rappel: false });
+        setForm({ titre: "", date: "", heure: "", recurrence: "none", message: "", lien: "", target_user_id: "", rappel: false, event_type: "coach" });
         setTimeout(() => setStatus("idle"), 3000);
       } else {
         const { error } = await res.json().catch(() => ({ error: "Erreur inconnue" }));
@@ -182,6 +184,15 @@ export default function CalendrierAdmin({ clients }: Props) {
           <option value="daily">Quotidienne</option>
           <option value="weekly">Hebdomadaire</option>
           <option value="monthly">Mensuelle</option>
+        </select>
+
+        <select
+          value={form.event_type}
+          onChange={(e) => setForm((f) => ({ ...f, event_type: e.target.value }))}
+          style={inputStyle}
+        >
+          <option value="coach">🔴 Coach</option>
+          <option value="nutrition">🟢 Nutrition</option>
         </select>
 
         <textarea

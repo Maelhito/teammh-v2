@@ -54,3 +54,4 @@ CREATE POLICY "clientes_delete" ON calendar_events
 
 ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS heure TIME;
 ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS rappel BOOLEAN DEFAULT false;
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS event_type TEXT DEFAULT 'coach'; -- 'coach' ou 'nutrition' (admin only)

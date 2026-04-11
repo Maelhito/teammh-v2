@@ -12,6 +12,7 @@ interface CalendarEvent {
   lien: string | null;
   rappel: boolean;
   created_by: "admin" | "cliente";
+  event_type: "coach" | "nutrition" | null;
   user_id: string | null;
   target_user_id: string | null;
 }
@@ -38,6 +39,12 @@ function isEventOnDay(event: CalendarEvent, day: Date): boolean {
     default:
       return false;
   }
+}
+
+function eventColor(evt: CalendarEvent): string {
+  if (evt.created_by === "cliente") return "#7C3AED";
+  if (evt.event_type === "nutrition") return "#22C55E";
+  return "#B22222";
 }
 
 const MONTH_NAMES = [
@@ -72,6 +79,17 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
   });
   const [saving, setSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+
+  // Delete state
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Reschedule state
+  const [rescheduleEvent, setRescheduleEvent] = useState<CalendarEvent | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleHeure, setRescheduleHeure] = useState("");
+  const [rescheduleSaving, setRescheduleSaving] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null);
 
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear((y) => y - 1); }
@@ -109,6 +127,52 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
       setAddError("Erreur réseau");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/calendrier?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setEvents((prev) => prev.filter((e) => e.id !== id));
+        setConfirmDeleteId(null);
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  function openReschedule(evt: CalendarEvent) {
+    setRescheduleEvent(evt);
+    setRescheduleDate(evt.date);
+    setRescheduleHeure(evt.heure?.slice(0, 5) ?? "");
+    setRescheduleError(null);
+  }
+
+  async function handleReschedule(e: React.FormEvent) {
+    e.preventDefault();
+    if (!rescheduleEvent) return;
+    setRescheduleSaving(true);
+    setRescheduleError(null);
+    try {
+      const res = await fetch("/api/calendrier", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: rescheduleEvent.id, date: rescheduleDate, heure: rescheduleHeure || null }),
+      });
+      if (res.ok) {
+        const { event } = await res.json();
+        setEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)));
+        setRescheduleEvent(null);
+      } else {
+        const { error } = await res.json().catch(() => ({ error: "Erreur inconnue" }));
+        setRescheduleError(error ?? "Erreur");
+      }
+    } catch {
+      setRescheduleError("Erreur réseau");
+    } finally {
+      setRescheduleSaving(false);
     }
   }
 
@@ -151,7 +215,8 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
           const isToday = dayDate.toDateString() === todayRaw.toDateString();
           const isSelected = selectedDay?.toDateString() === dayDate.toDateString();
           const dayEvts = getDayEvents(dayDate);
-          const hasAdmin = dayEvts.some((e) => e.created_by === "admin");
+          const hasCoach = dayEvts.some((e) => e.created_by === "admin" && e.event_type !== "nutrition");
+          const hasNutrition = dayEvts.some((e) => e.created_by === "admin" && e.event_type === "nutrition");
           const hasClient = dayEvts.some((e) => e.created_by === "cliente");
 
           return (
@@ -182,9 +247,10 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
               }}>
                 {day}
               </span>
-              {(hasAdmin || hasClient) && (
+              {(hasCoach || hasNutrition || hasClient) && (
                 <div style={{ display: "flex", gap: 2, marginTop: 4 }}>
-                  {hasAdmin && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#B22222" }} />}
+                  {hasCoach && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#B22222" }} />}
+                  {hasNutrition && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#22C55E" }} />}
                   {hasClient && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#7C3AED" }} />}
                 </div>
               )}
@@ -194,10 +260,14 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
       </div>
 
       {/* Légende */}
-      <div style={{ display: "flex", gap: 16, marginTop: 16, paddingBottom: 4 }}>
+      <div style={{ display: "flex", gap: 14, marginTop: 16, paddingBottom: 4, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#B22222", display: "inline-block" }} />
           <span style={{ fontSize: "0.72rem", color: "#555" }}>Coach</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#22C55E", display: "inline-block" }} />
+          <span style={{ fontSize: "0.72rem", color: "#555" }}>Nutrition</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#7C3AED", display: "inline-block" }} />
@@ -231,14 +301,14 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                 padding: "10px 12px",
                 backgroundColor: "#0D0D0D",
                 borderRadius: 8,
-                borderLeft: `3px solid ${evt.created_by === "admin" ? "#B22222" : "#7C3AED"}`,
+                borderLeft: `3px solid ${eventColor(evt)}`,
               }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                  <p style={{ fontWeight: 600, color: "#F5F5F0", fontSize: "0.9rem", margin: 0 }}>
+                  <p style={{ fontWeight: 600, color: "#F5F5F0", fontSize: "0.9rem", margin: 0, flex: 1 }}>
                     {evt.rappel ? "🔔 " : ""}{evt.titre}
                   </p>
                   {evt.heure && (
-                    <span style={{ fontSize: "0.75rem", color: "#B22222", fontWeight: 600 }}>
+                    <span style={{ fontSize: "0.75rem", color: eventColor(evt), fontWeight: 600, flexShrink: 0 }}>
                       {evt.heure.slice(0, 5)}
                     </span>
                   )}
@@ -255,6 +325,42 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                   <span style={{ fontSize: "0.68rem", color: "#555", marginTop: 4, display: "block" }}>
                     {RECURRENCE_LABELS[evt.recurrence] ?? evt.recurrence}
                   </span>
+                )}
+
+                {/* Actions (personal events only) */}
+                {evt.created_by === "cliente" && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                    <button
+                      onClick={() => openReschedule(evt)}
+                      style={actionBtnStyle("#7C3AED")}
+                    >
+                      Reprogrammer
+                    </button>
+                    {confirmDeleteId === evt.id ? (
+                      <>
+                        <button
+                          onClick={() => handleDelete(evt.id)}
+                          disabled={deletingId === evt.id}
+                          style={actionBtnStyle("#B22222", true)}
+                        >
+                          {deletingId === evt.id ? "…" : "Confirmer"}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          style={actionBtnStyle("#333")}
+                        >
+                          Annuler
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(evt.id)}
+                        style={actionBtnStyle("#B22222")}
+                      >
+                        Supprimer
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             ))
@@ -385,6 +491,72 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
           </div>
         </div>
       )}
+
+      {/* Reschedule modal */}
+      {rescheduleEvent && (
+        <div
+          style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.75)", zIndex: 60, display: "flex", alignItems: "flex-end" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setRescheduleEvent(null); }}
+        >
+          <div style={{
+            width: "100%",
+            maxWidth: 480,
+            margin: "0 auto",
+            backgroundColor: "#111111",
+            borderRadius: "16px 16px 0 0",
+            padding: 24,
+            paddingBottom: "calc(24px + env(safe-area-inset-bottom, 0px))",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <h3 className="font-title" style={{ fontSize: "1.2rem", color: "#F5F5F0", margin: 0, letterSpacing: "0.06em" }}>
+                REPROGRAMMER
+              </h3>
+              <button onClick={() => setRescheduleEvent(null)} style={{ background: "none", border: "none", color: "#555", fontSize: "1.2rem", cursor: "pointer" }}>
+                ✕
+              </button>
+            </div>
+            <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.5)", margin: "0 0 16px" }}>
+              {rescheduleEvent.titre}
+            </p>
+            <form onSubmit={handleReschedule} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <input
+                  type="date"
+                  required
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  style={inputStyle}
+                />
+                <input
+                  type="time"
+                  value={rescheduleHeure}
+                  onChange={(e) => setRescheduleHeure(e.target.value)}
+                  style={{ ...inputStyle, color: rescheduleHeure ? "#F5F5F0" : "#555" }}
+                />
+              </div>
+              {rescheduleError && <p style={{ color: "#F87171", fontSize: "0.82rem", margin: 0 }}>{rescheduleError}</p>}
+              <button
+                type="submit"
+                disabled={rescheduleSaving}
+                style={{
+                  padding: "12px",
+                  backgroundColor: "#7C3AED",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  fontWeight: 700,
+                  cursor: rescheduleSaving ? "not-allowed" : "pointer",
+                  opacity: rescheduleSaving ? 0.6 : 1,
+                  fontSize: "0.88rem",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {rescheduleSaving ? "Enregistrement..." : "CONFIRMER"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -409,3 +581,17 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   boxSizing: "border-box",
 };
+
+function actionBtnStyle(borderColor: string, filled = false): React.CSSProperties {
+  return {
+    padding: "4px 10px",
+    backgroundColor: filled ? borderColor : "transparent",
+    border: `1px solid ${borderColor}`,
+    borderRadius: 6,
+    color: filled ? "#fff" : borderColor,
+    fontSize: "0.72rem",
+    fontWeight: 600,
+    cursor: "pointer",
+    whiteSpace: "nowrap" as const,
+  };
+}
