@@ -36,6 +36,18 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const completedCount = completedSet.size;
   const unlockStatuses = computeUnlockStatuses(slugs, completionsWithDates);
 
+  // Durées par type de programme
+  const PROGRAMME_CFG: Record<string, { days: number; weeks: number }> = {
+    "16_semaines": { days: 112, weeks: 16 },
+    "6_mois":      { days: 183, weeks: 26 },
+    "12_mois":     { days: 365, weeks: 52 },
+  };
+  const dureeKey =
+    profile?.programme_type === "N2" && profile?.programme_duree
+      ? profile.programme_duree
+      : "16_semaines";
+  const cfg = PROGRAMME_CFG[dureeKey] ?? PROGRAMME_CFG["16_semaines"];
+
   // Calcul semaine courante
   let semaineLabel = "";
   let semaineProgress = 0;
@@ -43,9 +55,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     const start = new Date(profile.date_demarrage);
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    const semaine = Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), 16);
-    semaineLabel = `Semaine ${semaine} / 16`;
-    semaineProgress = semaine / 16;
+    const semaine = Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), cfg.weeks);
+    semaineLabel = `Semaine ${semaine} / ${cfg.weeks}`;
+    semaineProgress = semaine / cfg.weeks;
   }
 
   const moduleItems = modules.map((m, i) => ({

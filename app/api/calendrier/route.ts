@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
       message: message ? String(message).slice(0, 1000) : null,
       rappel: rappel === true,
       created_by: "cliente",
+      event_type: "coach",
     })
     .select()
     .single();
