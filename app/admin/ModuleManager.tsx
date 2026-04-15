@@ -57,6 +57,21 @@ export default function ModuleManager({ modules, initialContent }: Props) {
   );
 }
 
+// ─── Filename sanitizer ───────────────────────────────────────────────────────
+
+function sanitizeFilename(name: string): string {
+  const dotIdx = name.lastIndexOf(".");
+  const base = dotIdx > 0 ? name.slice(0, dotIdx) : name;
+  const ext  = dotIdx > 0 ? name.slice(dotIdx)   : "";
+  const clean = base
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")   // retirer les diacritiques (accents)
+    .replace(/[^a-zA-Z0-9_-]/g, "_")  // remplacer les caractères invalides
+    .replace(/_+/g, "_")               // collaper les underscores multiples
+    .replace(/^_|_$/g, "");            // supprimer les underscores en début/fin
+  return (clean || "document") + ext;
+}
+
 // ─── PDF Section ─────────────────────────────────────────────────────────────
 
 function PdfSection({
@@ -88,6 +103,7 @@ function PdfSection({
   async function uploadPdf(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const safeFilename = sanitizeFilename(file.name);
     setUploading(true);
     setProgress(0);
     setPdfMsg("");
@@ -97,7 +113,7 @@ function PdfSection({
       const urlRes = await fetch("/api/admin/pdf-signed-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, filename: file.name, slot }),
+        body: JSON.stringify({ slug, filename: safeFilename, slot }),
       });
       if (!urlRes.ok) {
         const d = await urlRes.json();
@@ -127,7 +143,7 @@ function PdfSection({
       const confirmRes = await fetch("/api/admin/pdf-confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, filename: file.name, slot }),
+        body: JSON.stringify({ slug, filename: safeFilename, slot }),
       });
       const confirmData = await confirmRes.json();
 

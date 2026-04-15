@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { UserProfile, ProgrammeType, ProgrammeDuree } from "@/lib/user-profile";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
@@ -153,6 +153,84 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
+  // Push notifications
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(true);
+  const [pushMsg, setPushMsg] = useState("");
+
+  useEffect(() => {
+    // Vérifier l'état actuel de la subscription
+    fetch("/api/push/subscribe")
+      .then((r) => r.json())
+      .then((d) => {
+        setPushEnabled(d.subscribed === true);
+      })
+      .catch(() => {})
+      .finally(() => setPushLoading(false));
+  }, []);
+
+  async function handlePushToggle(checked: boolean) {
+    setPushLoading(true);
+    setPushMsg("");
+    try {
+      if (checked) {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+          setPushMsg("Notifications non supportées sur ce navigateur");
+          return;
+        }
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          setPushMsg("Permission refusée");
+          return;
+        }
+        const reg = await navigator.serviceWorker.ready;
+        const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidKey),
+        });
+        const res = await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sub),
+        });
+        if (res.ok) {
+          setPushEnabled(true);
+          setPushMsg("✓ Notifications activées");
+        } else {
+          setPushMsg("Erreur lors de l'activation");
+        }
+      } else {
+        const res = await fetch("/api/push/subscribe", { method: "DELETE" });
+        if (res.ok) {
+          setPushEnabled(false);
+          setPushMsg("Notifications désactivées");
+          // Désabonner le service worker localement
+          if ("serviceWorker" in navigator) {
+            const reg = await navigator.serviceWorker.ready;
+            const sub = await reg.pushManager.getSubscription();
+            if (sub) await sub.unsubscribe();
+          }
+        } else {
+          setPushMsg("Erreur lors de la désactivation");
+        }
+      }
+    } catch {
+      setPushMsg("Erreur inattendue");
+    } finally {
+      setPushLoading(false);
+    }
+  }
+
+  function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = atob(base64);
+    const arr = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; i++) arr[i] = rawData.charCodeAt(i);
+    return arr.buffer;
+  }
+
   async function handleSave() {
     setSaving(true);
     setMsg("");
@@ -204,6 +282,46 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
 
   return (
     <div style={{ maxWidth: 480, margin: "0 auto", padding: "12px 16px 0" }}>
+
+      {/* Toggle notifications push */}
+      <div style={{
+        backgroundColor: "#111111",
+        border: "1px solid #1a1a1a",
+        borderRadius: 18,
+        padding: "16px 20px",
+        marginBottom: 12,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+      }}>
+        <label
+          htmlFor="push-toggle"
+          style={{ display: "flex", alignItems: "center", gap: 10, cursor: pushLoading ? "default" : "pointer", flex: 1 }}
+        >
+          <input
+            id="push-toggle"
+            type="checkbox"
+            checked={pushEnabled}
+            disabled={pushLoading}
+            onChange={(e) => handlePushToggle(e.target.checked)}
+            style={{ width: 18, height: 18, accentColor: "#B22222", cursor: pushLoading ? "default" : "pointer", flexShrink: 0 }}
+          />
+          <div>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#F5F5F0", letterSpacing: "0.03em" }}>
+              🔔 Activer les notifications push
+            </span>
+            <p style={{ fontSize: 11, color: pushEnabled ? "#4ADE80" : "rgba(255,255,255,0.35)", margin: "2px 0 0" }}>
+              {pushLoading ? "Vérification..." : pushEnabled ? "Activées" : "Désactivées"}
+            </p>
+          </div>
+        </label>
+        {pushMsg && (
+          <span style={{ fontSize: 11, color: pushMsg.startsWith("✓") ? "#4ADE80" : "#F87171", flexShrink: 0 }}>
+            {pushMsg}
+          </span>
+        )}
+      </div>
 
       {/* Infos compte */}
       <Section title="MON COMPTE">

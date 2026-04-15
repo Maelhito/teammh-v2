@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Récurrence invalide" }, { status: 400 });
   }
 
-  const validEventTypes = ["coach", "nutrition"];
+  const validEventTypes = ["coach", "nutrition", "coaching_groupe"];
   const resolvedEventType = validEventTypes.includes(event_type) ? event_type : "coach";
 
   const admin = createSupabaseAdminClient();

@@ -11,8 +11,9 @@ interface CalendarEvent {
   message: string | null;
   lien: string | null;
   rappel: boolean;
+  rappel_minutes?: number;
   created_by: "admin" | "cliente";
-  event_type: "coach" | "nutrition" | null;
+  event_type: "coach" | "nutrition" | "coaching_groupe" | null;
   user_id: string | null;
   target_user_id: string | null;
 }
@@ -48,6 +49,7 @@ function toLocalDate(d: Date): string {
 function eventColor(evt: CalendarEvent): string {
   if (evt.created_by === "cliente") return "#7C3AED";
   if (evt.event_type === "nutrition") return "#22C55E";
+  if (evt.event_type === "coaching_groupe") return "#3B82F6";
   return "#B22222";
 }
 
@@ -71,7 +73,7 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
   const [year, setYear] = useState(todayRaw.getFullYear());
   const [month, setMonth] = useState(todayRaw.getMonth());
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
-  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(todayRaw);
   const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState({
     titre: "",
@@ -80,6 +82,8 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
     recurrence: "none",
     message: "",
     rappel: false,
+    rappel_minutes: 0,
+    event_type: "",
   });
   const [saving, setSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -122,7 +126,7 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
         const { event } = await res.json();
         setEvents((prev) => [...prev, event]);
         setShowAddModal(false);
-        setForm({ titre: "", date: toLocalDate(todayRaw), heure: "", recurrence: "none", message: "", rappel: false });
+        setForm({ titre: "", date: toLocalDate(todayRaw), heure: "", recurrence: "none", message: "", rappel: false, rappel_minutes: 0, event_type: "" });
       } else {
         const { error } = await res.json().catch(() => ({ error: "Erreur inconnue" }));
         setAddError(error ?? "Erreur");
@@ -219,9 +223,10 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
           const isToday = dayDate.toDateString() === todayRaw.toDateString();
           const isSelected = selectedDay?.toDateString() === dayDate.toDateString();
           const dayEvts = getDayEvents(dayDate);
-          const hasCoach = dayEvts.some((e) => e.created_by === "admin" && e.event_type !== "nutrition");
+          const hasCoach = dayEvts.some((e) => e.created_by === "admin" && e.event_type !== "nutrition" && e.event_type !== "coaching_groupe");
           const hasNutrition = dayEvts.some((e) => e.created_by === "admin" && e.event_type === "nutrition");
-          const hasClient = dayEvts.some((e) => e.created_by === "cliente");
+          const hasCoachingGroupe = dayEvts.some((e) => e.event_type === "coaching_groupe");
+          const hasClient = dayEvts.some((e) => e.created_by === "cliente" && e.event_type !== "coaching_groupe");
 
           return (
             <button
@@ -251,10 +256,11 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
               }}>
                 {day}
               </span>
-              {(hasCoach || hasNutrition || hasClient) && (
+              {(hasCoach || hasNutrition || hasCoachingGroupe || hasClient) && (
                 <div style={{ display: "flex", gap: 2, marginTop: 4 }}>
                   {hasCoach && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#B22222" }} />}
                   {hasNutrition && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#22C55E" }} />}
+                  {hasCoachingGroupe && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#3B82F6" }} />}
                   {hasClient && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#7C3AED" }} />}
                 </div>
               )}
@@ -272,6 +278,10 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#22C55E", display: "inline-block" }} />
           <span style={{ fontSize: "0.72rem", color: "#555" }}>Nutrition</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#3B82F6", display: "inline-block" }} />
+          <span style={{ fontSize: "0.72rem", color: "#555" }}>Coaching de Groupe</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#7C3AED", display: "inline-block" }} />
@@ -309,7 +319,7 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
               }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                   <p style={{ fontWeight: 600, color: "#F5F5F0", fontSize: "0.9rem", margin: 0, flex: 1 }}>
-                    {evt.rappel ? "🔔 " : ""}{evt.titre}
+                    {evt.rappel ? "🔔 " : ""}{evt.rappel_minutes && evt.rappel_minutes > 0 ? "⏰ " : ""}{evt.titre}
                   </p>
                   {evt.heure && (
                     <span style={{ fontSize: "0.75rem", color: eventColor(evt), fontWeight: 600, flexShrink: 0 }}>
@@ -319,6 +329,11 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                 </div>
                 {evt.message && (
                   <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.78rem", margin: "4px 0 0" }}>{evt.message}</p>
+                )}
+                {evt.rappel_minutes != null && evt.rappel_minutes > 0 && (
+                  <p style={{ color: "#3B82F6", fontSize: "0.72rem", margin: "4px 0 0" }}>
+                    ⏰ Rappel {evt.rappel_minutes} min avant
+                  </p>
                 )}
                 {evt.lien && (
                   <a href={evt.lien} target="_blank" rel="noopener noreferrer" style={{ color: "#B22222", fontSize: "0.78rem", marginTop: 4, display: "block" }}>
@@ -423,12 +438,31 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
               </button>
             </div>
             <form onSubmit={handleAddEvent} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {/* Titre prédéfini */}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, titre: "Coaching de Groupe", event_type: "coaching_groupe" }))}
+                  style={{
+                    padding: "5px 10px",
+                    backgroundColor: form.event_type === "coaching_groupe" ? "#3B82F6" : "transparent",
+                    border: "1px solid #3B82F6",
+                    borderRadius: 6,
+                    color: form.event_type === "coaching_groupe" ? "#fff" : "#3B82F6",
+                    fontSize: "0.72rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  🔵 Coaching de Groupe
+                </button>
+              </div>
               <input
                 type="text"
                 placeholder="Nom de l'événement"
                 required
                 value={form.titre}
-                onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value, event_type: "" }))}
                 style={inputStyle}
               />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -472,6 +506,18 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                   🔔 Rappel — notification push la veille
                 </span>
               </label>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.7)" }}>⏰ Rappel avant l&apos;événement :</span>
+                <select
+                  value={form.rappel_minutes}
+                  onChange={(e) => setForm((f) => ({ ...f, rappel_minutes: Number(e.target.value) }))}
+                  style={{ ...inputStyle, width: "auto", flex: 1 }}
+                >
+                  <option value={0}>Aucun</option>
+                  <option value={30}>30 min avant</option>
+                  <option value={60}>1h avant</option>
+                </select>
+              </div>
               {addError && <p style={{ color: "#F87171", fontSize: "0.82rem", margin: 0 }}>{addError}</p>}
               <button
                 type="submit"

@@ -35,3 +35,35 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ success: true });
 }
+
+export async function DELETE(request: NextRequest) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  }
+
+  const admin = createSupabaseAdminClient();
+  await admin.from("push_subscriptions").delete().eq("user_id", user.id);
+
+  return NextResponse.json({ success: true });
+}
+
+export async function GET(request: NextRequest) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ subscribed: false });
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data } = await admin
+    .from("push_subscriptions")
+    .select("id")
+    .eq("user_id", user.id)
+    .limit(1);
+
+  return NextResponse.json({ subscribed: !!(data && data.length > 0) });
+}

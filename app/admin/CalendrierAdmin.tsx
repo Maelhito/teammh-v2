@@ -188,11 +188,19 @@ export default function CalendrierAdmin({ clients }: Props) {
 
         <select
           value={form.event_type}
-          onChange={(e) => setForm((f) => ({ ...f, event_type: e.target.value }))}
+          onChange={(e) => {
+            const t = e.target.value;
+            setForm((f) => ({
+              ...f,
+              event_type: t,
+              titre: t === "coaching_groupe" && !f.titre ? "Coaching de Groupe" : f.titre,
+            }));
+          }}
           style={inputStyle}
         >
           <option value="coach">🔴 Coach</option>
           <option value="nutrition">🟢 Nutrition</option>
+          <option value="coaching_groupe">🔵 Coaching de Groupe</option>
         </select>
 
         <textarea

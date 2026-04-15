@@ -1,6 +1,6 @@
 import type { ModuleCompletion } from "@/lib/user-profile";
 
-const DELAY_MS = 2 * 24 * 60 * 60 * 1000; // 48h
+const DELAY_MS = 2 * 60 * 60 * 1000; // 2h
 
 export interface UnlockStatus {
   slug: string;
@@ -36,7 +36,7 @@ export function computeUnlockStatuses(
       return { slug, unlocked: done, unlocksAt: null };
     }
 
-    // Modules 4–7 : 2 jours après validation du module précédent
+    // Modules 4–7 : 2 heures après validation du module précédent
     const prevCompleted = completedAt[slugs[i - 1]];
     if (!prevCompleted) {
       return { slug, unlocked: false, unlocksAt: null };

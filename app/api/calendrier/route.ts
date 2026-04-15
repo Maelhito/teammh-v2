@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { titre, date, heure, recurrence, message, rappel } = body;
+  const { titre, date, heure, recurrence, message, rappel, rappel_minutes, event_type } = body;
 
   if (!titre || !date) {
     return NextResponse.json({ error: "Titre et date requis" }, { status: 400 });
@@ -20,6 +20,11 @@ export async function POST(request: NextRequest) {
   if (recurrence && !validRecurrences.includes(recurrence)) {
     return NextResponse.json({ error: "Récurrence invalide" }, { status: 400 });
   }
+
+  const validEventTypes = ["coach", "nutrition", "coaching_groupe"];
+  const resolvedEventType = validEventTypes.includes(event_type) ? event_type : "coach";
+
+  const rappelMinutes = typeof rappel_minutes === "number" ? rappel_minutes : 0;
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
@@ -33,8 +38,9 @@ export async function POST(request: NextRequest) {
       recurrence: recurrence ?? "none",
       message: message ? String(message).slice(0, 1000) : null,
       rappel: rappel === true,
+      rappel_minutes: rappelMinutes,
       created_by: "cliente",
-      event_type: "coach",
+      event_type: resolvedEventType,
     })
     .select()
     .single();
