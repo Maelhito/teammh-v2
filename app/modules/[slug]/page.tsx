@@ -48,8 +48,15 @@ function renderMarkdown(content: string, ctx: RenderCtx = { videos: [] }): strin
       if (url === "#") url = ctx.videos[videoIndex] ?? "#";
       videoIndex++;
 
-      const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
-      if (ytMatch) url = `https://www.youtube.com/embed/${ytMatch[1]}`;
+      // Support watch?v=, youtu.be/, shorts/, live/, embed/ (déjà embed → inchangé)
+      const ytMatch = url.match(
+        /(?:youtube\.com\/(?:watch\?v=|shorts\/|live\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/
+      );
+      if (ytMatch) {
+        if (!url.includes("/embed/")) {
+          url = `https://www.youtube.com/embed/${ytMatch[1]}`;
+        }
+      }
 
       if (!url || url === "#") {
         html.push(`<div class="video-block"><p class="video-block-title">${processInline(title)}</p><div class="video-placeholder-box">Vidéo à venir</div></div>`);

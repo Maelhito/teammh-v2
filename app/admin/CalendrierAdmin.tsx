@@ -44,6 +44,7 @@ export default function CalendrierAdmin({ clients }: Props) {
     lien: "",
     target_user_id: "",
     rappel: false,
+    rappel_minutes: 0,
     event_type: "coach",
   });
   const [saving, setSaving] = useState(false);
@@ -76,7 +77,7 @@ export default function CalendrierAdmin({ clients }: Props) {
         const { event } = await res.json();
         setStatus("success");
         setAdminEvents((prev) => [...prev, event]);
-        setForm({ titre: "", date: "", heure: "", recurrence: "none", message: "", lien: "", target_user_id: "", rappel: false, event_type: "coach" });
+        setForm({ titre: "", date: "", heure: "", recurrence: "none", message: "", lien: "", target_user_id: "", rappel: false, rappel_minutes: 0, event_type: "coach" });
         setTimeout(() => setStatus("idle"), 3000);
       } else {
         const { error } = await res.json().catch(() => ({ error: "Erreur inconnue" }));
@@ -229,6 +230,19 @@ export default function CalendrierAdmin({ clients }: Props) {
             🔔 Rappel — notification push la veille
           </span>
         </label>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.7)" }}>⏰ Rappel avant l&apos;événement :</span>
+          <select
+            value={form.rappel_minutes}
+            onChange={(e) => setForm((f) => ({ ...f, rappel_minutes: Number(e.target.value) }))}
+            style={{ ...inputStyle, width: "auto", flex: 1 }}
+          >
+            <option value={0}>Aucun</option>
+            <option value={30}>30 min avant</option>
+            <option value={60}>1h avant</option>
+          </select>
+        </div>
 
         <button
           type="submit"

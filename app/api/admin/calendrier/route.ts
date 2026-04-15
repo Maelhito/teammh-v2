@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await request.json();
-  const { titre, date, heure, recurrence, message, lien, target_user_id, rappel, event_type } = body;
+  const { titre, date, heure, recurrence, message, lien, target_user_id, rappel, rappel_minutes, event_type } = body;
 
   if (!titre || !date) {
     return NextResponse.json({ error: "Titre et date requis" }, { status: 400 });
@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
 
   const validEventTypes = ["coach", "nutrition", "coaching_groupe"];
   const resolvedEventType = validEventTypes.includes(event_type) ? event_type : "coach";
+  const rappelMinutes = typeof rappel_minutes === "number" ? rappel_minutes : 0;
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
       message: message ? String(message).slice(0, 1000) : null,
       lien: lien ? String(lien).slice(0, 500) : null,
       rappel: rappel === true,
+      rappel_minutes: rappelMinutes,
       created_by: "admin",
       event_type: resolvedEventType,
     })

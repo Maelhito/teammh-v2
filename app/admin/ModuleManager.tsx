@@ -60,16 +60,17 @@ export default function ModuleManager({ modules, initialContent }: Props) {
 // ─── Filename sanitizer ───────────────────────────────────────────────────────
 
 function sanitizeFilename(name: string): string {
-  const dotIdx = name.lastIndexOf(".");
-  const base = dotIdx > 0 ? name.slice(0, dotIdx) : name;
-  const ext  = dotIdx > 0 ? name.slice(dotIdx)   : "";
-  const clean = base
+  // On prend la partie avant le PREMIER "." pour éviter les doubles extensions
+  // (ex: "fiche.pdf_compressé.pdf" → base = "fiche") puis on force l'extension .pdf
+  const dotIdx = name.indexOf(".");
+  const raw = dotIdx > 0 ? name.slice(0, dotIdx) : name;
+  const clean = raw
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")   // retirer les diacritiques (accents)
     .replace(/[^a-zA-Z0-9_-]/g, "_")  // remplacer les caractères invalides
     .replace(/_+/g, "_")               // collaper les underscores multiples
     .replace(/^_|_$/g, "");            // supprimer les underscores en début/fin
-  return (clean || "document") + ext;
+  return (clean || "document") + ".pdf";
 }
 
 // ─── PDF Section ─────────────────────────────────────────────────────────────
