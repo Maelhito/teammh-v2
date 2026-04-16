@@ -174,21 +174,54 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
     setPushMsg("");
     try {
       if (checked) {
-        if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-          setPushMsg("Notifications non supportées sur ce navigateur");
+        // 1. Vérifier la compatibilité navigateur
+        if (!("serviceWorker" in navigator)) {
+          setPushMsg("Service Worker non supporté sur ce navigateur");
           return;
         }
+        if (!("PushManager" in window)) {
+          setPushMsg("Notifications push non supportées sur ce navigateur");
+          return;
+        }
+
+        // 2. Vérifier la clé VAPID
+        const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        if (!vapidKey) {
+          setPushMsg("Erreur config : clé VAPID manquante (NEXT_PUBLIC_VAPID_PUBLIC_KEY)");
+          return;
+        }
+
+        // 3. Demander la permission
         const permission = await Notification.requestPermission();
         if (permission !== "granted") {
-          setPushMsg("Permission refusée");
+          setPushMsg("Permission refusée — autorise les notifications dans les réglages");
           return;
         }
-        const reg = await navigator.serviceWorker.ready;
-        const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
-        const sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidKey),
-        });
+
+        // 4. Attendre que le service worker soit prêt
+        let reg: ServiceWorkerRegistration;
+        try {
+          // Enregistrer si pas encore fait
+          await navigator.serviceWorker.register("/sw.js");
+          reg = await navigator.serviceWorker.ready;
+        } catch (swErr) {
+          setPushMsg(`Erreur service worker : ${swErr instanceof Error ? swErr.message : String(swErr)}`);
+          return;
+        }
+
+        // 5. Souscrire aux push
+        let sub: PushSubscription;
+        try {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidKey),
+          });
+        } catch (subErr) {
+          setPushMsg(`Erreur souscription push : ${subErr instanceof Error ? subErr.message : String(subErr)}`);
+          return;
+        }
+
+        // 6. Sauvegarder la subscription en base
         const res = await fetch("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -198,14 +231,14 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
           setPushEnabled(true);
           setPushMsg("✓ Notifications activées");
         } else {
-          setPushMsg("Erreur lors de l'activation");
+          const errData = await res.json().catch(() => ({}));
+          setPushMsg(`Erreur sauvegarde : ${errData.error ?? res.status}`);
         }
       } else {
         const res = await fetch("/api/push/subscribe", { method: "DELETE" });
         if (res.ok) {
           setPushEnabled(false);
           setPushMsg("Notifications désactivées");
-          // Désabonner le service worker localement
           if ("serviceWorker" in navigator) {
             const reg = await navigator.serviceWorker.ready;
             const sub = await reg.pushManager.getSubscription();
@@ -215,8 +248,8 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
           setPushMsg("Erreur lors de la désactivation");
         }
       }
-    } catch {
-      setPushMsg("Erreur inattendue");
+    } catch (err) {
+      setPushMsg(`Erreur : ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setPushLoading(false);
     }

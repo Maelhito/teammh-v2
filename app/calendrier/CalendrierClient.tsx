@@ -47,9 +47,11 @@ function toLocalDate(d: Date): string {
 }
 
 function eventColor(evt: CalendarEvent): string {
-  if (evt.created_by === "cliente") return "#7C3AED";
-  if (evt.event_type === "nutrition") return "#22C55E";
   if (evt.event_type === "coaching_groupe") return "#3B82F6";
+  if (evt.event_type === "nutrition") return "#22C55E";
+  if (evt.event_type === "coach") return "#B22222";
+  // Événement client sans type défini → violet (legacy)
+  if (evt.created_by === "cliente") return "#7C3AED";
   return "#B22222";
 }
 
@@ -223,10 +225,10 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
           const isToday = dayDate.toDateString() === todayRaw.toDateString();
           const isSelected = selectedDay?.toDateString() === dayDate.toDateString();
           const dayEvts = getDayEvents(dayDate);
-          const hasCoach = dayEvts.some((e) => e.created_by === "admin" && e.event_type !== "nutrition" && e.event_type !== "coaching_groupe");
-          const hasNutrition = dayEvts.some((e) => e.created_by === "admin" && e.event_type === "nutrition");
+          const hasCoach = dayEvts.some((e) => e.event_type === "coach" || (e.created_by === "admin" && e.event_type !== "coaching_groupe" && e.event_type !== "nutrition"));
           const hasCoachingGroupe = dayEvts.some((e) => e.event_type === "coaching_groupe");
-          const hasClient = dayEvts.some((e) => e.created_by === "cliente" && e.event_type !== "coaching_groupe");
+          const hasNutritionClient = dayEvts.some((e) => e.created_by === "cliente" && e.event_type === "nutrition");
+          const hasPersonal = dayEvts.some((e) => e.created_by === "cliente" && (!e.event_type || e.event_type === ""));
 
           return (
             <button
@@ -256,12 +258,12 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
               }}>
                 {day}
               </span>
-              {(hasCoach || hasNutrition || hasCoachingGroupe || hasClient) && (
+              {(hasCoach || hasCoachingGroupe || hasNutritionClient || hasPersonal) && (
                 <div style={{ display: "flex", gap: 2, marginTop: 4 }}>
                   {hasCoach && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#B22222" }} />}
-                  {hasNutrition && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#22C55E" }} />}
                   {hasCoachingGroupe && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#3B82F6" }} />}
-                  {hasClient && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#7C3AED" }} />}
+                  {hasNutritionClient && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#22C55E" }} />}
+                  {hasPersonal && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#7C3AED" }} />}
                 </div>
               )}
             </button>
@@ -276,16 +278,12 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
           <span style={{ fontSize: "0.72rem", color: "#555" }}>Coach</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#22C55E", display: "inline-block" }} />
-          <span style={{ fontSize: "0.72rem", color: "#555" }}>Nutrition</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#3B82F6", display: "inline-block" }} />
           <span style={{ fontSize: "0.72rem", color: "#555" }}>Coaching de Groupe</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#7C3AED", display: "inline-block" }} />
-          <span style={{ fontSize: "0.72rem", color: "#555" }}>Personnel</span>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#22C55E", display: "inline-block" }} />
+          <span style={{ fontSize: "0.72rem", color: "#555" }}>Nutrition</span>
         </div>
       </div>
 
@@ -438,31 +436,42 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
               </button>
             </div>
             <form onSubmit={handleAddEvent} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {/* Titre prédéfini */}
+              {/* Sélecteur de type */}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  onClick={() => setForm((f) => ({ ...f, titre: "Coaching de Groupe", event_type: "coaching_groupe" }))}
-                  style={{
-                    padding: "5px 10px",
-                    backgroundColor: form.event_type === "coaching_groupe" ? "#3B82F6" : "transparent",
-                    border: "1px solid #3B82F6",
-                    borderRadius: 6,
-                    color: form.event_type === "coaching_groupe" ? "#fff" : "#3B82F6",
-                    fontSize: "0.72rem",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  🔵 Coaching de Groupe
-                </button>
+                {[
+                  { type: "coaching_groupe", label: "🔵 Coaching de Groupe", color: "#3B82F6", titre: "Coaching de Groupe" },
+                  { type: "coach", label: "🔴 Coach", color: "#B22222", titre: "" },
+                  { type: "nutrition", label: "🟢 Nutrition", color: "#22C55E", titre: "" },
+                ].map(({ type, label, color, titre }) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setForm((f) => ({
+                      ...f,
+                      event_type: type,
+                      titre: titre || f.titre,
+                    }))}
+                    style={{
+                      padding: "5px 10px",
+                      backgroundColor: form.event_type === type ? color : "transparent",
+                      border: `1px solid ${color}`,
+                      borderRadius: 6,
+                      color: form.event_type === type ? "#fff" : color,
+                      fontSize: "0.72rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
               <input
                 type="text"
                 placeholder="Nom de l'événement"
                 required
                 value={form.titre}
-                onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value, event_type: "" }))}
+                onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value }))}
                 style={inputStyle}
               />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>

@@ -59,6 +59,16 @@
       "duration": "20 min",
       "type": "mixed",
       "emoji": "🛒"
+    },
+    {
+      "slug": "module-8",
+      "title": "Non-oubli",
+      "description": "Les petites choses qu'on oublie souvent mais qui font toute la différence dans ta progression.",
+      "category": "Lifestyle",
+      "order": 7,
+      "duration": "10 min",
+      "type": "document",
+      "emoji": "📌"
     }
   ]
 }
