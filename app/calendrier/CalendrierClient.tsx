@@ -228,7 +228,7 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
           const hasCoach = dayEvts.some((e) => e.event_type === "coach" || (e.created_by === "admin" && e.event_type !== "coaching_groupe" && e.event_type !== "nutrition"));
           const hasCoachingGroupe = dayEvts.some((e) => e.event_type === "coaching_groupe");
           const hasNutritionClient = dayEvts.some((e) => e.created_by === "cliente" && e.event_type === "nutrition");
-          const hasPersonal = dayEvts.some((e) => e.created_by === "cliente" && (!e.event_type || e.event_type === ""));
+          const hasPersonal = dayEvts.some((e) => e.created_by === "cliente" && !e.event_type);
 
           return (
             <button
