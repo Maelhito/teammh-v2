@@ -57,6 +57,179 @@ export default function ModuleManager({ modules, initialContent }: Props) {
   );
 }
 
+// ─── Modules avec lien Canva (à la place du PDF principal) ───────────────────
+const MODULE_CANVA_LABEL: Record<string, string> = {
+  "module-3": "🔗 Lien Canva - Guide des équivalences",
+};
+
+// ─── Canva Link Section ───────────────────────────────────────────────────────
+
+function CanvaLinkSection({ label, slug, initialUrl }: { label: string; slug: string; initialUrl: string | null | undefined }) {
+  const [url, setUrl] = useState(initialUrl ?? "");
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => { setUrl(initialUrl ?? ""); }, [initialUrl]);
+
+  async function save() {
+    setSaving(true); setMsg("");
+    const res = await fetch("/api/admin/canva-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug, url }),
+    });
+    const data = await res.json();
+    setSaving(false);
+    setMsg(res.ok ? "✓ Sauvegardé" : (data.error ?? "Erreur"));
+  }
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6, letterSpacing: "0.04em" }}>
+        {label}
+      </label>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://www.canva.com/..."
+          style={{ flex: 1, minWidth: 0, backgroundColor: "#0D0D0D", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "9px 12px", color: "#FFFFFF", fontSize: 13, outline: "none" }}
+        />
+        <button
+          onClick={save}
+          disabled={saving}
+          style={{ backgroundColor: saving ? "#8B1515" : "#B22222", color: "#fff", border: "none", borderRadius: 8, padding: "0 16px", fontSize: 12, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", flexShrink: 0 }}
+        >
+          {saving ? "…" : "OK"}
+        </button>
+      </div>
+      {msg && <p style={{ fontSize: 11, margin: "4px 0 0", color: msg.startsWith("✓") ? "#4ADE80" : "#F87171" }}>{msg}</p>}
+    </div>
+  );
+}
+
+// ─── Visio Replays Admin (module-8) ──────────────────────────────────────────
+
+const VISIO_CATEGORIES = [
+  { key: "boost_mental",     label: "🧠 Boost Mental" },
+  { key: "visio_sport",      label: "💪 Visio Sport" },
+  { key: "visio_stretching", label: "🧘 Visio Stretching" },
+] as const;
+
+interface VisioReplay { id: string; categorie: string; video_url: string; titre: string | null; }
+
+function VisioAdminSection() {
+  const [replays, setReplays] = useState<VisioReplay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newUrls, setNewUrls] = useState<Record<string, string>>({ boost_mental: "", visio_sport: "", visio_stretching: "" });
+  const [newTitres, setNewTitres] = useState<Record<string, string>>({ boost_mental: "", visio_sport: "", visio_stretching: "" });
+  const [adding, setAdding] = useState<Record<string, boolean>>({});
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [msgs, setMsgs] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch("/api/admin/visio-replays")
+      .then((r) => r.json())
+      .then((d) => setReplays(d.replays ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function addReplay(categorie: string) {
+    const url = newUrls[categorie]?.trim();
+    if (!url) return;
+    setAdding((p) => ({ ...p, [categorie]: true }));
+    setMsgs((p) => ({ ...p, [categorie]: "" }));
+    const res = await fetch("/api/admin/visio-replays", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categorie, video_url: url, titre: newTitres[categorie]?.trim() || null }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setReplays((p) => [...p, data.replay]);
+      setNewUrls((p) => ({ ...p, [categorie]: "" }));
+      setNewTitres((p) => ({ ...p, [categorie]: "" }));
+      setMsgs((p) => ({ ...p, [categorie]: "✓ Ajouté" }));
+    } else {
+      setMsgs((p) => ({ ...p, [categorie]: data.error ?? "Erreur" }));
+    }
+    setAdding((p) => ({ ...p, [categorie]: false }));
+  }
+
+  async function deleteReplay(id: string) {
+    setDeleting(id);
+    const res = await fetch(`/api/admin/visio-replays?id=${id}`, { method: "DELETE" });
+    if (res.ok) setReplays((p) => p.filter((r) => r.id !== id));
+    setDeleting(null);
+  }
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      {loading ? (
+        <p style={{ color: "#555", fontSize: "0.78rem", textAlign: "center", padding: 12 }}>Chargement…</p>
+      ) : (
+        VISIO_CATEGORIES.map((cat) => {
+          const catReplays = replays.filter((r) => r.categorie === cat.key);
+          return (
+            <div key={cat.key} style={{ marginBottom: 18 }}>
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 8, letterSpacing: "0.04em", fontWeight: 700 }}>
+                {cat.label}
+              </p>
+
+              {/* Vidéos existantes */}
+              {catReplays.map((r) => (
+                <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "6px 10px", backgroundColor: "#0D0D0D", borderRadius: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {r.titre && <p style={{ fontSize: 11, color: "#F5F5F0", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.titre}</p>}
+                    <p style={{ fontSize: 10, color: "#555", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.video_url}</p>
+                  </div>
+                  <button
+                    onClick={() => deleteReplay(r.id)}
+                    disabled={deleting === r.id}
+                    style={{ padding: "3px 8px", backgroundColor: "transparent", border: "1px solid #B22222", borderRadius: 6, color: "#B22222", fontSize: "0.7rem", cursor: deleting === r.id ? "not-allowed" : "pointer", flexShrink: 0, opacity: deleting === r.id ? 0.5 : 1 }}
+                  >
+                    {deleting === r.id ? "…" : "Supprimer"}
+                  </button>
+                </div>
+              ))}
+
+              {/* Ajouter une vidéo */}
+              <input
+                type="text"
+                placeholder="Titre (optionnel)"
+                value={newTitres[cat.key] ?? ""}
+                onChange={(e) => setNewTitres((p) => ({ ...p, [cat.key]: e.target.value }))}
+                style={{ width: "100%", backgroundColor: "#0D0D0D", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "7px 10px", color: "#FFF", fontSize: 12, outline: "none", marginBottom: 4, boxSizing: "border-box" }}
+              />
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  type="url"
+                  placeholder="https://youtube.com/watch?v=..."
+                  value={newUrls[cat.key] ?? ""}
+                  onChange={(e) => setNewUrls((p) => ({ ...p, [cat.key]: e.target.value }))}
+                  style={{ flex: 1, minWidth: 0, backgroundColor: "#0D0D0D", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "7px 10px", color: "#FFF", fontSize: 12, outline: "none" }}
+                />
+                <button
+                  onClick={() => addReplay(cat.key)}
+                  disabled={!!adding[cat.key]}
+                  style={{ backgroundColor: adding[cat.key] ? "#8B1515" : "#B22222", color: "#fff", border: "none", borderRadius: 8, padding: "0 14px", fontSize: 12, fontWeight: 700, cursor: adding[cat.key] ? "not-allowed" : "pointer", flexShrink: 0 }}
+                >
+                  {adding[cat.key] ? "…" : "+ Ajouter"}
+                </button>
+              </div>
+              {msgs[cat.key] && (
+                <p style={{ fontSize: 11, margin: "4px 0 0", color: msgs[cat.key].startsWith("✓") ? "#4ADE80" : "#F87171" }}>{msgs[cat.key]}</p>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 // ─── Filename sanitizer ───────────────────────────────────────────────────────
 
 function sanitizeFilename(name: string): string {
@@ -325,6 +498,8 @@ function ModuleRow({
   }
 
   const pdf2Label = MODULE_PDF2_LABEL[module.slug];
+  const canvaLabel = MODULE_CANVA_LABEL[module.slug];
+  const isVisio = module.slug === "module-8";
 
   return (
     <div style={{ backgroundColor: "#1A1A1A", borderRadius: 12, border: "1px solid #2a2a2a", overflow: "hidden" }}>
@@ -357,8 +532,11 @@ function ModuleRow({
       {/* Contenu dépliable */}
       {isOpen && (
         <div style={{ padding: "0 20px 18px" }}>
-          {/* Champs vidéo */}
-          {module.videoLabels.map((label, i) => (
+          {/* Section Visio de Groupe (module-8) */}
+          {isVisio && <VisioAdminSection />}
+
+          {/* Champs vidéo (pas pour module-8) */}
+          {!isVisio && module.videoLabels.map((label, i) => (
             <div key={i}>
               <div style={{ marginBottom: 14 }}>
                 <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6, letterSpacing: "0.04em" }}>
@@ -423,14 +601,22 @@ function ModuleRow({
             </div>
           ))}
 
-          {/* PDF principal */}
-          <PdfSection
-            label="PDF"
-            slug={module.slug}
-            slot="1"
-            pdfUrl={initialContent?.pdf_url}
-            pdfName={initialContent?.pdf_name}
-          />
+          {/* PDF principal ou lien Canva (pas pour module-8) */}
+          {!isVisio && (canvaLabel ? (
+            <CanvaLinkSection
+              label={canvaLabel}
+              slug={module.slug}
+              initialUrl={initialContent?.lien_canva_equivalences}
+            />
+          ) : (
+            <PdfSection
+              label="PDF"
+              slug={module.slug}
+              slot="1"
+              pdfUrl={initialContent?.pdf_url}
+              pdfName={initialContent?.pdf_name}
+            />
+          ))}
         </div>
       )}
     </div>

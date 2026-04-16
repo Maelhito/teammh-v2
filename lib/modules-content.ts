@@ -16,6 +16,7 @@ export interface ModuleContent {
   pdf_name: string | null;
   pdf_url_2: string | null;
   pdf_name_2: string | null;
+  lien_canva_equivalences: string | null;
 }
 
 export async function getModuleContent(slug: string): Promise<ModuleContent | null> {

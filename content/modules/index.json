@@ -62,13 +62,13 @@
     },
     {
       "slug": "module-8",
-      "title": "Non-oubli",
-      "description": "Les petites choses qu'on oublie souvent mais qui font toute la différence dans ta progression.",
-      "category": "Lifestyle",
+      "title": "Visio de Groupe",
+      "description": "Retrouve tous les replays de tes séances de groupe : Boost Mental, Sport et Stretching.",
+      "category": "Replays",
       "order": 7,
-      "duration": "10 min",
-      "type": "document",
-      "emoji": "📌"
+      "duration": "",
+      "type": "video",
+      "emoji": "🎥"
     }
   ]
 }

@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import ValidateButton from "./ValidateButton";
+import VisioReplaysClient from "./VisioReplaysClient";
 import fs from "fs";
 import path from "path";
 
@@ -205,6 +206,37 @@ export default async function ModulePage({ params }: PageProps) {
         <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 18, padding: "20px 20px 24px" }}>
           <article className="prose-module" dangerouslySetInnerHTML={{ __html: htmlContent }} />
         </div>
+
+        {/* Bouton Canva équivalences (module-3) */}
+        {slug === "module-3" && dbContent?.lien_canva_equivalences && (
+          <a
+            href={dbContent.lien_canva_equivalences}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+              marginTop: 12,
+              padding: "14px 20px",
+              backgroundColor: "#111111",
+              border: "1px solid #3B82F6",
+              borderRadius: 14,
+              color: "#3B82F6",
+              fontSize: "0.9rem",
+              fontWeight: 700,
+              textDecoration: "none",
+              letterSpacing: "0.03em",
+            }}
+          >
+            📋 Voir le guide des équivalences
+          </a>
+        )}
+
+        {/* Accordéon replays Visio de Groupe (module-8) */}
+        {slug === "module-8" && <VisioReplaysClient />}
+
         <ValidateButton slug={slug} initialCompleted={isCompleted} />
       </div>
 
