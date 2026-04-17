@@ -210,14 +210,14 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
           return;
         }
 
-        // 5. Souscrire aux push
+        // 5. Souscrire aux push (la string base64url est acceptée directement)
         let sub: PushSubscription;
         try {
-          const keyBytes = urlBase64ToUint8Array(vapidKey.trim());
-          console.log("[push] applicationServerKey bytes :", keyBytes.length, "(attendu : 65)");
+          const trimmedKey = vapidKey.trim();
+          console.log("[push] applicationServerKey longueur :", trimmedKey.length, "(attendu : 87) | début :", trimmedKey.slice(0, 10));
           sub = await reg.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: keyBytes,
+            applicationServerKey: trimmedKey,
           });
         } catch (subErr) {
           setPushMsg(`Erreur souscription push : ${subErr instanceof Error ? subErr.message : String(subErr)}`);
