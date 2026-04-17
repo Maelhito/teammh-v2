@@ -1,6 +1,7 @@
 import type { ModuleCompletion } from "@/lib/user-profile";
 
-const DELAY_MS = 2 * 60 * 60 * 1000; // 2h
+// Seul délai : 2h entre module 3 et module 4 (index 2→3)
+const DELAY_MODULE4_MS = 2 * 60 * 60 * 1000; // 2h
 
 export interface UnlockStatus {
   slug: string;
@@ -12,6 +13,12 @@ export interface UnlockStatus {
 /**
  * slugs : tableau ordonné de slugs (module-1 en premier)
  * completions : données de module_completions pour cet utilisateur
+ *
+ * Règles :
+ *   i=0,1  → toujours accessible (modules 1 et 2)
+ *   i=2    → accessible quand modules 1 ET 2 validés (module 3)
+ *   i=3    → accessible 2h après validation du module 3 (module 4)
+ *   i≥4    → accessible immédiatement après validation du module précédent
  */
 export function computeUnlockStatuses(
   slugs: string[],
@@ -36,16 +43,18 @@ export function computeUnlockStatuses(
       return { slug, unlocked: done, unlocksAt: null };
     }
 
-    // Modules 4–7 : 2 heures après validation du module précédent
-    const prevCompleted = completedAt[slugs[i - 1]];
-    if (!prevCompleted) {
-      return { slug, unlocked: false, unlocksAt: null };
+    // Module 4 (i=3) : 2 heures après validation du module 3
+    if (i === 3) {
+      const prevCompleted = completedAt[slugs[2]]; // module 3
+      if (!prevCompleted) return { slug, unlocked: false, unlocksAt: null };
+      const unlocksAt = new Date(prevCompleted.getTime() + DELAY_MODULE4_MS);
+      if (now >= unlocksAt) return { slug, unlocked: true, unlocksAt: null };
+      return { slug, unlocked: false, unlocksAt: unlocksAt.toISOString() };
     }
 
-    const unlocksAt = new Date(prevCompleted.getTime() + DELAY_MS);
-    if (now >= unlocksAt) {
-      return { slug, unlocked: true, unlocksAt: null };
-    }
-    return { slug, unlocked: false, unlocksAt: unlocksAt.toISOString() };
+    // Modules 5-8 (i≥4) : immédiatement après validation du module précédent
+    const prevCompleted = completedAt[slugs[i - 1]];
+    if (!prevCompleted) return { slug, unlocked: false, unlocksAt: null };
+    return { slug, unlocked: true, unlocksAt: null };
   });
 }
