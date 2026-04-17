@@ -186,6 +186,7 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
 
         // 2. Vérifier la clé VAPID
         const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        console.log("[push] VAPID key présente :", !!vapidKey, "| longueur :", vapidKey?.length, "| début :", vapidKey?.slice(0, 10));
         if (!vapidKey) {
           setPushMsg("Erreur config : clé VAPID manquante (NEXT_PUBLIC_VAPID_PUBLIC_KEY)");
           return;
@@ -212,9 +213,11 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
         // 5. Souscrire aux push
         let sub: PushSubscription;
         try {
+          const keyBytes = urlBase64ToUint8Array(vapidKey.trim());
+          console.log("[push] applicationServerKey bytes :", keyBytes.length, "(attendu : 65)");
           sub = await reg.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(vapidKey),
+            applicationServerKey: keyBytes,
           });
         } catch (subErr) {
           setPushMsg(`Erreur souscription push : ${subErr instanceof Error ? subErr.message : String(subErr)}`);
@@ -255,13 +258,14 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
     }
   }
 
-  function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
+  // Convertit une clé VAPID base64url → Uint8Array (ArrayBufferView requis par pushManager)
+  function urlBase64ToUint8Array(base64String: string): Uint8Array {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
     const rawData = atob(base64);
     const arr = new Uint8Array(rawData.length);
     for (let i = 0; i < rawData.length; i++) arr[i] = rawData.charCodeAt(i);
-    return arr.buffer;
+    return arr; // Uint8Array, pas arr.buffer — requis par certains navigateurs/Safari
   }
 
   async function handleSave() {
