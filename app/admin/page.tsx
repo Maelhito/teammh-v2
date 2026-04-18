@@ -7,6 +7,7 @@ import { getModules } from "@/lib/modules";
 import { getAllModulesContent } from "@/lib/modules-content";
 import InviteForm from "./InviteForm";
 import ClientsTable, { type ClientData } from "./ClientsTable";
+import TeamAdmin from "./TeamAdmin";
 import ModuleManager, { type ModuleWithVideos } from "./ModuleManager";
 import SendNotificationForm from "./SendNotificationForm";
 import CalendrierAdmin from "./CalendrierAdmin";
@@ -142,6 +143,8 @@ export default async function AdminPage() {
       </div>
 
       <ClientsTable initialClients={clients} fetchError={clientsError} />
+
+      <TeamAdmin />
 
       <ModuleManager modules={modulesWithVideos} initialContent={modulesContent} />
 

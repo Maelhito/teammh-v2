@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface CalendarEvent {
   id: string;
@@ -16,6 +16,14 @@ interface CalendarEvent {
   event_type: "coach" | "nutrition" | "coaching_groupe" | null;
   user_id: string | null;
   target_user_id: string | null;
+  team_member_id: string | null;
+}
+
+interface TeamMember {
+  id: string;
+  nom: string;
+  titre: string;
+  lien_zoom: string | null;
 }
 
 interface Props {
@@ -86,9 +94,26 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
     rappel: false,
     rappel_minutes: 0,
     event_type: "",
+    team_member_id: null as string | null,
   });
   const [saving, setSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+
+  // Équipe
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [coachId, setCoachId] = useState<string | null>(null);
+  const [nutritionId, setNutritionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/team")
+      .then((r) => r.json())
+      .then((d) => {
+        setTeamMembers(d.members ?? []);
+        setCoachId(d.coach_id ?? null);
+        setNutritionId(d.nutrition_id ?? null);
+      })
+      .catch(() => {});
+  }, []);
 
   // Delete state
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -128,7 +153,7 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
         const { event } = await res.json();
         setEvents((prev) => [...prev, event]);
         setShowAddModal(false);
-        setForm({ titre: "", date: toLocalDate(todayRaw), heure: "", recurrence: "none", message: "", rappel: false, rappel_minutes: 0, event_type: "" });
+        setForm({ titre: "", date: toLocalDate(todayRaw), heure: "", recurrence: "none", message: "", rappel: false, rappel_minutes: 0, event_type: "", team_member_id: null });
       } else {
         const { error } = await res.json().catch(() => ({ error: "Erreur inconnue" }));
         setAddError(error ?? "Erreur");
@@ -338,6 +363,21 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                     → Voir le lien
                   </a>
                 )}
+                {evt.team_member_id && (() => {
+                  const member = teamMembers.find((m) => m.id === evt.team_member_id);
+                  if (!member) return null;
+                  return (
+                    <div style={{ marginTop: 6, padding: "6px 8px", backgroundColor: "#1a1a1a", borderRadius: 6 }}>
+                      <p style={{ margin: 0, fontSize: "0.78rem", fontWeight: 700, color: "#F5F5F0" }}>{member.nom}</p>
+                      <p style={{ margin: 0, fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>{member.titre}</p>
+                      {member.lien_zoom && (
+                        <a href={member.lien_zoom} target="_blank" rel="noopener noreferrer" style={{ fontSize: "0.75rem", color: "#3B82F6", display: "block", marginTop: 3 }}>
+                          Rejoindre Zoom →
+                        </a>
+                      )}
+                    </div>
+                  );
+                })()}
                 {evt.recurrence !== "none" && (
                   <span style={{ fontSize: "0.68rem", color: "#555", marginTop: 4, display: "block" }}>
                     {RECURRENCE_LABELS[evt.recurrence] ?? evt.recurrence}
@@ -439,10 +479,10 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
               {/* Sélecteur de type */}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {[
-                  { type: "coaching_groupe", label: "🔵 Coaching de Groupe", color: "#3B82F6", titre: "Coaching de Groupe" },
-                  { type: "coach", label: "🔴 Coach", color: "#B22222", titre: "" },
-                  { type: "nutrition", label: "🟢 Nutrition", color: "#22C55E", titre: "" },
-                ].map(({ type, label, color, titre }) => (
+                  { type: "coaching_groupe", label: "🔵 Coaching de Groupe", color: "#3B82F6", titre: "Coaching de Groupe", memberId: null as string | null },
+                  { type: "coach", label: "🔴 Coach", color: "#B22222", titre: "", memberId: coachId },
+                  { type: "nutrition", label: "🟢 Nutrition", color: "#22C55E", titre: "", memberId: nutritionId },
+                ].map(({ type, label, color, titre, memberId }) => (
                   <button
                     key={type}
                     type="button"
@@ -450,6 +490,7 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                       ...f,
                       event_type: type,
                       titre: titre || f.titre,
+                      team_member_id: memberId,
                     }))}
                     style={{
                       padding: "5px 10px",
@@ -466,6 +507,35 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                   </button>
                 ))}
               </div>
+
+              {/* Infos coach/nutritionniste automatiques */}
+              {(() => {
+                const memberId = form.team_member_id;
+                if (!memberId) return null;
+                const member = teamMembers.find((m) => m.id === memberId);
+                if (!member) return null;
+                return (
+                  <div style={{
+                    padding: "8px 12px",
+                    backgroundColor: "#0D0D0D",
+                    borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#F5F5F0" }}>{member.nom}</p>
+                    <p style={{ margin: "1px 0 0", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{member.titre}</p>
+                    {member.lien_zoom && (
+                      <a
+                        href={member.lien_zoom}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: 12, color: "#3B82F6", display: "block", marginTop: 4 }}
+                      >
+                        Rejoindre Zoom →
+                      </a>
+                    )}
+                  </div>
+                );
+              })()}
               <input
                 type="text"
                 placeholder="Nom de l'événement"

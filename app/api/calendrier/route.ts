@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { titre, date, heure, recurrence, message, rappel, rappel_minutes, event_type } = body;
+  const { titre, date, heure, recurrence, message, rappel, rappel_minutes, event_type, team_member_id } = body;
 
   if (!titre || !date) {
     return NextResponse.json({ error: "Titre et date requis" }, { status: 400 });
@@ -25,6 +25,9 @@ export async function POST(request: NextRequest) {
   const resolvedEventType = validEventTypes.includes(event_type) ? event_type : "coach";
 
   const rappelMinutes = typeof rappel_minutes === "number" ? rappel_minutes : 0;
+
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const resolvedTeamMemberId = (team_member_id && uuidRe.test(team_member_id)) ? team_member_id : null;
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
@@ -41,6 +44,7 @@ export async function POST(request: NextRequest) {
       rappel_minutes: rappelMinutes,
       created_by: "cliente",
       event_type: resolvedEventType,
+      team_member_id: resolvedTeamMemberId,
     })
     .select()
     .single();

@@ -1,8 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { UserProfile, ProgrammeType, ProgrammeDuree } from "@/lib/user-profile";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+
+interface TeamMember {
+  id: string;
+  nom: string;
+  titre: string;
+  lien_zoom: string | null;
+}
 
 interface Props {
   initialProfile: UserProfile | null;
@@ -158,6 +165,13 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
   const [pushLoading, setPushLoading] = useState(true);
   const [pushMsg, setPushMsg] = useState("");
 
+  // Équipe
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [coachId, setCoachId] = useState<string | null>(null);
+  const [nutritionId, setNutritionId] = useState<string | null>(null);
+  const [teamLoading, setTeamLoading] = useState(true);
+  const [teamMsg, setTeamMsg] = useState("");
+
   useEffect(() => {
     // Vérifier l'état actuel de la subscription
     fetch("/api/push/subscribe")
@@ -167,6 +181,18 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
       })
       .catch(() => {})
       .finally(() => setPushLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/team")
+      .then((r) => r.json())
+      .then((d) => {
+        setTeamMembers(d.members ?? []);
+        setCoachId(d.coach_id ?? null);
+        setNutritionId(d.nutrition_id ?? null);
+      })
+      .catch(() => {})
+      .finally(() => setTeamLoading(false));
   }, []);
 
   async function handlePushToggle(checked: boolean) {
@@ -267,6 +293,27 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
     for (let i = 0; i < rawData.length; i++) arr[i] = rawData.charCodeAt(i);
     return arr; // Uint8Array, pas arr.buffer — requis par certains navigateurs/Safari
   }
+
+  const handleChooseTeamMember = useCallback(async (field: "coach_id" | "nutrition_id", id: string) => {
+    setTeamMsg("");
+    try {
+      const res = await fetch("/api/profil/team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: id }),
+      });
+      if (res.ok) {
+        if (field === "coach_id") setCoachId(id);
+        else setNutritionId(id);
+        setTeamMsg("✓ Sauvegardé");
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setTeamMsg(d.error ?? "Erreur");
+      }
+    } catch {
+      setTeamMsg("Erreur réseau");
+    }
+  }, []);
 
   async function handleSave() {
     setSaving(true);
@@ -441,6 +488,87 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
       <Section title="OBJECTIFS 12 MOIS">
         <Field label="OBJECTIF POIDS" value={obj12Poids} onChange={setObj12Poids} placeholder="ex: Atteindre mon poids de forme" />
         <Field label="OBJECTIF BIEN-ÊTRE" value={obj12Bienetre} onChange={setObj12Bienetre} placeholder="ex: Une relation saine avec la nourriture" />
+      </Section>
+
+      {/* Mon équipe */}
+      <Section title="👥 MON ÉQUIPE">
+        {teamLoading ? (
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0 }}>Chargement...</p>
+        ) : teamMembers.length === 0 ? (
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0, fontStyle: "italic" }}>
+            Ton équipe n&apos;est pas encore configurée.
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {[
+              { role: "🔴 Coach", field: "coach_id" as const, currentId: coachId },
+              { role: "🟢 Nutritionniste", field: "nutrition_id" as const, currentId: nutritionId },
+            ].map(({ role, field, currentId }) => {
+              const chosen = currentId ? teamMembers.find((m) => m.id === currentId) : null;
+              return (
+                <div key={field}>
+                  <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", margin: "0 0 6px", letterSpacing: "0.04em" }}>
+                    {role}
+                  </p>
+                  {chosen ? (
+                    <div style={{
+                      padding: "10px 12px",
+                      backgroundColor: "#0D0D0D",
+                      borderRadius: 10,
+                      border: "1px solid rgba(255,255,255,0.08)",
+                    }}>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "#F5F5F0" }}>{chosen.nom}</p>
+                      <p style={{ margin: "2px 0 0", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{chosen.titre}</p>
+                      {chosen.lien_zoom && (
+                        <a
+                          href={chosen.lien_zoom}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontSize: 12, color: "#3B82F6", display: "block", marginTop: 4 }}
+                        >
+                          Rejoindre Zoom →
+                        </a>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {teamMembers.map((m) => (
+                        <button
+                          key={m.id}
+                          onClick={() => handleChooseTeamMember(field, m.id)}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "9px 12px",
+                            backgroundColor: "#0D0D0D",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                            borderRadius: 10,
+                            cursor: "pointer",
+                            textAlign: "left",
+                          }}
+                        >
+                          <div>
+                            <p style={{ margin: 0, fontWeight: 600, fontSize: 13, color: "#F5F5F0" }}>{m.nom}</p>
+                            <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{m.titre}</p>
+                          </div>
+                          <span style={{ fontSize: 11, color: "#B22222", fontWeight: 700, letterSpacing: "0.04em" }}>
+                            Choisir
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {teamMsg && (
+              <p style={{ fontSize: 12, color: teamMsg.startsWith("✓") ? "#4ADE80" : "#F87171", margin: 0 }}>
+                {teamMsg}
+              </p>
+            )}
+          </div>
+        )}
       </Section>
 
       {/* Bouton sauvegarder */}
