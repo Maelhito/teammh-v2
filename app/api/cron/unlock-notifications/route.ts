@@ -33,12 +33,12 @@ export async function GET(request: NextRequest) {
     calendarRappelSent: 0,
   };
 
-  // ── Midnight only ──────────────────────────────────────────────────────────
-  if (hourUTC === 0) {
+  // ── 21h UTC = 8h NC (Pacific/Noumea UTC+11) ───────────────────────────────
+  if (hourUTC === 21) {
     results.moduleUnlockSent = await runModuleUnlockNotifications(logs);
     results.calendarVeilleSent = await runCalendarVeilleReminders(logs);
   } else {
-    logs.push("[cron] heure ≠ 0 — skip module unlock + veille reminders");
+    logs.push("[cron] heure ≠ 21 — skip module unlock + veille reminders");
   }
 
   // ── Every 30 min ───────────────────────────────────────────────────────────
@@ -102,7 +102,10 @@ async function runModuleUnlockNotifications(logs: string[]): Promise<number> {
 async function runCalendarVeilleReminders(logs: string[]): Promise<number> {
   const admin = createSupabaseAdminClient();
 
-  const tomorrow = new Date();
+  // Calcul en heure NC (UTC+11) pour que "demain" soit correct côté clientes
+  const NC_OFFSET_MS = 11 * 60 * 60 * 1000;
+  const nowNC = new Date(Date.now() + NC_OFFSET_MS);
+  const tomorrow = new Date(nowNC);
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
   const tomorrowStr = tomorrow.toISOString().slice(0, 10);
   const tomorrowDay = tomorrow.getUTCDay();
@@ -161,12 +164,15 @@ async function runCalendarVeilleReminders(logs: string[]): Promise<number> {
 async function runCalendarRappelMinutes(now: Date, logs: string[]): Promise<number> {
   const admin = createSupabaseAdminClient();
 
-  const todayStr = now.toISOString().slice(0, 10);
-  const todayDay = now.getUTCDay();
-  const todayDayOfMonth = now.getUTCDate();
-  const nowMinutes = now.getUTCHours() * 60 + now.getUTCMinutes(); // minutes depuis minuit UTC
+  // Conversion en heure NC (UTC+11) — les événements sont saisis en heure locale NC
+  const NC_OFFSET_MS = 11 * 60 * 60 * 1000;
+  const nowNC = new Date(now.getTime() + NC_OFFSET_MS);
+  const todayStr = nowNC.toISOString().slice(0, 10);
+  const todayDay = nowNC.getUTCDay();
+  const todayDayOfMonth = nowNC.getUTCDate();
+  const nowMinutes = nowNC.getUTCHours() * 60 + nowNC.getUTCMinutes(); // minutes depuis minuit NC
 
-  logs.push(`[rappel] now=${todayStr} ${now.toISOString().slice(11, 16)} UTC (min depuis minuit=${nowMinutes})`);
+  logs.push(`[rappel] nowNC=${todayStr} ${nowNC.toISOString().slice(11, 16)} NC (min depuis minuit NC=${nowMinutes})`);
 
   // Récupère tous les événements ayant un rappel_minutes > 0 et une heure définie
   const { data: events, error } = await admin
