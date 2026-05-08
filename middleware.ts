@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 const ADMIN_EMAIL = "mael.ld@hotmail.fr";
 
 // Routes accessibles sans session — vérifiées en premier, sans appel réseau
-const PUBLIC_PATHS = ["/login", "/auth/confirm", "/auth/set-password", "/acces-suspendu"];
+const PUBLIC_PATHS = ["/login", "/auth/confirm", "/auth/set-password", "/acces-suspendu", "/inscription"];
 
 // Routes protégées pour les clientes (vérification statut)
 const CLIENT_PROTECTED = ["/dashboard", "/profil", "/modules", "/calendrier"];
@@ -42,17 +42,28 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   const isAdmin = user?.email === ADMIN_EMAIL;
 
-  // Non connecté → /login
-  if (!user && (pathname.startsWith("/dashboard") || pathname.startsWith("/admin") || pathname.startsWith("/profil") || pathname.startsWith("/modules") || pathname.startsWith("/calendrier"))) {
+  function redirect(to: string) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    const redirectResponse = NextResponse.redirect(url);
-    response.cookies.getAll().forEach((c) => redirectResponse.cookies.set(c.name, c.value));
-    return redirectResponse;
+    url.pathname = to;
+    const r = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((c) => r.cookies.set(c.name, c.value));
+    return r;
   }
 
-  // Vérification statut pour les clientes sur les routes protégées
-  if (user && !isAdmin && CLIENT_PROTECTED.some((p) => pathname.startsWith(p))) {
+  // Non connecté → /login
+  const PROTECTED = ["/dashboard", "/admin", "/profil", "/modules", "/calendrier", "/coach"];
+  if (!user && PROTECTED.some((p) => pathname.startsWith(p))) {
+    return redirect("/login");
+  }
+
+  if (!user) return response;
+
+  // Rôle depuis user_metadata (aucun appel DB supplémentaire)
+  const role = (user.user_metadata?.role ?? "cliente") as string;
+  const isCoach = role === "coach";
+
+  // Vérification statut pour les clientes
+  if (!isAdmin && !isCoach && CLIENT_PROTECTED.some((p) => pathname.startsWith(p))) {
     const profileRes = await fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${user.id}&select=statut`,
       {
@@ -64,34 +75,23 @@ export async function middleware(request: NextRequest) {
     );
     const [profile] = await profileRes.json().catch(() => [null]);
     const statut = profile?.statut ?? "active";
-
-    if (statut === "pause" || statut === "terminee") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/acces-suspendu";
-      const redirectResponse = NextResponse.redirect(url);
-      response.cookies.getAll().forEach((c) => redirectResponse.cookies.set(c.name, c.value));
-      return redirectResponse;
-    }
+    if (statut === "pause" || statut === "terminee") return redirect("/acces-suspendu");
   }
 
-  // Admin sur /dashboard → /admin (sauf si ?preview=1)
+  // Redirection post-login selon rôle (/dashboard → destination finale)
   const isPreview = request.nextUrl.searchParams.get("preview") === "1";
-  if (user && isAdmin && pathname.startsWith("/dashboard") && !isPreview) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/admin";
-    const redirectResponse = NextResponse.redirect(url);
-    response.cookies.getAll().forEach((c) => redirectResponse.cookies.set(c.name, c.value));
-    return redirectResponse;
+  if (pathname.startsWith("/dashboard") && !isPreview) {
+    if (isAdmin) return redirect("/admin");
+    if (isCoach) return redirect("/coach");
   }
 
-  // Cliente sur /admin → /dashboard
-  if (user && !isAdmin && pathname.startsWith("/admin")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    const redirectResponse = NextResponse.redirect(url);
-    response.cookies.getAll().forEach((c) => redirectResponse.cookies.set(c.name, c.value));
-    return redirectResponse;
+  // Protection /coach → uniquement coach ou admin
+  if (pathname.startsWith("/coach")) {
+    if (!isCoach && !isAdmin) return redirect("/dashboard");
   }
+
+  // Protection /admin → uniquement admin
+  if (pathname.startsWith("/admin") && !isAdmin) return redirect("/dashboard");
 
   return response;
 }

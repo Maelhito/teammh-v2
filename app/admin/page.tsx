@@ -6,7 +6,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getModules } from "@/lib/modules";
 import { getAllModulesContent } from "@/lib/modules-content";
 import InviteForm from "./InviteForm";
-import ClientsTable, { type ClientData } from "./ClientsTable";
+import RolesTable from "./RolesTable";
+import ClientsTable, { type ClientData, type TeamMember } from "./ClientsTable";
 import TeamAdmin from "./TeamAdmin";
 import ModuleManager, { type ModuleWithVideos } from "./ModuleManager";
 import SendNotificationForm from "./SendNotificationForm";
@@ -74,7 +75,7 @@ async function fetchClients(): Promise<FetchResult> {
   try {
     const admin = createSupabaseAdminClient();
     const [{ data: profiles, error: profilesError }, { data: completions }] = await Promise.all([
-      admin.from("user_profiles").select("user_id, prenom, nom, statut, date_demarrage, acces_app, programme_type, programme_duree").in("user_id", clientIds),
+      admin.from("user_profiles").select("user_id, prenom, nom, statut, date_demarrage, acces_app, programme_type, programme_duree, coach_id, nutrition_id").in("user_id", clientIds),
       admin.from("module_completions").select("user_id").in("user_id", clientIds),
     ]);
 
@@ -103,6 +104,8 @@ async function fetchClients(): Promise<FetchResult> {
         acces_app: profileMap[u.id]?.acces_app ?? true,
         programme_type: (profileMap[u.id]?.programme_type ?? "N1") as "N1" | "N2",
         programme_duree: (profileMap[u.id]?.programme_duree ?? "16_semaines") as "16_semaines" | "6_mois" | "12_mois",
+        coach_id: profileMap[u.id]?.coach_id ?? null,
+        nutrition_id: profileMap[u.id]?.nutrition_id ?? null,
       })),
       error: null,
     };
@@ -117,9 +120,11 @@ export default async function AdminPage() {
   const { data: { session } } = await supabase.auth.getSession();
 
   const modules = getModules();
-  const [modulesContent, { clients, error: clientsError }] = await Promise.all([
+  const admin = createSupabaseAdminClient();
+  const [modulesContent, { clients, error: clientsError }, { data: teamMembers }] = await Promise.all([
     getAllModulesContent(),
     fetchClients(),
+    admin.from("team_members").select("id, nom, titre, role").order("created_at", { ascending: true }),
   ]);
 
   const modulesWithVideos: ModuleWithVideos[] = modules.map((m) => ({
@@ -142,7 +147,7 @@ export default async function AdminPage() {
         🔴 DEBUG — {clients.length} cliente(s) | erreur: {clientsError ?? "aucune"} | v2
       </div>
 
-      <ClientsTable initialClients={clients} fetchError={clientsError} />
+      <ClientsTable initialClients={clients} fetchError={clientsError} teamMembers={teamMembers ?? []} />
 
       <TeamAdmin />
 
@@ -151,6 +156,8 @@ export default async function AdminPage() {
       <SendNotificationForm />
 
       <CalendrierAdmin clients={clients.map((c) => ({ id: c.id, email: c.email, prenom: c.prenom, nom: c.nom }))} />
+
+      <RolesTable />
 
       <Link
         href="/dashboard?preview=1"
