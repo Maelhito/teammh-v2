@@ -40,6 +40,8 @@ export interface SeanceForm {
   tabata_rest_default: string;
   // EMOM
   emom_total: string;
+  emom_interval_min: string;
+  emom_interval_sec: string;
 }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -159,12 +161,14 @@ function ForTimeTimer() {
 }
 
 // ─── Chrono EMOM ─────────────────────────────────────────────────────────────
-function EmomTimer({ totalMinutes }: { totalMinutes: number }) {
+function EmomTimer({ totalMinutes, intervalSeconds }: { totalMinutes: number; intervalSeconds: number }) {
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const interval = Math.max(intervalSeconds, 1);
   const total = totalMinutes * 60;
+  const totalRounds = Math.floor(total / interval);
 
-  useEffect(() => { setRunning(false); setElapsed(0); }, [totalMinutes]);
+  useEffect(() => { setRunning(false); setElapsed(0); }, [totalMinutes, intervalSeconds]);
 
   useEffect(() => {
     if (!running || elapsed >= total) return;
@@ -172,23 +176,29 @@ function EmomTimer({ totalMinutes }: { totalMinutes: number }) {
     return () => clearTimeout(t);
   }, [running, elapsed, total]);
 
-  const currentMinute = Math.floor(elapsed / 60) + 1;
-  const secInMinute = elapsed % 60;
-  const remaining = 60 - secInMinute;
+  const currentRound = Math.floor(elapsed / interval) + 1;
+  const secInInterval = elapsed % interval;
+  const remaining = interval - secInInterval;
+  const remainingMin = Math.floor(remaining / 60);
+  const remainingSec = remaining % 60;
 
   return (
     <div style={{ backgroundColor: "#1a1a1a", borderRadius: 12, padding: "16px 20px", border: "1px solid #2a2a2a" }}>
-      <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 10px", fontFamily: "system-ui" }}>EMOM — Minute {Math.min(currentMinute, totalMinutes)} / {totalMinutes}</p>
+      <p style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 10px", fontFamily: "system-ui" }}>
+        EMOM — Round {Math.min(currentRound, totalRounds)} / {totalRounds} · Intervalle {interval >= 60 ? `${Math.floor(interval/60)}min${interval%60>0?` ${interval%60}s`:""}` : `${interval}s`}
+      </p>
       <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
         <div>
           <p style={{ fontSize: 11, color: "#444", margin: "0 0 2px", fontFamily: "system-ui" }}>Prochain round dans</p>
-          <p style={{ fontSize: 36, fontWeight: 800, color: remaining <= 10 ? "#EF4444" : "#60A5FA", margin: 0, fontFamily: "system-ui" }}>:{String(remaining).padStart(2,"0")}</p>
+          <p style={{ fontSize: 36, fontWeight: 800, color: remaining <= 10 ? "#EF4444" : "#60A5FA", margin: 0, fontFamily: "system-ui" }}>
+            {remainingMin > 0 ? `${remainingMin}:${String(remainingSec).padStart(2,"0")}` : `:${String(remainingSec).padStart(2,"0")}`}
+          </p>
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ height: 6, backgroundColor: "#2a2a2a", borderRadius: 99, overflow: "hidden", marginBottom: 4 }}>
             <div style={{ height: "100%", width: `${(elapsed/total)*100}%`, backgroundColor: "#3B82F6", transition: "width 1s linear", borderRadius: 99 }} />
           </div>
-          <p style={{ fontSize: 10, color: "#444", margin: 0, fontFamily: "system-ui" }}>{Math.floor(elapsed/60)} / {totalMinutes} min</p>
+          <p style={{ fontSize: 10, color: "#444", margin: 0, fontFamily: "system-ui" }}>{Math.floor(elapsed/60)} / {totalMinutes} min écoulées</p>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <button onClick={() => setRunning(r => !r)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: running ? "#555" : "#3B82F6", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>
@@ -218,9 +228,14 @@ function FormatConfig({ form, onChange }: { form: SeanceForm; onChange: (k: keyo
 
   if (form.type_format === "emom") return (
     <div style={{ marginBottom: 14 }}>
-      <EmomTimer totalMinutes={parseInt(form.emom_total) || 10} />
-      <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center" }}>
-        <div><label style={lbl}>Durée totale EMOM (min)</label><input style={inp} type="number" value={form.emom_total} onChange={e => onChange("emom_total", e.target.value)} /></div>
+      <EmomTimer
+        totalMinutes={parseInt(form.emom_total) || 10}
+        intervalSeconds={(parseInt(form.emom_interval_min) || 1) * 60 + (parseInt(form.emom_interval_sec) || 0)}
+      />
+      <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <div><label style={lbl}>Durée totale (min)</label><input style={inp} type="number" min="1" value={form.emom_total} onChange={e => onChange("emom_total", e.target.value)} /></div>
+        <div><label style={lbl}>Intervalle — min</label><input style={inp} type="number" min="0" value={form.emom_interval_min} onChange={e => onChange("emom_interval_min", e.target.value)} /></div>
+        <div><label style={lbl}>Intervalle — sec</label><input style={inp} type="number" min="0" max="59" value={form.emom_interval_sec} onChange={e => onChange("emom_interval_sec", e.target.value)} /></div>
       </div>
     </div>
   );

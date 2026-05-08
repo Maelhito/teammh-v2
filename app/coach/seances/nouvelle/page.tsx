@@ -6,7 +6,8 @@ import SeanceBuilder, { FORMATS, type SeanceItem, type SeanceForm } from "../Sea
 
 const DEFAULT_FORM: SeanceForm = {
   nom: "", type_format: "classique", duree_estimee: "20",
-  description: "", tabata_work_default: "20", tabata_rest_default: "10", emom_total: "10",
+  description: "", tabata_work_default: "20", tabata_rest_default: "10",
+  emom_total: "10", emom_interval_min: "1", emom_interval_sec: "0",
 };
 
 export default function NouvelleSeancePage() {

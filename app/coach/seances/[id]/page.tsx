@@ -9,7 +9,8 @@ export default function SeanceDetailPage() {
   const { id } = useParams() as { id: string };
   const [form, setForm] = useState<SeanceForm>({
     nom: "", type_format: "classique", duree_estimee: "20",
-    description: "", tabata_work_default: "20", tabata_rest_default: "10", emom_total: "10",
+    description: "", tabata_work_default: "20", tabata_rest_default: "10",
+    emom_total: "10", emom_interval_min: "1", emom_interval_sec: "0",
   });
   const [items, setItems] = useState<SeanceItem[]>([]);
   const [loading, setLoading] = useState(true);
