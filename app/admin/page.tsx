@@ -1,181 +1,128 @@
 import Link from "next/link";
-import fs from "fs";
-import path from "path";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getModules } from "@/lib/modules";
-import { getAllModulesContent } from "@/lib/modules-content";
-import InviteForm from "./InviteForm";
-import RolesTable from "./RolesTable";
-import ClientsTable, { type ClientData, type TeamMember } from "./ClientsTable";
-import TeamAdmin from "./TeamAdmin";
-import ModuleManager, { type ModuleWithVideos } from "./ModuleManager";
-import SendNotificationForm from "./SendNotificationForm";
-import CalendrierAdmin from "./CalendrierAdmin";
 
 export const dynamic = "force-dynamic";
 
 const ADMIN_EMAIL = "mael.ld@hotmail.fr";
 
-function parseVideoLabels(slug: string): string[] {
-  const filePath = path.join(process.cwd(), "content", "modules", `${slug}.mdx`);
-  if (!fs.existsSync(filePath)) return [];
-  const lines = fs.readFileSync(filePath, "utf-8").split("\n");
-  return lines
-    .filter((l) => l.startsWith("VIDEO:: ") && l.endsWith("| #"))
-    .map((l) => l.slice(8).split(" | ")[0]?.trim() ?? "Vidéo");
-}
-
-interface FetchResult {
-  clients: ClientData[];
-  error: string | null;
-}
-
-async function fetchClients(): Promise<FetchResult> {
+async function getStats() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) return null;
 
-  // Diagnostic : variable d'env manquante
-  if (!serviceKey) {
-    console.error("[admin] SUPABASE_SERVICE_ROLE_KEY manquante dans les variables d'environnement Vercel");
-    return { clients: [], error: "SUPABASE_SERVICE_ROLE_KEY non configurée. Ajoute-la dans les variables d'environnement Vercel." };
-  }
-
-  // Fetch REST direct vers l'API Auth Supabase (évite auth.admin.listUsers)
-  let authUsers: { id: string; email?: string; created_at: string }[] = [];
-  try {
-    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=500`, {
-      headers: {
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-      },
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      const body = await res.text();
-      console.error("[admin] Auth API error:", res.status, body);
-      return { clients: [], error: `Erreur API Auth (${res.status}): ${body.slice(0, 120)}` };
-    }
-
-    const json = await res.json();
-    // Supabase retourne { users: [...] } ou directement un tableau selon la version
-    authUsers = json.users ?? json ?? [];
-  } catch (err) {
-    console.error("[admin] Fetch auth users exception:", err);
-    return { clients: [], error: `Exception lors du fetch des utilisateurs: ${String(err)}` };
-  }
-
-  const clients = authUsers.filter((u) => u.email !== ADMIN_EMAIL);
-  if (!clients.length) return { clients: [], error: null };
-
-  const clientIds = clients.map((u) => u.id);
-  const totalModules = getModules().length;
+  const admin = createSupabaseAdminClient();
 
   try {
-    const admin = createSupabaseAdminClient();
-    const [{ data: profiles, error: profilesError }, { data: completions }] = await Promise.all([
-      admin.from("user_profiles").select("user_id, prenom, nom, statut, date_demarrage, acces_app, programme_type, programme_duree, coach_id, nutrition_id").in("user_id", clientIds),
-      admin.from("module_completions").select("user_id").in("user_id", clientIds),
+    const [authRes, profilesRes, completionsRes] = await Promise.all([
+      fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=500`, {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+        cache: "no-store",
+      }),
+      admin.from("user_profiles").select("user_id, statut, acces_app, date_demarrage"),
+      admin.from("module_completions").select("user_id"),
     ]);
 
-    if (profilesError) {
-      console.error("[admin] user_profiles query error:", profilesError.message);
-      // On continue sans profils — au moins les emails s'affichent
-    }
+    const json = await authRes.json();
+    const allUsers: { id: string; email?: string; created_at: string }[] = json.users ?? json ?? [];
+    const clients = allUsers.filter((u) => u.email !== ADMIN_EMAIL);
 
-    const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.user_id, p]));
-    const completionCount: Record<string, number> = {};
-    for (const c of completions ?? []) {
-      completionCount[c.user_id] = (completionCount[c.user_id] ?? 0) + 1;
-    }
+    const profiles = profilesRes.data ?? [];
+    const actives = profiles.filter((p) => p.statut === "active" && p.acces_app).length;
+    const enAttente = profiles.filter((p) => !p.acces_app).length;
+
+    // Nouvelles inscriptions cette semaine
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const newThisWeek = clients.filter((u) => new Date(u.created_at) > weekAgo).length;
+
+    const completions = completionsRes.data ?? [];
+    const totalModules = getModules().length;
 
     return {
-      clients: clients.map((u) => ({
-        id: u.id,
-        email: u.email ?? "",
-        created_at: u.created_at,
-        prenom: profileMap[u.id]?.prenom ?? null,
-        nom: profileMap[u.id]?.nom ?? null,
-        statut: (profileMap[u.id]?.statut ?? "active") as "active" | "pause" | "terminee",
-        date_demarrage: profileMap[u.id]?.date_demarrage ?? null,
-        completedCount: completionCount[u.id] ?? 0,
-        totalModules,
-        acces_app: profileMap[u.id]?.acces_app ?? true,
-        programme_type: (profileMap[u.id]?.programme_type ?? "N1") as "N1" | "N2",
-        programme_duree: (profileMap[u.id]?.programme_duree ?? "16_semaines") as "16_semaines" | "6_mois" | "12_mois",
-        coach_id: profileMap[u.id]?.coach_id ?? null,
-        nutrition_id: profileMap[u.id]?.nutrition_id ?? null,
-      })),
-      error: null,
+      totalClients: clients.length,
+      actives,
+      enAttente,
+      newThisWeek,
+      totalCompletions: completions.length,
+      totalModules,
     };
-  } catch (err) {
-    console.error("[admin] DB query exception:", err);
-    return { clients: [], error: `Erreur base de données: ${String(err)}` };
+  } catch {
+    return null;
   }
 }
 
-export default async function AdminPage() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
+export default async function AdminDashboardPage() {
+  const stats = await getStats();
 
-  const modules = getModules();
-  const admin = createSupabaseAdminClient();
-  const [modulesContent, { clients, error: clientsError }, { data: teamMembers }] = await Promise.all([
-    getAllModulesContent(),
-    fetchClients(),
-    admin.from("team_members").select("id, nom, titre, role").order("created_at", { ascending: true }),
-  ]);
+  const statCards = [
+    { label: "Clientes au total",     value: stats?.totalClients ?? "—",   color: "#F5F5F0", bg: "#161616", border: "#222" },
+    { label: "Actives avec accès",    value: stats?.actives ?? "—",        color: "#4ADE80", bg: "rgba(74,222,128,0.06)", border: "rgba(74,222,128,0.2)" },
+    { label: "Sans accès app",        value: stats?.enAttente ?? "—",      color: "#F87171", bg: "rgba(248,113,113,0.06)", border: "rgba(248,113,113,0.2)" },
+    { label: "Nouvelles cette semaine",value: stats?.newThisWeek ?? "—",   color: "#60A5FA", bg: "rgba(96,165,250,0.06)", border: "rgba(96,165,250,0.2)" },
+    { label: "Modules complétés",     value: stats?.totalCompletions ?? "—", color: "#A78BFA", bg: "rgba(167,139,250,0.06)", border: "rgba(167,139,250,0.2)" },
+  ];
 
-  const modulesWithVideos: ModuleWithVideos[] = modules.map((m) => ({
-    ...m,
-    videoLabels: parseVideoLabels(m.slug),
-  }));
+  const quickLinks = [
+    { href: "/admin/clientes",      icon: "👥", label: "Gérer les clientes",    desc: "Accès, programmes, équipe" },
+    { href: "/admin/modules",       icon: "📚", label: "Gérer les modules",      desc: "Vidéos, documents, contenu" },
+    { href: "/admin/calendrier",    icon: "📅", label: "Calendrier",             desc: "Événements et séances" },
+    { href: "/admin/equipe",        icon: "🤝", label: "Mon équipe",             desc: "Coachs et nutritionnistes" },
+    { href: "/admin/notifications", icon: "🔔", label: "Notifications",          desc: "Envoyer des push" },
+    { href: "/admin/acces",         icon: "🔑", label: "Accès & Rôles",          desc: "Inviter, rôles, permissions" },
+  ];
 
   return (
-    <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", color: "#FFFFFF", padding: 24, paddingBottom: 60 }}>
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "0.05em" }}>
-        ESPACE ADMIN
-      </h1>
-      <p style={{ color: "rgba(255,255,255,0.5)", marginTop: 8 }}>
-        {session?.user.email}
-      </p>
-
-      <InviteForm />
-
-      <div style={{ marginTop: 32, padding: "10px 14px", backgroundColor: "#1a0a0a", border: "1px solid #B22222", borderRadius: 8, fontSize: 12, color: "#F87171" }}>
-        🔴 DEBUG — {clients.length} cliente(s) | erreur: {clientsError ?? "aucune"} | v2
+    <div>
+      {/* Header */}
+      <div style={{ marginBottom: 32 }}>
+        <p style={{ fontSize: 11, color: "#555", letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 6px", fontFamily: "system-ui" }}>
+          Bienvenue
+        </p>
+        <h1 style={{ fontSize: "1.8rem", fontWeight: 800, color: "#F5F5F0", margin: 0, letterSpacing: "-0.01em", fontFamily: "system-ui" }}>
+          Tableau de bord
+        </h1>
       </div>
 
-      <ClientsTable initialClients={clients} fetchError={clientsError} teamMembers={teamMembers ?? []} />
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12, marginBottom: 36 }}>
+        {statCards.map(({ label, value, color, bg, border }) => (
+          <div key={label} style={{
+            backgroundColor: bg, border: `1px solid ${border}`,
+            borderRadius: 12, padding: "18px 16px",
+          }}>
+            <p style={{ fontSize: 26, fontWeight: 800, color, margin: "0 0 4px", fontFamily: "system-ui" }}>
+              {value}
+            </p>
+            <p style={{ fontSize: 11, color: "#555", margin: 0, fontFamily: "system-ui", lineHeight: 1.3 }}>
+              {label}
+            </p>
+          </div>
+        ))}
+      </div>
 
-      <TeamAdmin />
-
-      <ModuleManager modules={modulesWithVideos} initialContent={modulesContent} />
-
-      <SendNotificationForm />
-
-      <CalendrierAdmin clients={clients.map((c) => ({ id: c.id, email: c.email, prenom: c.prenom, nom: c.nom }))} />
-
-      <RolesTable />
-
-      <Link
-        href="/dashboard?preview=1"
-        style={{
-          display: "inline-block",
-          marginTop: 40,
-          padding: "10px 20px",
-          backgroundColor: "transparent",
-          border: "1px solid rgba(255,255,255,0.2)",
-          borderRadius: 8,
-          color: "rgba(255,255,255,0.5)",
-          fontSize: 13,
-          textDecoration: "none",
-          letterSpacing: "0.04em",
-        }}
-      >
-        Voir l&apos;espace cliente →
-      </Link>
+      {/* Accès rapides */}
+      <div style={{ marginBottom: 8 }}>
+        <p style={{ fontSize: 11, color: "#444", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 14px", fontFamily: "system-ui" }}>
+          Sections
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
+          {quickLinks.map(({ href, icon, label, desc }) => (
+            <Link key={href} href={href} style={{
+              display: "flex", alignItems: "flex-start", gap: 14,
+              padding: "16px 18px", borderRadius: 12, textDecoration: "none",
+              backgroundColor: "#111", border: "1px solid #1a1a1a",
+              transition: "border-color 0.15s",
+            }}>
+              <span style={{ fontSize: 22, flexShrink: 0, marginTop: 1 }}>{icon}</span>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#F5F5F0", margin: "0 0 2px", fontFamily: "system-ui" }}>{label}</p>
+                <p style={{ fontSize: 11, color: "#555", margin: 0, fontFamily: "system-ui" }}>{desc}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
