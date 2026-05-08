@@ -58,40 +58,48 @@ export async function middleware(request: NextRequest) {
 
   if (!user) return response;
 
-  // Rôle depuis user_metadata (aucun appel DB supplémentaire)
-  const role = (user.user_metadata?.role ?? "cliente") as string;
-  const isCoach = role === "coach";
+  // Rôle lu depuis la DB à chaque requête → changement immédiat sans reconnexion
+  const NEEDS_ROLE = ["/dashboard", "/admin", "/coach", "/profil", "/modules", "/calendrier"];
+  let role = "cliente";
+  if (!isAdmin && NEEDS_ROLE.some((p) => pathname.startsWith(p))) {
+    try {
+      const profileRes = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${user.id}&select=statut,role`,
+        {
+          headers: {
+            apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
+          },
+        }
+      );
+      const [profile] = await profileRes.json().catch(() => [null]);
+      role = profile?.role ?? user.user_metadata?.role ?? "cliente";
 
-  // Vérification statut pour les clientes
-  if (!isAdmin && !isCoach && CLIENT_PROTECTED.some((p) => pathname.startsWith(p))) {
-    const profileRes = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${user.id}&select=statut`,
-      {
-        headers: {
-          apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
-          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-        },
-      }
-    );
-    const [profile] = await profileRes.json().catch(() => [null]);
-    const statut = profile?.statut ?? "active";
-    if (statut === "pause" || statut === "terminee") return redirect("/acces-suspendu");
+      // Statut suspendu
+      const statut = profile?.statut ?? "active";
+      if (statut === "pause" || statut === "terminee") return redirect("/acces-suspendu");
+    } catch {
+      role = user.user_metadata?.role ?? "cliente";
+    }
   }
 
-  // Redirection post-login selon rôle (/dashboard → destination finale)
+  const isCoach = role === "coach";
+  const isRoleAdmin = role === "admin";
+
+  // Redirection post-login selon rôle
   const isPreview = request.nextUrl.searchParams.get("preview") === "1";
   if (pathname.startsWith("/dashboard") && !isPreview) {
-    if (isAdmin) return redirect("/admin");
+    if (isAdmin || isRoleAdmin) return redirect("/admin");
     if (isCoach) return redirect("/coach");
   }
 
   // Protection /coach → uniquement coach ou admin
   if (pathname.startsWith("/coach")) {
-    if (!isCoach && !isAdmin) return redirect("/dashboard");
+    if (!isCoach && !isAdmin && !isRoleAdmin) return redirect("/dashboard");
   }
 
   // Protection /admin → uniquement admin
-  if (pathname.startsWith("/admin") && !isAdmin) return redirect("/dashboard");
+  if (pathname.startsWith("/admin") && !isAdmin && !isRoleAdmin) return redirect("/dashboard");
 
   return response;
 }
