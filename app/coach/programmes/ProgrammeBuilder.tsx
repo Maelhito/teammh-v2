@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { NIVEAUX, CATEGORIES, defaultBloc, encodeSeance, type SeanceData } from "../seances/SeanceBuilder";
+import { NIVEAUX, CATEGORIES, defaultBloc, type SeanceData } from "../seances/SeanceBuilder";
 import SeanceBuildComp from "../seances/SeanceBuilder";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -9,8 +9,9 @@ export interface SeanceRef {
   id: string; nom: string; categorie: string; niveau: string; duree_estimee: number | null;
 }
 export type CellItem =
-  | { _key: string; type: "seance";  seanceId: string; seanceName: string; duree: number | null }
-  | { _key: string; type: "video";   titre: string; url: string; categorie: string; thumb: string | null };
+  | { _key: string; type: "seance";        seanceId: string; seanceName: string; duree: number | null }
+  | { _key: string; type: "seance_locale"; nom: string; duree: number | null; seanceData: SeanceData }
+  | { _key: string; type: "video";         titre: string; url: string; categorie: string; thumb: string | null };
 export type Grid = Record<string, CellItem[]>;
 export interface ProgrammeData {
   nom: string; niveau: string; duree_semaines: number; note: string; grid: Grid;
@@ -79,7 +80,7 @@ function VideoModal({ url, titre, onClose }: { url: string; titre: string; onClo
 // ─── Créateur de séance inline (modal complet) ────────────────────────────────
 function InlineSeanceCreator({ jourLabel, onCreated, onClose }: {
   jourLabel: string;
-  onCreated: (ref: SeanceRef) => void;
+  onCreated: (seanceData: SeanceData) => void;
   onClose: () => void;
 }) {
   const [step, setStep] = useState<1|2>(1);
@@ -87,33 +88,15 @@ function InlineSeanceCreator({ jourLabel, onCreated, onClose }: {
     nom: "", categorie: "full_body", niveau: "debutant", duree_estimee: "45", note: "",
     blocs: [defaultBloc("echauffement"), defaultBloc("corps", 1)],
   });
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const inp: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #2a2a2a", backgroundColor: "#161616", fontSize: 13, color: "#F5F5F0", fontFamily: "system-ui", outline: "none", boxSizing: "border-box" };
   const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#666", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, fontFamily: "system-ui" };
 
-  async function handleSave() {
-    setError(""); setSaving(true);
-    try {
-      const { description, flat_exercices } = encodeSeance(seanceData);
-      const res = await fetch("/api/coach/seances", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nom: seanceData.nom, type_format: "classique",
-          duree_estimee: parseInt(seanceData.duree_estimee) || null,
-          description, exercices: flat_exercices,
-        }),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) { setError(d.error ?? "Erreur lors de la création."); setSaving(false); return; }
-      onCreated({
-        id: d.seance.id, nom: d.seance.nom,
-        categorie: seanceData.categorie, niveau: seanceData.niveau,
-        duree_estimee: parseInt(seanceData.duree_estimee) || null,
-      });
-    } catch { setError("Impossible de contacter le serveur."); setSaving(false); }
+  function handleSave() {
+    if (!seanceData.nom.trim()) { setError("Nom obligatoire."); return; }
+    // Pas d'appel API — stockée uniquement dans le programme
+    onCreated(seanceData);
   }
 
   const totalExercices = seanceData.blocs.reduce((a, b) =>
@@ -195,9 +178,9 @@ function InlineSeanceCreator({ jourLabel, onCreated, onClose }: {
             <div>
               <SeanceBuildComp data={seanceData} onChange={setSeanceData} />
               {error && <p style={{ fontSize: 12, color: "#EF4444", margin: "10px 0 0", fontFamily: "system-ui" }}>{error}</p>}
-              <button onClick={handleSave} disabled={saving}
-                style={{ marginTop: 12, width: "100%", padding: "13px", borderRadius: 9, border: "none", backgroundColor: saving ? "#333" : "#B22222", color: saving ? "#666" : "#fff", fontSize: 14, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
-                {saving ? "Création en cours…" : `✅ Créer et ajouter au programme (${totalExercices} exercice${totalExercices > 1 ? "s" : ""})`}
+              <button onClick={handleSave}
+                style={{ marginTop: 12, width: "100%", padding: "13px", borderRadius: 9, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>
+                {`✅ Ajouter au programme (${totalExercices} exercice${totalExercices > 1 ? "s" : ""})`}
               </button>
             </div>
           )}
@@ -333,6 +316,15 @@ function DayCell({ semaine, jour, items, seances, onAdd, onRemove, onCreateSeanc
                   {item.duree && <p style={{ fontSize: 8, color: "#93c5fd", margin: "1px 0 0", fontFamily: "system-ui" }}>⏱ {item.duree} min</p>}
                 </div>
                 <button onClick={() => onRemove(item._key)} style={{ background: "none", border: "none", color: "#bfdbfe", cursor: "pointer", fontSize: 11, padding: 0, flexShrink: 0 }}>✕</button>
+              </div>
+            )}
+            {item.type === "seance_locale" && (
+              <div style={{ padding: "4px 6px 4px 8px", borderRadius: 5, backgroundColor: "#fffbeb", border: "1px solid #fde68a", borderLeft: "3px solid #F59E0B", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 4 }}>
+                <div>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: "#92400e", margin: 0, fontFamily: "system-ui", lineHeight: 1.3 }}>⚡ {item.nom}</p>
+                  {item.duree && <p style={{ fontSize: 8, color: "#b45309", margin: "1px 0 0", fontFamily: "system-ui" }}>⏱ {item.duree} min</p>}
+                </div>
+                <button onClick={() => onRemove(item._key)} style={{ background: "none", border: "none", color: "#fcd34d", cursor: "pointer", fontSize: 11, padding: 0, flexShrink: 0 }}>✕</button>
               </div>
             )}
             {item.type === "video" && (
@@ -485,12 +477,19 @@ export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderPro
 
   const totalItems = Object.values(data.grid).reduce((a, items) => a + items.length, 0);
 
-  function handleSeanceCreated(seance: SeanceRef) {
+  function handleSeanceCreated(seanceData: SeanceData) {
     if (!creatorTarget) return;
     const key = gridKey(creatorTarget.semaine, creatorTarget.jour);
-    onChange({ ...data, grid: { ...data.grid, [key]: [...(data.grid[key] ?? []), { _key: nk(), type: "seance" as const, seanceId: seance.id, seanceName: seance.nom, duree: seance.duree_estimee }] } });
+    const item: CellItem = {
+      _key: nk(),
+      type: "seance_locale",
+      nom: seanceData.nom,
+      duree: parseInt(seanceData.duree_estimee) || null,
+      seanceData,
+    };
+    onChange({ ...data, grid: { ...data.grid, [key]: [...(data.grid[key] ?? []), item] } });
     setCreatorTarget(null);
-    loadSeances();
+    // Pas de refresh des séances globales — la séance locale n'est pas dans la DB
   }
 
   const jourLabel = creatorTarget
