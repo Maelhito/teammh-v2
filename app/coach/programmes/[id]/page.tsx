@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import ProgrammeBuilder, { encodeProgData, decodeProgData, type ProgrammeData } from "../ProgrammeBuilder";
-import { CATEGORIES, NIVEAUX } from "../../seances/SeanceBuilder";
+import { NIVEAUX } from "../../seances/SeanceBuilder";
 
 export default function EditProgrammePage() {
   const router = useRouter();
@@ -27,8 +27,8 @@ export default function EditProgrammePage() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        nom: data.nom, categorie: data.categorie, niveau: data.niveau,
-        duree_semaines: data.duree_semaines,
+        nom: data.nom, categorie: "custom", niveau: data.niveau,
+        duree_semaines: Math.ceil(data.duree_mois * 4.33),
         description: encodeProgData(data),
       }),
     });
@@ -42,7 +42,7 @@ export default function EditProgrammePage() {
 
   if (!data) return <p style={{ fontSize: 13, color: "#555", fontFamily: "system-ui" }}>Chargement…</p>;
 
-  const totalSeances = Object.values(data.grid).reduce((a, ids) => a + ids.length, 0);
+  const totalItems = Object.values(data.grid).reduce((a, items) => a + items.length, 0);
 
   return (
     <div>
@@ -53,14 +53,8 @@ export default function EditProgrammePage() {
 
       {/* Infos */}
       <div style={{ backgroundColor: "#111", borderRadius: 12, border: "1px solid #1a1a1a", padding: "16px 18px", marginBottom: 14 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 130px", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12 }}>
           <div><label style={lbl}>Nom</label><input style={inp} value={data.nom} onChange={e => setData(d => d ? { ...d, nom: e.target.value } : d)} /></div>
-          <div>
-            <label style={lbl}>Catégorie</label>
-            <select style={{ ...inp, cursor: "pointer" }} value={data.categorie} onChange={e => setData(d => d ? { ...d, categorie: e.target.value } : d)}>
-              {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-            </select>
-          </div>
           <div>
             <label style={lbl}>Niveau</label>
             <select style={{ ...inp, cursor: "pointer" }} value={data.niveau} onChange={e => setData(d => d ? { ...d, niveau: e.target.value } : d)}>
@@ -68,10 +62,13 @@ export default function EditProgrammePage() {
             </select>
           </div>
           <div>
-            <label style={lbl}>Durée</label>
-            <select style={{ ...inp, cursor: "pointer" }} value={data.duree_semaines} onChange={e => setData(d => d ? { ...d, duree_semaines: parseInt(e.target.value) } : d)}>
-              {[2,3,4,6,8,10,12,16,20,24].map(n => <option key={n} value={n}>{n} semaines</option>)}
-            </select>
+            <label style={lbl}>Durée (mois)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input style={{ ...inp, width: 70, textAlign: "center" }} type="number" min="1" max="24"
+                value={data.duree_mois}
+                onChange={e => setData(d => d ? { ...d, duree_mois: Math.min(24, Math.max(1, parseInt(e.target.value) || 1)) } : d)} />
+              <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui", whiteSpace: "nowrap" }}>mois · {Math.ceil(data.duree_mois * 4.33)} sem.</span>
+            </div>
           </div>
         </div>
       </div>
@@ -81,7 +78,7 @@ export default function EditProgrammePage() {
       {error && <p style={{ fontSize: 12, color: "#EF4444", margin: "10px 0 0", fontFamily: "system-ui" }}>{error}</p>}
       <button onClick={handleSave} disabled={saving}
         style={{ marginTop: 12, width: "100%", padding: "12px", borderRadius: 9, border: "none", backgroundColor: saving ? "#333" : "#B22222", color: saving ? "#666" : "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
-        {saving ? "Enregistrement…" : `✅ Sauvegarder (${totalSeances} séance${totalSeances > 1 ? "s" : ""} planifiée${totalSeances > 1 ? "s" : ""})`}
+        {saving ? "Enregistrement…" : `✅ Sauvegarder (${totalItems} élément${totalItems > 1 ? "s" : ""})`}
       </button>
     </div>
   );
