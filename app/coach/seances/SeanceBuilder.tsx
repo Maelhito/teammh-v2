@@ -321,7 +321,7 @@ function ExerciseBank({ onDragStart }: { onDragStart: (ex: Exercise) => void }) 
           const color = GC[ex.groupe_musculaire]??"#888";
           return (
             <div key={ex.id} draggable
-              onDragStart={e=>{ e.dataTransfer.setData("exerciseData",JSON.stringify(ex)); onDragStart(ex); }}
+              onDragStart={e=>{ e.dataTransfer.setData("source","bank"); e.dataTransfer.setData("exerciseData",JSON.stringify(ex)); onDragStart(ex); }}
               style={{ display:"flex",alignItems:"center",gap:8,padding:"7px 12px",borderBottom:"1px solid #111",cursor:"grab",backgroundColor:"#0D0D0D" }}
               onMouseEnter={e=>{(e.currentTarget as HTMLDivElement).style.backgroundColor="#111";}}
               onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.backgroundColor="#0D0D0D";}}>
@@ -377,7 +377,7 @@ function TabataBlocContent({ bloc, onChange }: { bloc: Bloc; onChange: (changes:
       {/* Drop zone */}
       <div
         onDragOver={e=>e.preventDefault()}
-        onDrop={e=>{e.preventDefault();try{addExercise(JSON.parse(e.dataTransfer.getData("exerciseData")));}catch{}}}
+        onDrop={e=>{e.preventDefault();e.stopPropagation();try{addExercise(JSON.parse(e.dataTransfer.getData("exerciseData")));}catch{}}}
         style={{ minHeight:40,borderRadius:6,border:"1px dashed #2a2a2a",marginBottom:6,padding:6 }}
       >
         {bloc.tabata_exercices.length===0&&<p style={{ fontSize:10,color:"#444",margin:0,textAlign:"center",fontFamily:"system-ui",padding:"6px 0" }}>Glisse des exercices ici</p>}
@@ -447,7 +447,7 @@ function RichBlocContent({ bloc, onChange }: { bloc: Bloc; onChange: (changes: P
       {/* Exercices en texte */}
       <div
         onDragOver={e=>e.preventDefault()}
-        onDrop={e=>{e.preventDefault();const src=e.dataTransfer.getData("source");if(src==="bank"){try{addExercise(JSON.parse(e.dataTransfer.getData("exerciseData")));}catch{}}}}
+        onDrop={e=>{e.preventDefault();e.stopPropagation();const src=e.dataTransfer.getData("source");if(src==="bank"){try{addExercise(JSON.parse(e.dataTransfer.getData("exerciseData")));}catch{}}}}
         style={{ minHeight:bloc.rich_exercices.length===0?36:0,border:bloc.rich_exercices.length===0?"1px dashed #2a2a2a":"none",borderRadius:6,padding:bloc.rich_exercices.length===0?"6px":0,marginBottom:bloc.rich_exercices.length>0?4:0 }}
       >
         {bloc.rich_exercices.length===0&&<p style={{ fontSize:10,color:"#444",margin:0,textAlign:"center",fontFamily:"system-ui" }}>Glisse des exercices ici pour les ajouter dans les consignes</p>}
@@ -462,7 +462,7 @@ function RichBlocContent({ bloc, onChange }: { bloc: Bloc; onChange: (changes: P
               <span key={re._key} draggable
                 onDragStart={()=>{dragItemKey.current=re._key;}}
                 onDragOver={e=>e.preventDefault()}
-                onDrop={e=>{e.preventDefault();const src=e.dataTransfer.getData("source");if(src==="bank"){try{addExercise(JSON.parse(e.dataTransfer.getData("exerciseData")));}catch{}}else if(dragItemKey.current&&dragItemKey.current!==re._key){const i=bloc.rich_exercices.findIndex(x=>x._key===dragItemKey.current);const j=idx;const n=[...bloc.rich_exercices];const[it]=n.splice(i,1);n.splice(j,0,it);onChange({rich_exercices:n});}dragItemKey.current=null;}}
+                onDrop={e=>{e.preventDefault();e.stopPropagation();const src=e.dataTransfer.getData("source");if(src==="bank"){try{addExercise(JSON.parse(e.dataTransfer.getData("exerciseData")));}catch{}}else if(dragItemKey.current&&dragItemKey.current!==re._key){const i=bloc.rich_exercices.findIndex(x=>x._key===dragItemKey.current);const j=idx;const n=[...bloc.rich_exercices];const[it]=n.splice(i,1);n.splice(j,0,it);onChange({rich_exercices:n});}dragItemKey.current=null;}}
                 style={{ display:"inline-flex",alignItems:"center",gap:5,backgroundColor:"#161616",border:`1px solid ${color}30`,borderRadius:20,padding:"4px 10px 4px 8px",cursor:"grab" }}>
                 <span style={{ cursor:"grab",color:"#333",fontSize:10,userSelect:"none" }}>⠿</span>
                 <span
