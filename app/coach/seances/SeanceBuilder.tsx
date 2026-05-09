@@ -414,77 +414,122 @@ function TabataBlocContent({ bloc, onChange }: { bloc: Bloc; onChange: (changes:
   );
 }
 
-// ─── Bloc Texte + Exercices (tous sauf Tabata) ────────────────────────────────
-function RichBlocContent({ bloc, onChange }: { bloc: Bloc; onChange: (changes: Partial<Bloc>) => void }) {
-  const [videoEx, setVideoEx] = useState<Exercise|null>(null);
-  const dragItemKey = useRef<string|null>(null);
+// ─── Éditeur riche : texte + noms d'exercices cliquables insérés au curseur ───
+function RichTextEditor({ initialHtml, onHtmlChange, onVideoClick }: {
+  initialHtml: string;
+  onHtmlChange: (html: string) => void;
+  onVideoClick: (url: string, nom: string) => void;
+}) {
+  const divRef = useRef<HTMLDivElement>(null);
+  const initialized = useRef(false);
 
-  function addExercise(ex: Exercise) {
-    onChange({ rich_exercices: [...bloc.rich_exercices, { _key: newKey(), exercise: ex }] });
-  }
-  function removeRich(key: string) {
-    onChange({ rich_exercices: bloc.rich_exercices.filter(e=>e._key!==key) });
-  }
-  function moveUp(key: string) {
-    const i=bloc.rich_exercices.findIndex(e=>e._key===key);if(i<=0)return;
-    const n=[...bloc.rich_exercices];[n[i-1],n[i]]=[n[i],n[i-1]];onChange({rich_exercices:n});
-  }
-  function moveDown(key: string) {
-    const i=bloc.rich_exercices.findIndex(e=>e._key===key);if(i>=bloc.rich_exercices.length-1)return;
-    const n=[...bloc.rich_exercices];[n[i],n[i+1]]=[n[i+1],n[i]];onChange({rich_exercices:n});
+  // Initialise le contenu une seule fois (composant non contrôlé)
+  useEffect(() => {
+    if (divRef.current && !initialized.current) {
+      divRef.current.innerHTML = initialHtml || "";
+      initialized.current = true;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function insertExerciseAtDrop(e: React.DragEvent, ex: Exercise) {
+    const div = divRef.current;
+    if (!div) return;
+
+    // Positionne le curseur à l'endroit du drop
+    let range: Range | null = null;
+    if (document.caretRangeFromPoint) {
+      range = document.caretRangeFromPoint(e.clientX, e.clientY);
+    } else if ("caretPositionFromPoint" in document) {
+      const pos = (document as unknown as { caretPositionFromPoint(x:number,y:number):{offsetNode:Node;offset:number} }).caretPositionFromPoint(e.clientX, e.clientY);
+      if (pos) { range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); range.collapse(true); }
+    }
+    // Fallback : ajoute à la fin
+    if (!range || !div.contains(range.startContainer)) {
+      range = document.createRange();
+      range.selectNodeContents(div);
+      range.collapse(false);
+    }
+
+    // Crée le span exercice (non éditable, rouge/gras)
+    const span = document.createElement("span");
+    span.setAttribute("contenteditable", "false");
+    span.dataset.exNom = ex.nom;
+    span.dataset.exVideo = ex.video_url || "";
+    span.style.cssText = "color:#B22222;font-weight:800;cursor:pointer;user-select:none;";
+    span.textContent = ex.nom;
+
+    // Insère au curseur
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    range.deleteContents();
+    range.insertNode(span);
+
+    // Déplace le curseur juste après le span
+    const after = document.createRange();
+    after.setStartAfter(span);
+    after.collapse(true);
+    sel?.removeAllRanges();
+    sel?.addRange(after);
+    div.focus();
+
+    onHtmlChange(div.innerHTML);
   }
 
   return (
-    <div>
-      {/* Instructions */}
-      <textarea
-        value={bloc.instructions}
-        onChange={e=>onChange({instructions:e.target.value})}
-        placeholder="Décris les consignes, la progression, les temps de repos, les techniques…"
-        style={{ width:"100%",minHeight:72,padding:"9px 11px",borderRadius:8,border:"1px solid #2a2a2a",backgroundColor:"#161616",color:"#F5F5F0",fontSize:12,fontFamily:"system-ui",outline:"none",resize:"vertical",boxSizing:"border-box",lineHeight:1.5,marginBottom:8 }}
-      />
-
-      {/* Exercices en texte */}
+    <>
       <div
-        onDragOver={e=>e.preventDefault()}
-        onDrop={e=>{e.preventDefault();e.stopPropagation();const src=e.dataTransfer.getData("source");if(src==="bank"){try{addExercise(JSON.parse(e.dataTransfer.getData("exerciseData")));}catch{}}}}
-        style={{ minHeight:bloc.rich_exercices.length===0?36:0,border:bloc.rich_exercices.length===0?"1px dashed #2a2a2a":"none",borderRadius:6,padding:bloc.rich_exercices.length===0?"6px":0,marginBottom:bloc.rich_exercices.length>0?4:0 }}
-      >
-        {bloc.rich_exercices.length===0&&<p style={{ fontSize:10,color:"#444",margin:0,textAlign:"center",fontFamily:"system-ui" }}>Glisse des exercices ici pour les ajouter dans les consignes</p>}
-      </div>
+        ref={divRef}
+        contentEditable
+        suppressContentEditableWarning
+        data-placeholder="Tape tes consignes ici… Glisse un exercice depuis la banque pour insérer son nom en rouge."
+        onInput={() => divRef.current && onHtmlChange(divRef.current.innerHTML)}
+        onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+        onDrop={e => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.dataTransfer.getData("source") !== "bank") return;
+          try { insertExerciseAtDrop(e, JSON.parse(e.dataTransfer.getData("exerciseData"))); } catch {}
+        }}
+        onClick={e => {
+          const t = e.target as HTMLElement;
+          if (t.dataset.exVideo && t.dataset.exNom) onVideoClick(t.dataset.exVideo, t.dataset.exNom);
+        }}
+        style={{
+          minHeight: 100, padding: "10px 12px", borderRadius: 8,
+          border: "1px solid #2a2a2a", backgroundColor: "#161616",
+          color: "#F5F5F0", fontSize: 12, fontFamily: "system-ui",
+          outline: "none", lineHeight: 1.7, whiteSpace: "pre-wrap",
+          wordBreak: "break-word", cursor: "text",
+        }}
+      />
+      <style>{`
+        [data-placeholder]:empty:before {
+          content: attr(data-placeholder);
+          color: #444;
+          pointer-events: none;
+        }
+      `}</style>
+    </>
+  );
+}
 
-      {bloc.rich_exercices.length > 0 && (
-        <div style={{ display:"flex",flexWrap:"wrap",gap:6,padding:"4px 0",alignItems:"center" }}>
-          {bloc.rich_exercices.map((re,idx)=>{
-            const color=GC[re.exercise.groupe_musculaire]??"#B22222";
-            const hasVideo=!!re.exercise.video_url;
-            return (
-              <span key={re._key} draggable
-                onDragStart={()=>{dragItemKey.current=re._key;}}
-                onDragOver={e=>e.preventDefault()}
-                onDrop={e=>{e.preventDefault();e.stopPropagation();const src=e.dataTransfer.getData("source");if(src==="bank"){try{addExercise(JSON.parse(e.dataTransfer.getData("exerciseData")));}catch{}}else if(dragItemKey.current&&dragItemKey.current!==re._key){const i=bloc.rich_exercices.findIndex(x=>x._key===dragItemKey.current);const j=idx;const n=[...bloc.rich_exercices];const[it]=n.splice(i,1);n.splice(j,0,it);onChange({rich_exercices:n});}dragItemKey.current=null;}}
-                style={{ display:"inline-flex",alignItems:"center",gap:5,backgroundColor:"#161616",border:`1px solid ${color}30`,borderRadius:20,padding:"4px 10px 4px 8px",cursor:"grab" }}>
-                <span style={{ cursor:"grab",color:"#333",fontSize:10,userSelect:"none" }}>⠿</span>
-                <span
-                  onClick={()=>hasVideo&&setVideoEx(re.exercise)}
-                  style={{ color:"#B22222",fontWeight:800,fontSize:12,fontFamily:"system-ui",cursor:hasVideo?"pointer":"default",textDecoration:hasVideo?"underline":"none" }}
-                  title={hasVideo?"Voir la vidéo":undefined}
-                >
-                  {re.exercise.nom}
-                </span>
-                {hasVideo && <span style={{ fontSize:9,color:"#555",fontFamily:"system-ui" }}>▶</span>}
-                <button onClick={()=>removeRich(re._key)} style={{ background:"none",border:"none",color:"#444",cursor:"pointer",fontSize:11,padding:"0 0 0 2px",lineHeight:1 }}>✕</button>
-                <div style={{ display:"flex",flexDirection:"column",gap:1 }}>
-                  <button onClick={()=>moveUp(re._key)} disabled={idx===0} style={{ background:"none",border:"none",cursor:idx===0?"default":"pointer",color:idx===0?"#2a2a2a":"#555",fontSize:7,padding:0,lineHeight:1 }}>▲</button>
-                  <button onClick={()=>moveDown(re._key)} disabled={idx===bloc.rich_exercices.length-1} style={{ background:"none",border:"none",cursor:idx===bloc.rich_exercices.length-1?"default":"pointer",color:idx===bloc.rich_exercices.length-1?"#2a2a2a":"#555",fontSize:7,padding:0,lineHeight:1 }}>▼</button>
-                </div>
-              </span>
-            );
-          })}
-        </div>
-      )}
+// ─── Bloc Texte + Exercices (tous sauf Tabata) ────────────────────────────────
+function RichBlocContent({ bloc, onChange }: { bloc: Bloc; onChange: (changes: Partial<Bloc>) => void }) {
+  const [videoUrl, setVideoUrl] = useState<{url:string;nom:string}|null>(null);
 
-      {videoEx && videoEx.video_url && <VideoModal url={videoEx.video_url} nom={videoEx.nom} onClose={()=>setVideoEx(null)} />}
+  return (
+    <div>
+      <RichTextEditor
+        initialHtml={bloc.instructions}
+        onHtmlChange={html => onChange({ instructions: html })}
+        onVideoClick={(url, nom) => setVideoUrl({ url, nom })}
+      />
+      <p style={{ fontSize:9,color:"#444",margin:"5px 0 0",fontFamily:"system-ui" }}>
+        ⠿ Glisse un exercice depuis la banque gauche — il s&apos;insère à l&apos;endroit du curseur en rouge/gras. Clique dessus pour voir la vidéo.
+      </p>
+      {videoUrl && <VideoModal url={videoUrl.url} nom={videoUrl.nom} onClose={()=>setVideoUrl(null)} />}
     </div>
   );
 }
