@@ -1,21 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { NIVEAUX } from "../seances/SeanceBuilder";
+import { NIVEAUX, CATEGORIES, defaultBloc, encodeSeance, type SeanceData } from "../seances/SeanceBuilder";
+import SeanceBuildComp from "../seances/SeanceBuilder";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface SeanceRef {
-  id: string; nom: string; categorie: string; niveau: string;
-  duree_estimee: number | null;
+  id: string; nom: string; categorie: string; niveau: string; duree_estimee: number | null;
 }
-
 export type CellItem =
-  | { _key: string; type: "seance";       seanceId: string; seanceName: string; duree: number | null }
-  | { _key: string; type: "seance_rapide"; nom: string; notes: string }
-  | { _key: string; type: "video";         titre: string; url: string; categorie: string; thumb: string | null };
-
-export type Grid = Record<string, CellItem[]>;  // key = "S{sem}_J{jour}"
-
+  | { _key: string; type: "seance";  seanceId: string; seanceName: string; duree: number | null }
+  | { _key: string; type: "video";   titre: string; url: string; categorie: string; thumb: string | null };
+export type Grid = Record<string, CellItem[]>;
 export interface ProgrammeData {
   nom: string; niveau: string; duree_semaines: number; note: string; grid: Grid;
 }
@@ -23,11 +19,9 @@ export interface ProgrammeData {
 // ─── Const ───────────────────────────────────────────────────────────────────
 const JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 const VIDEO_CATS = ["Échauffement", "Cardio", "Étirements", "Mobilité", "Coaching", "Nutrition", "Mental", "Autre"];
-
 export function gridKey(s: number, j: number) { return `S${s}_J${j}`; }
 let _k = 0;
 function nk() { return `ci${++_k}_${Date.now()}`; }
-
 function ytThumb(url: string): string | null {
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
   return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
@@ -36,9 +30,9 @@ function ytEmbed(url: string): string | null {
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
   return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=1` : null;
 }
-
 function nivLabel(v: string) { return NIVEAUX.find(n => n.value === v)?.label ?? v; }
 
+// ─── Encode / Decode ──────────────────────────────────────────────────────────
 export function encodeProgData(d: ProgrammeData): string {
   return JSON.stringify({ grid: d.grid, note: d.note, duree_semaines: d.duree_semaines });
 }
@@ -82,33 +76,157 @@ function VideoModal({ url, titre, onClose }: { url: string; titre: string; onClo
   );
 }
 
-// ─── Menu ajout dans une cellule ─────────────────────────────────────────────
-function AddMenu({ seances, onAdd, onClose }: {
-  seances: SeanceRef[];
-  onAdd: (item: CellItem) => void;
+// ─── Créateur de séance inline (modal complet) ────────────────────────────────
+function InlineSeanceCreator({ jourLabel, onCreated, onClose }: {
+  jourLabel: string;
+  onCreated: (ref: SeanceRef) => void;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"seance" | "rapide" | "video">("seance");
+  const [step, setStep] = useState<1|2>(1);
+  const [seanceData, setSeanceData] = useState<SeanceData>({
+    nom: "", categorie: "full_body", niveau: "debutant", duree_estimee: "45", note: "",
+    blocs: [defaultBloc("echauffement"), defaultBloc("corps", 1)],
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const inp: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #2a2a2a", backgroundColor: "#161616", fontSize: 13, color: "#F5F5F0", fontFamily: "system-ui", outline: "none", boxSizing: "border-box" };
+  const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#666", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, fontFamily: "system-ui" };
+
+  async function handleSave() {
+    setError(""); setSaving(true);
+    try {
+      const { description, flat_exercices } = encodeSeance(seanceData);
+      const res = await fetch("/api/coach/seances", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nom: seanceData.nom, type_format: "classique",
+          duree_estimee: parseInt(seanceData.duree_estimee) || null,
+          description, exercices: flat_exercices,
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(d.error ?? "Erreur lors de la création."); setSaving(false); return; }
+      onCreated({
+        id: d.seance.id, nom: d.seance.nom,
+        categorie: seanceData.categorie, niveau: seanceData.niveau,
+        duree_estimee: parseInt(seanceData.duree_estimee) || null,
+      });
+    } catch { setError("Impossible de contacter le serveur."); setSaving(false); }
+  }
+
+  const totalExercices = seanceData.blocs.reduce((a, b) =>
+    a + (b.format === "tabata" ? b.tabata_exercices?.length ?? 0 : b.rich_exercices?.length ?? 0), 0);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 500, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", alignItems: "stretch", justifyContent: "flex-end" }}>
+      <div style={{ width: "min(900px, 95vw)", backgroundColor: "#0D0D0D", display: "flex", flexDirection: "column", boxShadow: "-4px 0 40px rgba(0,0,0,0.4)" }}>
+        {/* Header */}
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div>
+            <p style={{ fontSize: 10, color: "#B22222", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 2px", fontFamily: "system-ui" }}>
+              Nouvelle séance → {jourLabel}
+            </p>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#F5F5F0", margin: 0, fontFamily: "system-ui" }}>
+              {step === 1 ? "Informations de la séance" : seanceData.nom || "Construction"}
+            </h2>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 7, color: "#888", fontSize: 16, cursor: "pointer", padding: "6px 12px", fontFamily: "system-ui" }}>✕ Annuler</button>
+        </div>
+
+        {/* Stepper */}
+        <div style={{ padding: "10px 20px", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 0, flexShrink: 0 }}>
+          {[{n:1,l:"Infos"},{n:2,l:"Blocs & exercices"}].map(({n,l},i) => (
+            <div key={n} style={{ display: "flex", alignItems: "center" }}>
+              {i > 0 && <div style={{ width: 30, height: 2, backgroundColor: step > 1 ? "#B22222" : "#222" }} />}
+              <div style={{ display: "flex", alignItems: "center", gap: 5, cursor: n < step ? "pointer" : "default" }} onClick={() => n < step && setStep(n as 1|2)}>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: step >= n ? "#B22222" : "#1a1a1a", color: step >= n ? "#fff" : "#555", fontSize: 10, fontWeight: 700, fontFamily: "system-ui" }}>{n}</div>
+                <span style={{ fontSize: 11, fontWeight: step === n ? 700 : 400, color: step === n ? "#F5F5F0" : "#555", fontFamily: "system-ui" }}>{l}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Contenu scrollable */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
+
+          {/* Étape 1 */}
+          {step === 1 && (
+            <div style={{ maxWidth: 480, display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label style={lbl}>Nom de la séance *</label>
+                <input style={inp} value={seanceData.nom} onChange={e => setSeanceData(d => ({ ...d, nom: e.target.value }))} placeholder="Ex: Full Body Débutant" autoFocus />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={lbl}>Catégorie</label>
+                  <select style={{ ...inp, cursor: "pointer" }} value={seanceData.categorie} onChange={e => setSeanceData(d => ({ ...d, categorie: e.target.value }))}>
+                    {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={lbl}>Niveau</label>
+                  <select style={{ ...inp, cursor: "pointer" }} value={seanceData.niveau} onChange={e => setSeanceData(d => ({ ...d, niveau: e.target.value }))}>
+                    {NIVEAUX.map(n => <option key={n.value} value={n.value}>{n.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div>
+                  <label style={lbl}>Durée estimée</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <input style={{ ...inp, width: 80, textAlign: "center" }} type="number" min="1" value={seanceData.duree_estimee} onChange={e => setSeanceData(d => ({ ...d, duree_estimee: e.target.value }))} />
+                    <span style={{ fontSize: 12, color: "#555", fontFamily: "system-ui" }}>min</span>
+                  </div>
+                </div>
+              </div>
+              {error && <p style={{ fontSize: 12, color: "#EF4444", margin: 0, fontFamily: "system-ui" }}>{error}</p>}
+              <button onClick={() => { if (!seanceData.nom.trim()) { setError("Nom obligatoire."); return; } setError(""); setStep(2); }}
+                disabled={!seanceData.nom.trim()}
+                style={{ padding: "12px", borderRadius: 9, border: "none", backgroundColor: !seanceData.nom.trim() ? "#1a1a1a" : "#B22222", color: !seanceData.nom.trim() ? "#555" : "#fff", fontSize: 14, fontWeight: 700, cursor: !seanceData.nom.trim() ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
+                Suivant → Construire la séance
+              </button>
+            </div>
+          )}
+
+          {/* Étape 2 */}
+          {step === 2 && (
+            <div>
+              <SeanceBuildComp data={seanceData} onChange={setSeanceData} />
+              {error && <p style={{ fontSize: 12, color: "#EF4444", margin: "10px 0 0", fontFamily: "system-ui" }}>{error}</p>}
+              <button onClick={handleSave} disabled={saving}
+                style={{ marginTop: 12, width: "100%", padding: "13px", borderRadius: 9, border: "none", backgroundColor: saving ? "#333" : "#B22222", color: saving ? "#666" : "#fff", fontSize: 14, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
+                {saving ? "Création en cours…" : `✅ Créer et ajouter au programme (${totalExercices} exercice${totalExercices > 1 ? "s" : ""})`}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Menu ajout cellule ───────────────────────────────────────────────────────
+function AddMenu({ seances, onAdd, onCreateSeance, onClose }: {
+  seances: SeanceRef[];
+  onAdd: (item: CellItem) => void;
+  onCreateSeance: () => void;
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<"seance" | "video">("seance");
   const [search, setSearch] = useState("");
-  const [rapideNom, setRapideNom] = useState("");
-  const [rapideNotes, setRapideNotes] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [videoTitre, setVideoTitre] = useState("");
   const [videoCat, setVideoCat] = useState(VIDEO_CATS[0]);
   const [videoThumb, setVideoThumb] = useState<string | null>(null);
 
-  function handleVideoUrl(url: string) {
-    setVideoUrl(url);
-    setVideoThumb(ytThumb(url));
-  }
-
+  function handleVideoUrl(url: string) { setVideoUrl(url); setVideoThumb(ytThumb(url)); }
   const filtered = seances.filter(s => !search || s.nom.toLowerCase().includes(search.toLowerCase()));
   const tabStyle = (t: typeof tab): React.CSSProperties => ({
     flex: 1, padding: "8px 4px", border: "none", cursor: "pointer", fontSize: 11, fontFamily: "system-ui", fontWeight: 700,
-    backgroundColor: tab === t ? "#fff" : "transparent",
-    color: tab === t ? "#B22222" : "#888",
-    borderBottom: tab === t ? "2px solid #B22222" : "2px solid transparent",
-    transition: "all 0.12s",
+    backgroundColor: tab === t ? "#fff" : "transparent", color: tab === t ? "#B22222" : "#888",
+    borderBottom: tab === t ? "2px solid #B22222" : "2px solid transparent", transition: "all 0.12s",
   });
   const inp: React.CSSProperties = { width: "100%", padding: "8px 10px", borderRadius: 7, border: "1px solid #e8e8e8", fontSize: 12, fontFamily: "system-ui", outline: "none", boxSizing: "border-box" };
 
@@ -116,18 +234,28 @@ function AddMenu({ seances, onAdd, onClose }: {
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100 }} />
       <div style={{ position: "absolute", top: "100%", left: 0, zIndex: 101, width: 300, backgroundColor: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", border: "1px solid #efefef", overflow: "hidden" }}>
-        {/* Tabs */}
+        {/* Bouton créer séance */}
+        <button
+          onClick={() => { onClose(); onCreateSeance(); }}
+          style={{ width: "100%", padding: "11px 14px", border: "none", borderBottom: "1px solid #efefef", backgroundColor: "#B22222", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui", display: "flex", alignItems: "center", gap: 8, textAlign: "left" }}
+        >
+          <span style={{ fontSize: 16 }}>➕</span>
+          <div>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 700 }}>Créer une séance</p>
+            <p style={{ margin: 0, fontSize: 10, opacity: 0.8 }}>Construire depuis zéro pour ce jour</p>
+          </div>
+        </button>
+
+        {/* Tabs séance existante / vidéo */}
         <div style={{ display: "flex", borderBottom: "1px solid #f0f0f0", backgroundColor: "#fafafa" }}>
-          <button style={tabStyle("seance")} onClick={() => setTab("seance")}>📋 Séance</button>
-          <button style={tabStyle("rapide")} onClick={() => setTab("rapide")}>⚡ Rapide</button>
-          <button style={tabStyle("video")} onClick={() => setTab("video")}>🎬 Vidéo</button>
+          <button style={tabStyle("seance")} onClick={() => setTab("seance")}>📋 Séance existante</button>
+          <button style={tabStyle("video")} onClick={() => setTab("video")}>🎬 Vidéo YouTube</button>
         </div>
 
-        <div style={{ padding: "12px", maxHeight: 320, overflowY: "auto" }}>
-
-          {/* TAB: séance existante */}
+        <div style={{ padding: "12px", maxHeight: 280, overflowY: "auto" }}>
+          {/* Séance existante */}
           {tab === "seance" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <input type="search" placeholder="Rechercher une séance…" value={search} onChange={e => setSearch(e.target.value)} style={inp} autoFocus />
               {filtered.length === 0 && <p style={{ fontSize: 11, color: "#bbb", fontFamily: "system-ui" }}>Aucune séance trouvée</p>}
               {filtered.map(s => (
@@ -140,31 +268,12 @@ function AddMenu({ seances, onAdd, onClose }: {
             </div>
           )}
 
-          {/* TAB: séance rapide */}
-          {tab === "rapide" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4, fontFamily: "system-ui" }}>Nom de la séance *</label>
-                <input style={inp} value={rapideNom} onChange={e => setRapideNom(e.target.value)} placeholder="Ex: Circuit cardio 20 min" autoFocus />
-              </div>
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4, fontFamily: "system-ui" }}>Notes / description</label>
-                <textarea style={{ ...inp, height: 56, resize: "none" }} value={rapideNotes} onChange={e => setRapideNotes(e.target.value)} placeholder="Instructions, exercices, consignes…" />
-              </div>
-              <button disabled={!rapideNom.trim()}
-                onClick={() => { if (!rapideNom.trim()) return; onAdd({ _key: nk(), type: "seance_rapide", nom: rapideNom.trim(), notes: rapideNotes }); onClose(); }}
-                style={{ padding: "8px", borderRadius: 7, border: "none", backgroundColor: rapideNom.trim() ? "#B22222" : "#eee", color: rapideNom.trim() ? "#fff" : "#bbb", fontSize: 12, fontWeight: 700, cursor: rapideNom.trim() ? "pointer" : "not-allowed", fontFamily: "system-ui" }}>
-                ➕ Ajouter
-              </button>
-            </div>
-          )}
-
-          {/* TAB: vidéo YouTube */}
+          {/* Vidéo */}
           {tab === "video" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div>
                 <label style={{ fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4, fontFamily: "system-ui" }}>Lien YouTube *</label>
-                <input style={inp} type="url" value={videoUrl} onChange={e => handleVideoUrl(e.target.value)} placeholder="https://youtube.com/watch?v=…" autoFocus />
+                <input style={inp} type="url" value={videoUrl} onChange={e => handleVideoUrl(e.target.value)} placeholder="https://youtube.com/…" autoFocus />
                 {videoThumb && <img src={videoThumb} alt="" style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: 6, marginTop: 4 }} />}
               </div>
               <div>
@@ -180,7 +289,7 @@ function AddMenu({ seances, onAdd, onClose }: {
               <button disabled={!videoUrl.trim()}
                 onClick={() => { if (!videoUrl.trim()) return; onAdd({ _key: nk(), type: "video", titre: videoTitre || videoCat, url: videoUrl, categorie: videoCat, thumb: videoThumb }); onClose(); }}
                 style={{ padding: "8px", borderRadius: 7, border: "none", backgroundColor: videoUrl.trim() ? "#B22222" : "#eee", color: videoUrl.trim() ? "#fff" : "#bbb", fontSize: 12, fontWeight: 700, cursor: videoUrl.trim() ? "pointer" : "not-allowed", fontFamily: "system-ui" }}>
-                🎬 Ajouter la vidéo
+                🎬 Ajouter
               </button>
             </div>
           )}
@@ -191,12 +300,11 @@ function AddMenu({ seances, onAdd, onClose }: {
 }
 
 // ─── Cellule jour ─────────────────────────────────────────────────────────────
-function DayCell({ semaine, jour, items, seances, onAdd, onRemove }: {
-  semaine: number; jour: number;
-  items: CellItem[];
-  seances: SeanceRef[];
+function DayCell({ semaine, jour, items, seances, onAdd, onRemove, onCreateSeance }: {
+  semaine: number; jour: number; items: CellItem[]; seances: SeanceRef[];
   onAdd: (item: CellItem) => void;
   onRemove: (key: string) => void;
+  onCreateSeance: (semaine: number, jour: number) => void;
 }) {
   const [hover, setHover] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -215,13 +323,7 @@ function DayCell({ semaine, jour, items, seances, onAdd, onRemove }: {
         } catch {}
       }}
     >
-      <div style={{
-        minHeight: 64, borderRadius: 7, padding: "4px 5px",
-        border: hover ? "1.5px dashed #B22222" : "1px solid #efefef",
-        backgroundColor: hover ? "rgba(178,34,34,0.04)" : "#fff",
-        transition: "all 0.1s",
-      }}>
-        {/* Items */}
+      <div style={{ minHeight: 64, borderRadius: 7, padding: "4px 5px", border: hover ? "1.5px dashed #B22222" : "1px solid #efefef", backgroundColor: hover ? "rgba(178,34,34,0.04)" : "#fff", transition: "all 0.1s" }}>
         {items.map(item => (
           <div key={item._key} style={{ marginBottom: 3 }}>
             {item.type === "seance" && (
@@ -233,26 +335,15 @@ function DayCell({ semaine, jour, items, seances, onAdd, onRemove }: {
                 <button onClick={() => onRemove(item._key)} style={{ background: "none", border: "none", color: "#bfdbfe", cursor: "pointer", fontSize: 11, padding: 0, flexShrink: 0 }}>✕</button>
               </div>
             )}
-            {item.type === "seance_rapide" && (
-              <div style={{ padding: "4px 6px 4px 8px", borderRadius: 5, backgroundColor: "#fffbeb", border: "1px solid #fde68a", borderLeft: "3px solid #F59E0B", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 4 }}>
-                <div>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: "#92400e", margin: 0, fontFamily: "system-ui", lineHeight: 1.3 }}>⚡ {item.nom}</p>
-                  {item.notes && <p style={{ fontSize: 8, color: "#b45309", margin: "1px 0 0", fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>{item.notes}</p>}
-                </div>
-                <button onClick={() => onRemove(item._key)} style={{ background: "none", border: "none", color: "#fcd34d", cursor: "pointer", fontSize: 11, padding: 0, flexShrink: 0 }}>✕</button>
-              </div>
-            )}
             {item.type === "video" && (
               <div style={{ borderRadius: 5, border: "1px solid #e9d5ff", borderLeft: "3px solid #8B5CF6", overflow: "hidden" }}>
                 {item.thumb && (
                   <div style={{ position: "relative", cursor: "pointer" }} onClick={() => setPlayVideo({ url: item.url, titre: item.titre })}>
                     <img src={item.thumb} alt="" style={{ width: "100%", height: 44, objectFit: "cover", display: "block" }} />
-                    <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: 16 }}>▶</span>
-                    </div>
+                    <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 16 }}>▶</span></div>
                   </div>
                 )}
-                <div style={{ padding: "3px 6px 3px 6px", backgroundColor: "#faf5ff", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ padding: "3px 6px", backgroundColor: "#faf5ff", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
                     <p style={{ fontSize: 9, fontWeight: 700, color: "#7c3aed", margin: 0, fontFamily: "system-ui" }}>{item.titre}</p>
                     <p style={{ fontSize: 8, color: "#c4b5fd", margin: 0, fontFamily: "system-ui" }}>{item.categorie}</p>
@@ -263,46 +354,37 @@ function DayCell({ semaine, jour, items, seances, onAdd, onRemove }: {
             )}
           </div>
         ))}
-
-        {/* Bouton + */}
         <button onClick={() => setMenuOpen(m => !m)}
-          style={{ width: "100%", marginTop: items.length > 0 ? 2 : 0, padding: "3px 0", border: "1px dashed #e0e0e0", borderRadius: 5, backgroundColor: "transparent", color: "#ccc", fontSize: 14, cursor: "pointer", fontFamily: "system-ui", display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
-          <span>+</span>
+          style={{ width: "100%", marginTop: items.length > 0 ? 2 : 0, padding: "3px 0", border: "1px dashed #e0e0e0", borderRadius: 5, backgroundColor: "transparent", color: "#ccc", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          +
         </button>
       </div>
 
-      {/* Menu popup */}
       {menuOpen && (
-        <AddMenu seances={seances} onAdd={item => { onAdd(item); setMenuOpen(false); }} onClose={() => setMenuOpen(false)} />
+        <AddMenu
+          seances={seances}
+          onAdd={item => { onAdd(item); setMenuOpen(false); }}
+          onCreateSeance={() => { setMenuOpen(false); onCreateSeance(semaine, jour); }}
+          onClose={() => setMenuOpen(false)}
+        />
       )}
-
-      {/* Video modal */}
       {playVideo && <VideoModal url={playVideo.url} titre={playVideo.titre} onClose={() => setPlayVideo(null)} />}
     </div>
   );
 }
 
-// ─── Panel séances disponibles ────────────────────────────────────────────────
+// ─── Panel séances ────────────────────────────────────────────────────────────
 function SeancesPanel({ seances, onRefresh }: { seances: SeanceRef[]; onRefresh: () => void }) {
   const [search, setSearch] = useState("");
   const filtered = seances.filter(s => !search || s.nom.toLowerCase().includes(search.toLowerCase()));
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#0D0D0D", borderRight: "1px solid #1a1a1a" }}>
       <div style={{ padding: "12px 14px", borderBottom: "1px solid #1a1a1a", flexShrink: 0 }}>
-        <p style={{ fontSize: 9, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 8px", fontFamily: "system-ui" }}>Séances</p>
-        <a href="/coach/seances/nouvelle" target="_blank" rel="noreferrer" style={{
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-          width: "100%", padding: "7px 0", marginBottom: 8, borderRadius: 6,
-          backgroundColor: "#B22222", color: "#fff", textDecoration: "none",
-          fontSize: 11, fontWeight: 700, fontFamily: "system-ui",
-          boxSizing: "border-box",
-        }}>
-          ➕ Nouvelle séance
-        </a>
+        <p style={{ fontSize: 9, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 8px", fontFamily: "system-ui" }}>Séances existantes</p>
         <div style={{ display: "flex", gap: 6 }}>
           <input type="search" placeholder="🔍 Rechercher…" value={search} onChange={e => setSearch(e.target.value)}
             style={{ flex: 1, padding: "6px 9px", borderRadius: 6, border: "1px solid #1e1e1e", backgroundColor: "#161616", color: "#F5F5F0", fontSize: 11, fontFamily: "system-ui", outline: "none", boxSizing: "border-box" }} />
-          <button onClick={onRefresh} title="Actualiser la liste" style={{ padding: "6px 9px", borderRadius: 6, border: "1px solid #1e1e1e", backgroundColor: "#161616", color: "#666", fontSize: 13, cursor: "pointer" }}>↺</button>
+          <button onClick={onRefresh} title="Actualiser" style={{ padding: "6px 9px", borderRadius: 6, border: "1px solid #1e1e1e", backgroundColor: "#161616", color: "#666", fontSize: 13, cursor: "pointer" }}>↺</button>
         </div>
       </div>
       <div style={{ flex: 1, overflowY: "auto" }}>
@@ -320,7 +402,7 @@ function SeancesPanel({ seances, onRefresh }: { seances: SeanceRef[]; onRefresh:
             </div>
           </div>
         ))}
-        {filtered.length === 0 && <p style={{ fontSize: 11, color: "#444", padding: "14px", fontFamily: "system-ui" }}>Aucune séance trouvée</p>}
+        {filtered.length === 0 && <p style={{ fontSize: 11, color: "#444", padding: "14px", fontFamily: "system-ui" }}>Aucune séance</p>}
       </div>
       <div style={{ padding: "7px 14px", borderTop: "1px solid #1a1a1a", flexShrink: 0 }}>
         <p style={{ fontSize: 8, color: "#333", margin: 0, fontFamily: "system-ui" }}>⠿ Glisse OU clique + dans la cellule</p>
@@ -329,39 +411,30 @@ function SeancesPanel({ seances, onRefresh }: { seances: SeanceRef[]; onRefresh:
   );
 }
 
-// ─── Grille semaines × jours ──────────────────────────────────────────────────
-function ProgrammeGrid({ data, seances, onChange }: {
+// ─── Grille ───────────────────────────────────────────────────────────────────
+function ProgrammeGrid({ data, seances, onChange, onCreateSeance }: {
   data: ProgrammeData; seances: SeanceRef[];
   onChange: (grid: Grid) => void;
+  onCreateSeance: (s: number, j: number) => void;
 }) {
-  const nbSemaines = data.duree_semaines;
-  const weeks = Array.from({ length: nbSemaines }, (_, i) => i + 1);
-
-  function addToCell(semaine: number, jour: number, item: CellItem) {
-    const key = gridKey(semaine, jour);
+  const weeks = Array.from({ length: data.duree_semaines }, (_, i) => i + 1);
+  function addToCell(s: number, j: number, item: CellItem) {
+    const key = gridKey(s, j);
     onChange({ ...data.grid, [key]: [...(data.grid[key] ?? []), item] });
   }
-  function removeFromCell(semaine: number, jour: number, itemKey: string) {
-    const key = gridKey(semaine, jour);
+  function removeFromCell(s: number, j: number, itemKey: string) {
+    const key = gridKey(s, j);
     const next = (data.grid[key] ?? []).filter(i => i._key !== itemKey);
     const newGrid = { ...data.grid };
     if (next.length === 0) delete newGrid[key]; else newGrid[key] = next;
     onChange(newGrid);
   }
-
   return (
     <div style={{ overflowX: "auto" }}>
-      {/* En-tête */}
       <div style={{ display: "grid", gridTemplateColumns: `64px repeat(7, minmax(120px, 1fr))`, gap: 4, marginBottom: 4, minWidth: 920 }}>
         <div />
-        {JOURS.map(j => (
-          <div key={j} style={{ textAlign: "center", padding: "5px 0" }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: "#aaa", letterSpacing: "0.07em", textTransform: "uppercase", fontFamily: "system-ui" }}>{j}</span>
-          </div>
-        ))}
+        {JOURS.map(j => <div key={j} style={{ textAlign: "center", padding: "5px 0" }}><span style={{ fontSize: 9, fontWeight: 700, color: "#aaa", letterSpacing: "0.07em", textTransform: "uppercase", fontFamily: "system-ui" }}>{j}</span></div>)}
       </div>
-
-      {/* Lignes semaines */}
       {weeks.map(s => (
         <div key={s} style={{ display: "grid", gridTemplateColumns: `64px repeat(7, minmax(120px, 1fr))`, gap: 4, marginBottom: 4, minWidth: 920 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 8 }}>
@@ -376,6 +449,7 @@ function ProgrammeGrid({ data, seances, onChange }: {
               seances={seances}
               onAdd={item => addToCell(s, j + 1, item)}
               onRemove={key => removeFromCell(s, j + 1, key)}
+              onCreateSeance={onCreateSeance}
             />
           ))}
         </div>
@@ -392,6 +466,7 @@ export interface ProgrammeBuilderProps {
 
 export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderProps) {
   const [seances, setSeances] = useState<SeanceRef[]>([]);
+  const [creatorTarget, setCreatorTarget] = useState<{ semaine: number; jour: number } | null>(null);
 
   const loadSeances = useCallback(() => {
     fetch("/api/coach/seances").then(r => r.json()).then(d => {
@@ -410,22 +485,48 @@ export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderPro
 
   const totalItems = Object.values(data.grid).reduce((a, items) => a + items.length, 0);
 
+  function handleSeanceCreated(seance: SeanceRef) {
+    if (!creatorTarget) return;
+    const key = gridKey(creatorTarget.semaine, creatorTarget.jour);
+    onChange({ ...data, grid: { ...data.grid, [key]: [...(data.grid[key] ?? []), { _key: nk(), type: "seance" as const, seanceId: seance.id, seanceName: seance.nom, duree: seance.duree_estimee }] } });
+    setCreatorTarget(null);
+    loadSeances();
+  }
+
+  const jourLabel = creatorTarget
+    ? `${JOURS[creatorTarget.jour - 1]} — Semaine ${creatorTarget.semaine}`
+    : "";
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", minHeight: 500, border: "1px solid #1a1a1a", borderRadius: 12, overflow: "hidden" }}>
-      <SeancesPanel seances={seances} onRefresh={loadSeances} />
-      <div style={{ backgroundColor: "#f9f9f9", padding: "14px", overflowY: "auto" }}>
-        <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <div>
-            <p style={{ fontSize: 9, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 4px", fontFamily: "system-ui" }}>Description</p>
-            <input value={data.note} onChange={e => onChange({ ...data, note: e.target.value })} placeholder="Objectif du programme…"
-              style={{ padding: "7px 10px", borderRadius: 7, border: "1px solid #ddd", backgroundColor: "#fff", fontSize: 12, fontFamily: "system-ui", outline: "none", minWidth: 240 }} />
+    <>
+      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", minHeight: 500, border: "1px solid #1a1a1a", borderRadius: 12, overflow: "hidden" }}>
+        <SeancesPanel seances={seances} onRefresh={loadSeances} />
+        <div style={{ backgroundColor: "#f9f9f9", padding: "14px", overflowY: "auto" }}>
+          <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div>
+              <p style={{ fontSize: 9, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 4px", fontFamily: "system-ui" }}>Description</p>
+              <input value={data.note} onChange={e => onChange({ ...data, note: e.target.value })} placeholder="Objectif du programme…"
+                style={{ padding: "7px 10px", borderRadius: 7, border: "1px solid #ddd", backgroundColor: "#fff", fontSize: 12, fontFamily: "system-ui", outline: "none", minWidth: 240 }} />
+            </div>
+            <p style={{ fontSize: 11, color: "#aaa", fontFamily: "system-ui", margin: 0 }}>
+              {totalItems} élément{totalItems > 1 ? "s" : ""} planifié{totalItems > 1 ? "s" : ""}
+            </p>
           </div>
-          <p style={{ fontSize: 11, color: "#aaa", fontFamily: "system-ui", margin: 0 }}>
-            {totalItems} élément{totalItems > 1 ? "s" : ""} planifié{totalItems > 1 ? "s" : ""}
-          </p>
+          <ProgrammeGrid
+            data={data} seances={seances}
+            onChange={grid => onChange({ ...data, grid })}
+            onCreateSeance={(s, j) => setCreatorTarget({ semaine: s, jour: j })}
+          />
         </div>
-        <ProgrammeGrid data={data} seances={seances} onChange={grid => onChange({ ...data, grid })} />
       </div>
-    </div>
+
+      {creatorTarget && (
+        <InlineSeanceCreator
+          jourLabel={jourLabel}
+          onCreated={handleSeanceCreated}
+          onClose={() => setCreatorTarget(null)}
+        />
+      )}
+    </>
   );
 }
