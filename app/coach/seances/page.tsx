@@ -34,30 +34,63 @@ function FilterSection({ title, options, active, onChange }: {
   onChange: (v: string) => void;
 }) {
   const [open, setOpen] = useState(true);
-  const chip = (value: string, label: string) => (
-    <button key={value} onClick={() => onChange(value)} style={{
-      padding: "5px 13px", borderRadius: 99, fontSize: 11, cursor: "pointer",
-      fontFamily: "system-ui", fontWeight: active === value ? 700 : 400,
-      border: active === value ? "1px solid #B22222" : "1px solid #e8e8e8",
-      backgroundColor: active === value ? "#B22222" : "#fff",
-      color: active === value ? "#fff" : "#666",
-      transition: "all 0.12s",
-    }}>{label}</button>
-  );
+
+  const rect = (value: string, label: string) => {
+    const isActive = active === value;
+    return (
+      <button
+        key={value}
+        onClick={() => onChange(isActive ? "tous" : value)}
+        style={{
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          minWidth: 110, padding: "10px 16px", borderRadius: 8, cursor: "pointer",
+          fontFamily: "system-ui", transition: "all 0.15s",
+          border: isActive ? "2px solid #B22222" : "1px solid #e0e0e0",
+          backgroundColor: isActive ? "#B22222" : "#fafafa",
+          boxShadow: isActive ? "0 2px 8px rgba(178,34,34,0.2)" : "none",
+        }}
+      >
+        <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? "#fff" : "#333", fontFamily: "system-ui" }}>
+          {label}
+        </span>
+        {isActive && (
+          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.7)", marginTop: 2, fontFamily: "system-ui" }}>
+            sélectionné ✓
+          </span>
+        )}
+      </button>
+    );
+  };
 
   return (
-    <div style={{ marginBottom: 10 }}>
-      <button onClick={() => setOpen(o => !o)} style={{
-        background: "none", border: "none", display: "flex", alignItems: "center",
-        gap: 6, cursor: "pointer", padding: "2px 0", marginBottom: open ? 8 : 0,
-      }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#888", letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: "system-ui" }}>{title}</span>
-        <span style={{ fontSize: 10, color: "#aaa" }}>{open ? "▲" : "▼"}</span>
+    <div style={{ marginBottom: 0 }}>
+      {/* Titre + flèche repli */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: "100%", background: "none", border: "none",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          cursor: "pointer", padding: "10px 0",
+          borderBottom: open ? "1px solid #f0f0f0" : "none",
+          marginBottom: open ? 12 : 0,
+        }}
+      >
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#555", letterSpacing: "0.05em", textTransform: "uppercase", fontFamily: "system-ui" }}>
+          {title}
+          {active !== "tous" && (
+            <span style={{ marginLeft: 8, fontSize: 10, color: "#B22222", fontWeight: 400, textTransform: "none" }}>
+              — {options.find(o => o.value === active)?.label}
+            </span>
+          )}
+        </span>
+        <span style={{ fontSize: 12, color: "#bbb", transition: "transform 0.2s", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
       </button>
+
+      {/* Rectangles catégories */}
       {open && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {chip("tous", "Tous")}
-          {options.map(o => chip(o.value, o.label))}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingBottom: 12 }}>
+          {rect("tous", "Tout voir")}
+          {options.map(o => rect(o.value, o.label))}
         </div>
       )}
     </div>
@@ -112,8 +145,9 @@ export default function CoachSeancesPage() {
       </div>
 
       {/* Filtres dépliants */}
-      <div style={{ backgroundColor: "#fff", border: "1px solid #efefef", borderRadius: 10, padding: "14px 16px", marginBottom: 16 }}>
+      <div style={{ backgroundColor: "#fff", border: "1px solid #efefef", borderRadius: 10, padding: "0 16px", marginBottom: 16 }}>
         <FilterSection title="Catégorie" options={CATEGORIES} active={filterCat} onChange={setFilterCat} />
+        <div style={{ height: 1, backgroundColor: "#f0f0f0" }} />
         <FilterSection title="Niveau" options={NIVEAUX} active={filterNiv} onChange={setFilterNiv} />
         {(filterCat !== "tous" || filterNiv !== "tous") && (
           <button onClick={() => { setFilterCat("tous"); setFilterNiv("tous"); }}
