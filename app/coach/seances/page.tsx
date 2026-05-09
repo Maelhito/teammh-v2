@@ -27,72 +27,46 @@ function parseMeta(description: string | null): { categorie: string; niveau: str
 function catLabel(v: string) { return CATEGORIES.find(c => c.value === v)?.label ?? v; }
 function nivLabel(v: string) { return NIVEAUX.find(n => n.value === v)?.label ?? v; }
 
-function FilterSection({ title, options, active, onChange }: {
-  title: string;
+function FilterDropdown({ label, options, value, onChange }: {
+  label: string;
   options: { value: string; label: string }[];
-  active: string;
+  value: string;
   onChange: (v: string) => void;
 }) {
-  const [open, setOpen] = useState(true);
-
-  const rect = (value: string, label: string) => {
-    const isActive = active === value;
-    return (
-      <button
-        key={value}
-        onClick={() => onChange(isActive ? "tous" : value)}
-        style={{
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          minWidth: 110, padding: "10px 16px", borderRadius: 8, cursor: "pointer",
-          fontFamily: "system-ui", transition: "all 0.15s",
-          border: isActive ? "2px solid #B22222" : "1px solid #e0e0e0",
-          backgroundColor: isActive ? "#B22222" : "#fafafa",
-          boxShadow: isActive ? "0 2px 8px rgba(178,34,34,0.2)" : "none",
-        }}
-      >
-        <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? "#fff" : "#333", fontFamily: "system-ui" }}>
-          {label}
-        </span>
-        {isActive && (
-          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.7)", marginTop: 2, fontFamily: "system-ui" }}>
-            sélectionné ✓
-          </span>
-        )}
-      </button>
-    );
-  };
-
+  const active = value !== "tous";
   return (
-    <div style={{ marginBottom: 0 }}>
-      {/* Titre + flèche repli */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          width: "100%", background: "none", border: "none",
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          cursor: "pointer", padding: "10px 0",
-          borderBottom: open ? "1px solid #f0f0f0" : "none",
-          marginBottom: open ? 12 : 0,
-        }}
-      >
-        <span style={{ fontSize: 12, fontWeight: 700, color: "#555", letterSpacing: "0.05em", textTransform: "uppercase", fontFamily: "system-ui" }}>
-          {title}
-          {active !== "tous" && (
-            <span style={{ marginLeft: 8, fontSize: 10, color: "#B22222", fontWeight: 400, textTransform: "none" }}>
-              — {options.find(o => o.value === active)?.label}
-            </span>
-          )}
-        </span>
-        <span style={{ fontSize: 12, color: "#bbb", transition: "transform 0.2s", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
-      </button>
-
-      {/* Rectangles catégories */}
-      {open && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingBottom: 12 }}>
-          {rect("tous", "Tout voir")}
-          {options.map(o => rect(o.value, o.label))}
-        </div>
-      )}
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span style={{
+        fontSize: 10, fontWeight: 700, color: active ? "#B22222" : "#aaa",
+        letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "system-ui",
+      }}>
+        {label}
+      </span>
+      <div style={{ position: "relative" }}>
+        <select
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          style={{
+            appearance: "none", WebkitAppearance: "none",
+            width: "100%", padding: "10px 36px 10px 14px",
+            borderRadius: 8, cursor: "pointer", fontFamily: "system-ui",
+            fontSize: 13, fontWeight: active ? 700 : 400,
+            border: active ? "2px solid #B22222" : "1px solid #ddd",
+            backgroundColor: active ? "rgba(178,34,34,0.04)" : "#fff",
+            color: active ? "#B22222" : "#555",
+            outline: "none", boxSizing: "border-box",
+            boxShadow: active ? "0 1px 6px rgba(178,34,34,0.12)" : "0 1px 3px rgba(0,0,0,0.06)",
+          }}
+        >
+          <option value="tous">Toutes</option>
+          {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        {/* Flèche personnalisée */}
+        <span style={{
+          position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+          fontSize: 10, color: active ? "#B22222" : "#bbb", pointerEvents: "none",
+        }}>▼</span>
+      </div>
     </div>
   );
 }
@@ -145,15 +119,20 @@ export default function CoachSeancesPage() {
       </div>
 
       {/* Filtres dépliants */}
-      <div style={{ backgroundColor: "#fff", border: "1px solid #efefef", borderRadius: 10, padding: "0 16px", marginBottom: 16 }}>
-        <FilterSection title="Catégorie" options={CATEGORIES} active={filterCat} onChange={setFilterCat} />
-        <div style={{ height: 1, backgroundColor: "#f0f0f0" }} />
-        <FilterSection title="Niveau" options={NIVEAUX} active={filterNiv} onChange={setFilterNiv} />
+      <div style={{ display: "flex", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 180px", maxWidth: 260 }}>
+          <FilterDropdown label="Catégorie" options={CATEGORIES} value={filterCat} onChange={setFilterCat} />
+        </div>
+        <div style={{ flex: "1 1 180px", maxWidth: 260 }}>
+          <FilterDropdown label="Niveau" options={NIVEAUX} value={filterNiv} onChange={setFilterNiv} />
+        </div>
         {(filterCat !== "tous" || filterNiv !== "tous") && (
-          <button onClick={() => { setFilterCat("tous"); setFilterNiv("tous"); }}
-            style={{ marginTop: 4, background: "none", border: "none", fontSize: 11, color: "#B22222", cursor: "pointer", fontFamily: "system-ui", padding: 0 }}>
-            ✕ Réinitialiser les filtres
-          </button>
+          <div style={{ display: "flex", alignItems: "flex-end" }}>
+            <button onClick={() => { setFilterCat("tous"); setFilterNiv("tous"); }}
+              style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid #eee", background: "#fafafa", fontSize: 12, color: "#999", cursor: "pointer", fontFamily: "system-ui" }}>
+              ✕ Réinitialiser
+            </button>
+          </div>
         )}
       </div>
 
