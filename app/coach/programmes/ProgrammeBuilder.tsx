@@ -78,9 +78,11 @@ function VideoModal({ url, titre, onClose }: { url: string; titre: string; onClo
 }
 
 // ─── Créateur de séance inline (modal complet) ────────────────────────────────
-function InlineSeanceCreator({ jourLabel, onCreated, onClose }: {
+function InlineSeanceCreator({ jourLabel, duree_semaines, semaine_debut, onCreated, onClose }: {
   jourLabel: string;
-  onCreated: (seanceData: SeanceData) => void;
+  duree_semaines: number;
+  semaine_debut: number;
+  onCreated: (seanceData: SeanceData, repetitions: number) => void;
   onClose: () => void;
 }) {
   const [step, setStep] = useState<1|2>(1);
@@ -88,15 +90,18 @@ function InlineSeanceCreator({ jourLabel, onCreated, onClose }: {
     nom: "", categorie: "full_body", niveau: "debutant", duree_estimee: "45", note: "",
     blocs: [defaultBloc("echauffement"), defaultBloc("corps", 1)],
   });
+  const [repetitions, setRepetitions] = useState(1);
   const [error, setError] = useState("");
+
+  // Max répétitions = semaines restantes depuis la semaine de début
+  const maxRep = Math.max(1, duree_semaines - semaine_debut + 1);
 
   const inp: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #2a2a2a", backgroundColor: "#161616", fontSize: 13, color: "#F5F5F0", fontFamily: "system-ui", outline: "none", boxSizing: "border-box" };
   const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#666", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, fontFamily: "system-ui" };
 
   function handleSave() {
     if (!seanceData.nom.trim()) { setError("Nom obligatoire."); return; }
-    // Pas d'appel API — stockée uniquement dans le programme
-    onCreated(seanceData);
+    onCreated(seanceData, repetitions);
   }
 
   const totalExercices = seanceData.blocs.reduce((a, b) =>
@@ -136,35 +141,53 @@ function InlineSeanceCreator({ jourLabel, onCreated, onClose }: {
 
           {/* Étape 1 */}
           {step === 1 && (
-            <div style={{ maxWidth: 480, display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ maxWidth: 480, display: "flex", flexDirection: "column", gap: 18 }}>
+
               <div>
                 <label style={lbl}>Nom de la séance *</label>
-                <input style={inp} value={seanceData.nom} onChange={e => setSeanceData(d => ({ ...d, nom: e.target.value }))} placeholder="Ex: Full Body Débutant" autoFocus />
+                <input style={inp} value={seanceData.nom} onChange={e => setSeanceData(d => ({ ...d, nom: e.target.value }))} placeholder="Ex: Full Body Circuit" autoFocus />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={lbl}>Catégorie</label>
-                  <select style={{ ...inp, cursor: "pointer" }} value={seanceData.categorie} onChange={e => setSeanceData(d => ({ ...d, categorie: e.target.value }))}>
-                    {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={lbl}>Niveau</label>
-                  <select style={{ ...inp, cursor: "pointer" }} value={seanceData.niveau} onChange={e => setSeanceData(d => ({ ...d, niveau: e.target.value }))}>
-                    {NIVEAUX.map(n => <option key={n.value} value={n.value}>{n.label}</option>)}
-                  </select>
+
+              <div>
+                <label style={lbl}>Durée estimée</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input style={{ ...inp, width: 90, textAlign: "center" }} type="number" min="1" value={seanceData.duree_estimee} onChange={e => setSeanceData(d => ({ ...d, duree_estimee: e.target.value }))} />
+                  <span style={{ fontSize: 12, color: "#555", fontFamily: "system-ui" }}>min</span>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div>
-                  <label style={lbl}>Durée estimée</label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <input style={{ ...inp, width: 80, textAlign: "center" }} type="number" min="1" value={seanceData.duree_estimee} onChange={e => setSeanceData(d => ({ ...d, duree_estimee: e.target.value }))} />
-                    <span style={{ fontSize: 12, color: "#555", fontFamily: "system-ui" }}>min</span>
-                  </div>
+
+              <div>
+                <label style={lbl}>Répétition — combien de semaines ?</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <input
+                    style={{ ...inp, width: 90, textAlign: "center" }}
+                    type="number" min="1" max={maxRep}
+                    value={repetitions}
+                    onChange={e => setRepetitions(Math.min(maxRep, Math.max(1, parseInt(e.target.value) || 1)))}
+                  />
+                  <span style={{ fontSize: 12, color: "#555", fontFamily: "system-ui" }}>
+                    semaine{repetitions > 1 ? "s" : ""}
+                    {repetitions > 1 && (
+                      <span style={{ color: "#B22222", marginLeft: 6 }}>
+                        → Sem. {semaine_debut} à {Math.min(semaine_debut + repetitions - 1, duree_semaines)}
+                      </span>
+                    )}
+                  </span>
                 </div>
+                <input type="range" min="1" max={maxRep} value={repetitions}
+                  onChange={e => setRepetitions(parseInt(e.target.value))}
+                  style={{ width: "100%", marginTop: 8, accentColor: "#B22222" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+                  <span style={{ fontSize: 9, color: "#444", fontFamily: "system-ui" }}>1 sem.</span>
+                  <span style={{ fontSize: 9, color: "#444", fontFamily: "system-ui" }}>{maxRep} sem.</span>
+                </div>
+                <p style={{ fontSize: 10, color: "#555", margin: "6px 0 0", fontFamily: "system-ui" }}>
+                  La séance sera ajoutée sur le même jour pendant {repetitions} semaine{repetitions > 1 ? "s" : ""} consécutive{repetitions > 1 ? "s" : ""}.
+                </p>
               </div>
+
               {error && <p style={{ fontSize: 12, color: "#EF4444", margin: 0, fontFamily: "system-ui" }}>{error}</p>}
+
               <button onClick={() => { if (!seanceData.nom.trim()) { setError("Nom obligatoire."); return; } setError(""); setStep(2); }}
                 disabled={!seanceData.nom.trim()}
                 style={{ padding: "12px", borderRadius: 9, border: "none", backgroundColor: !seanceData.nom.trim() ? "#1a1a1a" : "#B22222", color: !seanceData.nom.trim() ? "#555" : "#fff", fontSize: 14, fontWeight: 700, cursor: !seanceData.nom.trim() ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
@@ -477,19 +500,21 @@ export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderPro
 
   const totalItems = Object.values(data.grid).reduce((a, items) => a + items.length, 0);
 
-  function handleSeanceCreated(seanceData: SeanceData) {
+  function handleSeanceCreated(seanceData: SeanceData, repetitions: number) {
     if (!creatorTarget) return;
-    const key = gridKey(creatorTarget.semaine, creatorTarget.jour);
-    const item: CellItem = {
-      _key: nk(),
-      type: "seance_locale",
-      nom: seanceData.nom,
-      duree: parseInt(seanceData.duree_estimee) || null,
-      seanceData,
-    };
-    onChange({ ...data, grid: { ...data.grid, [key]: [...(data.grid[key] ?? []), item] } });
+    const { semaine, jour } = creatorTarget;
+    const newGrid = { ...data.grid };
+    for (let s = semaine; s < semaine + repetitions && s <= data.duree_semaines; s++) {
+      const key = gridKey(s, jour);
+      newGrid[key] = [...(newGrid[key] ?? []), {
+        _key: nk(), type: "seance_locale" as const,
+        nom: seanceData.nom,
+        duree: parseInt(seanceData.duree_estimee) || null,
+        seanceData,
+      }];
+    }
+    onChange({ ...data, grid: newGrid });
     setCreatorTarget(null);
-    // Pas de refresh des séances globales — la séance locale n'est pas dans la DB
   }
 
   const jourLabel = creatorTarget
@@ -522,6 +547,8 @@ export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderPro
       {creatorTarget && (
         <InlineSeanceCreator
           jourLabel={jourLabel}
+          duree_semaines={data.duree_semaines}
+          semaine_debut={creatorTarget?.semaine ?? 1}
           onCreated={handleSeanceCreated}
           onClose={() => setCreatorTarget(null)}
         />
