@@ -1,14 +1,15 @@
+import { isAdminUser } from "@/lib/is-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
-const ADMIN_EMAIL = "mael.ld@hotmail.fr";
+
 const VALID_CATEGORIES = ["boost_mental", "visio_sport", "visio_stretching"] as const;
 
 async function requireAdmin(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user || user.email !== ADMIN_EMAIL) return null;
+  if (!isAdminUser(user)) return null;
   return user;
 }
 

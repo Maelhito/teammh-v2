@@ -69,7 +69,13 @@ export default async function AdminDashboardPage() {
     { href: "/admin/calendrier",    icon: "📅", label: "Calendrier",             desc: "Événements et séances" },
     { href: "/admin/equipe",        icon: "🤝", label: "Mon équipe",             desc: "Coachs et nutritionnistes" },
     { href: "/admin/notifications", icon: "🔔", label: "Notifications",          desc: "Envoyer des push" },
-    { href: "/admin/acces",         icon: "🔑", label: "Accès & Rôles",          desc: "Inviter, rôles, permissions" },
+    { href: "/admin/acces",         icon: "🔑", label: "Accès & Rôles",          desc: "Rôles et permissions" },
+  ];
+
+  const appLinks = [
+    { href: "/inscription", label: "Lien inscription", desc: "À partager aux clientes", color: "#B22222" },
+    { href: "/admin",       label: "Lien admin",       desc: "Espace administrateur",  color: "#3B82F6" },
+    { href: "/coach",       label: "Lien coach",       desc: "Portail coach",           color: "#10B981" },
   ];
 
   return (
@@ -101,7 +107,28 @@ export default async function AdminDashboardPage() {
         ))}
       </div>
 
-      {/* Accès rapides */}
+      {/* Liens de l'app */}
+      <div style={{ marginBottom: 28 }}>
+        <p style={{ fontSize: 11, color: "#444", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 12px", fontFamily: "system-ui" }}>
+          Liens de l&apos;application
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
+          {appLinks.map(({ href, label, desc, color }) => (
+            <Link key={href} href={href} style={{
+              display: "block", padding: "14px 16px", borderRadius: 10, textDecoration: "none",
+              backgroundColor: "#111", border: `1px solid ${color}30`,
+            }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color, margin: "0 0 2px", fontFamily: "system-ui" }}>{label}</p>
+              <p style={{ fontSize: 11, color: "#555", margin: "0 0 6px", fontFamily: "system-ui" }}>{desc}</p>
+              <code style={{ fontSize: 10, color: "#333", fontFamily: "monospace" }}>
+                teammj-v2.vercel.app{href}
+              </code>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Sections */}
       <div style={{ marginBottom: 8 }}>
         <p style={{ fontSize: 11, color: "#444", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 14px", fontFamily: "system-ui" }}>
           Sections
@@ -112,7 +139,6 @@ export default async function AdminDashboardPage() {
               display: "flex", alignItems: "flex-start", gap: 14,
               padding: "16px 18px", borderRadius: 12, textDecoration: "none",
               backgroundColor: "#111", border: "1px solid #1a1a1a",
-              transition: "border-color 0.15s",
             }}>
               <span style={{ fontSize: 22, flexShrink: 0, marginTop: 1 }}>{icon}</span>
               <div>

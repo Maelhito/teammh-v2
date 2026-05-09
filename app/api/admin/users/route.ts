@@ -1,15 +1,16 @@
+import { isAdminUser } from "@/lib/is-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getModules } from "@/lib/modules";
 
-const ADMIN_EMAIL = "mael.ld@hotmail.fr";
+
 
 export async function GET(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAdminUser(user)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   if (usersError) return NextResponse.json({ error: usersError.message }, { status: 500 });
 
-  const clients = users.filter((u) => u.email !== ADMIN_EMAIL);
+  const clients = users.filter((u) => !isAdminUser(u));
   const clientIds = clients.map((u) => u.id);
 
   if (!clientIds.length) return NextResponse.json({ users: [] });
@@ -70,7 +71,7 @@ export async function PATCH(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAdminUser(user)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 
@@ -115,6 +116,19 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
+  if (action === "update_team") {
+    const { coach_id, nutrition_id } = body;
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const update: Record<string, string | null> = {};
+    if (coach_id !== undefined) update.coach_id = (coach_id && uuidRe.test(coach_id)) ? coach_id : null;
+    if (nutrition_id !== undefined) update.nutrition_id = (nutrition_id && uuidRe.test(nutrition_id)) ? nutrition_id : null;
+    const { error } = await admin
+      .from("user_profiles")
+      .upsert({ user_id: userId, ...update, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
   // Mise à jour du statut (comportement historique)
   const { statut } = body;
   if (!statut || !["active", "pause", "terminee"].includes(statut)) {
@@ -137,7 +151,7 @@ export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAdminUser(user)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 
@@ -152,5 +166,24 @@ export async function POST(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  return NextResponse.json({ success: true });
+}
+
+export async function DELETE(request: NextRequest) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!isAdminUser(user)) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  }
+
+  const { userId } = await request.json();
+  if (!userId) return NextResponse.json({ error: "userId manquant" }, { status: 400 });
+
+  const admin = createSupabaseAdminClient();
+  await admin.from("user_profiles").delete().eq("user_id", userId);
+  const { error } = await admin.auth.admin.deleteUser(userId);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
 }

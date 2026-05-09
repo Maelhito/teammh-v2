@@ -1,14 +1,13 @@
 import type { ReactNode } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
+import { isAdminUser } from "@/lib/is-admin";
 import AdminSidebar from "./AdminSidebar";
-
-const ADMIN_EMAIL = "mael.ld@hotmail.fr";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user || user.email !== ADMIN_EMAIL) redirect("/login");
+  if (!isAdminUser(user)) redirect("/login");
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#0D0D0D" }}>

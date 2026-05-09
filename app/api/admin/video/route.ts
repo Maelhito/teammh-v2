@@ -1,10 +1,11 @@
+import { isAdminUser } from "@/lib/is-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { sendPushToAll } from "@/lib/push";
 import { getModuleBySlug } from "@/lib/modules";
 
-const ADMIN_EMAIL = "mael.ld@hotmail.fr";
+
 const ALLOWED_FIELDS = [
   "video_url_1", "video_url_2", "video_url_3",
   "video_url_4", "video_url_5", "video_url_6",
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAdminUser(user)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 

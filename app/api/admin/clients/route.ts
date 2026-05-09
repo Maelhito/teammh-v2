@@ -1,15 +1,16 @@
+import { isAdminUser } from "@/lib/is-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getModules } from "@/lib/modules";
 
-const ADMIN_EMAIL = "mael.ld@hotmail.fr";
+
 
 export async function GET(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAdminUser(user)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   if (usersError) return NextResponse.json({ error: usersError.message }, { status: 500 });
 
   // Filtre l'admin
-  const clients = users.filter((u) => u.email !== ADMIN_EMAIL);
+  const clients = users.filter((u) => !isAdminUser(u));
   const clientIds = clients.map((u) => u.id);
 
   if (!clientIds.length) return NextResponse.json({ clients: [] });
@@ -70,7 +71,7 @@ export async function PATCH(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAdminUser(user)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 

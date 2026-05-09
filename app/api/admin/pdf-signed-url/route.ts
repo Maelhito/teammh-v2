@@ -1,8 +1,9 @@
+import { isAdminUser } from "@/lib/is-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
-const ADMIN_EMAIL = "mael.ld@hotmail.fr";
+
 
 // Génère une signed upload URL Supabase pour upload direct navigateur → Supabase Storage
 // Contourne la limite 4.5 MB de Vercel sur les routes Next.js
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAdminUser(user)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 

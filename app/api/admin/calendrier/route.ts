@@ -1,13 +1,14 @@
+import { isAdminUser } from "@/lib/is-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
-const ADMIN_EMAIL = "mael.ld@hotmail.fr";
+
 
 async function requireAdmin(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session || session.user.email !== ADMIN_EMAIL) return null;
+  if (!isAdminUser(session?.user)) return null;
   return session;
 }
 

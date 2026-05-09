@@ -1,10 +1,11 @@
+import { isAdminUser } from "@/lib/is-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { sendPushToAll } from "@/lib/push";
 import { getModuleBySlug } from "@/lib/modules";
 
-const ADMIN_EMAIL = "mael.ld@hotmail.fr";
+
 
 // Appelé après l'upload direct navigateur → Supabase Storage
 // Met à jour modules_content avec l'URL publique
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAdminUser(user)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 
