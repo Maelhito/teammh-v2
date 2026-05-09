@@ -6,7 +6,7 @@ import ProgrammeBuilder, { encodeProgData, type ProgrammeData } from "../Program
 import { NIVEAUX } from "../../seances/SeanceBuilder";
 
 const init = (): ProgrammeData => ({
-  nom: "", niveau: "debutant", duree_mois: 1, note: "", grid: {},
+  nom: "", niveau: "debutant", duree_semaines: 1, note: "", grid: {},
 });
 
 export default function NouveauProgrammePage() {
@@ -24,7 +24,7 @@ export default function NouveauProgrammePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nom: data.nom, categorie: "custom", niveau: data.niveau,
-          duree_semaines: Math.ceil(data.duree_mois * 4.33),
+          duree_semaines: data.duree_semaines,
           description: encodeProgData(data),
         }),
       });
@@ -99,24 +99,21 @@ export default function NouveauProgrammePage() {
                 <input
                   style={{ ...inp, width: 100, textAlign: "center" }}
                   type="number" min="1" max="24"
-                  value={data.duree_mois}
+                  value={data.duree_semaines}
                   onChange={e => {
                     const v = Math.min(24, Math.max(1, parseInt(e.target.value) || 1));
-                    setData(d => ({ ...d, duree_mois: v }));
+                    setData(d => ({ ...d, duree_semaines: v }));
                   }}
                 />
-                <span style={{ fontSize: 14, color: "#555", fontFamily: "system-ui" }}>mois</span>
-                <span style={{ fontSize: 12, color: "#444", fontFamily: "system-ui" }}>
-                  ≈ {Math.ceil(data.duree_mois * 4.33)} semaines
-                </span>
+                <span style={{ fontSize: 14, color: "#555", fontFamily: "system-ui" }}>semaine{data.duree_semaines > 1 ? "s" : ""}</span>
               </div>
               {/* Curseur rapide */}
-              <input type="range" min="1" max="24" value={data.duree_mois}
-                onChange={e => setData(d => ({ ...d, duree_mois: parseInt(e.target.value) }))}
+              <input type="range" min="1" max="24" value={data.duree_semaines}
+                onChange={e => setData(d => ({ ...d, duree_semaines: parseInt(e.target.value) }))}
                 style={{ width: "100%", marginTop: 10, accentColor: "#B22222" }} />
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-                <span style={{ fontSize: 9, color: "#444", fontFamily: "system-ui" }}>1 mois</span>
-                <span style={{ fontSize: 9, color: "#444", fontFamily: "system-ui" }}>24 mois</span>
+                <span style={{ fontSize: 9, color: "#444", fontFamily: "system-ui" }}>1 sem.</span>
+                <span style={{ fontSize: 9, color: "#444", fontFamily: "system-ui" }}>24 sem.</span>
               </div>
             </div>
 

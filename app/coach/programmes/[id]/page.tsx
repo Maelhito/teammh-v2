@@ -28,7 +28,7 @@ export default function EditProgrammePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         nom: data.nom, categorie: "custom", niveau: data.niveau,
-        duree_semaines: Math.ceil(data.duree_mois * 4.33),
+        duree_semaines: data.duree_semaines,
         description: encodeProgData(data),
       }),
     });
@@ -62,12 +62,12 @@ export default function EditProgrammePage() {
             </select>
           </div>
           <div>
-            <label style={lbl}>Durée (mois)</label>
+            <label style={lbl}>Durée (semaines)</label>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <input style={{ ...inp, width: 70, textAlign: "center" }} type="number" min="1" max="24"
-                value={data.duree_mois}
-                onChange={e => setData(d => d ? { ...d, duree_mois: Math.min(24, Math.max(1, parseInt(e.target.value) || 1)) } : d)} />
-              <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui", whiteSpace: "nowrap" }}>mois · {Math.ceil(data.duree_mois * 4.33)} sem.</span>
+                value={data.duree_semaines}
+                onChange={e => setData(d => d ? { ...d, duree_semaines: Math.min(24, Math.max(1, parseInt(e.target.value) || 1)) } : d)} />
+              <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui", whiteSpace: "nowrap" }}>semaine{data.duree_semaines > 1 ? "s" : ""}</span>
             </div>
           </div>
         </div>

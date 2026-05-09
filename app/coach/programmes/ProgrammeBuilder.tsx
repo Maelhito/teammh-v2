@@ -17,7 +17,7 @@ export type CellItem =
 export type Grid = Record<string, CellItem[]>;  // key = "S{sem}_J{jour}"
 
 export interface ProgrammeData {
-  nom: string; niveau: string; duree_mois: number; note: string; grid: Grid;
+  nom: string; niveau: string; duree_semaines: number; note: string; grid: Grid;
 }
 
 // ─── Const ───────────────────────────────────────────────────────────────────
@@ -40,22 +40,22 @@ function ytEmbed(url: string): string | null {
 function nivLabel(v: string) { return NIVEAUX.find(n => n.value === v)?.label ?? v; }
 
 export function encodeProgData(d: ProgrammeData): string {
-  return JSON.stringify({ grid: d.grid, note: d.note, duree_mois: d.duree_mois });
+  return JSON.stringify({ grid: d.grid, note: d.note, duree_semaines: d.duree_semaines });
 }
 export function decodeProgData(prog: Record<string, unknown>): ProgrammeData {
-  let grid: Grid = {}; let note = ""; let duree_mois = 1;
+  let grid: Grid = {}; let note = ""; let duree_semaines = 4;
   try {
     const desc = (prog.description as string) || "";
     if (desc.startsWith("{")) {
       const p = JSON.parse(desc);
       grid = p.grid ?? {}; note = p.note ?? "";
-      duree_mois = p.duree_mois ?? (prog.duree_semaines as number ?? 4) / 4;
+      duree_semaines = p.duree_semaines ?? (prog.duree_semaines as number ?? 4);
     } else note = desc;
   } catch {}
   return {
     nom: (prog.nom as string) || "",
     niveau: (prog.niveau as string) || "debutant",
-    duree_mois: (prog.duree_mois as number) || duree_mois || 1,
+    duree_semaines: (prog.duree_semaines as number) || duree_semaines || 4,
     note, grid,
   };
 }
@@ -283,15 +283,27 @@ function DayCell({ semaine, jour, items, seances, onAdd, onRemove }: {
 }
 
 // ─── Panel séances disponibles ────────────────────────────────────────────────
-function SeancesPanel({ seances }: { seances: SeanceRef[] }) {
+function SeancesPanel({ seances, onRefresh }: { seances: SeanceRef[]; onRefresh: () => void }) {
   const [search, setSearch] = useState("");
   const filtered = seances.filter(s => !search || s.nom.toLowerCase().includes(search.toLowerCase()));
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#0D0D0D", borderRight: "1px solid #1a1a1a" }}>
       <div style={{ padding: "12px 14px", borderBottom: "1px solid #1a1a1a", flexShrink: 0 }}>
-        <p style={{ fontSize: 9, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 8px", fontFamily: "system-ui" }}>Séances (glisser)</p>
-        <input type="search" placeholder="🔍 Rechercher…" value={search} onChange={e => setSearch(e.target.value)}
-          style={{ width: "100%", padding: "6px 9px", borderRadius: 6, border: "1px solid #1e1e1e", backgroundColor: "#161616", color: "#F5F5F0", fontSize: 11, fontFamily: "system-ui", outline: "none", boxSizing: "border-box" }} />
+        <p style={{ fontSize: 9, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 8px", fontFamily: "system-ui" }}>Séances</p>
+        <a href="/coach/seances/nouvelle" target="_blank" rel="noreferrer" style={{
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+          width: "100%", padding: "7px 0", marginBottom: 8, borderRadius: 6,
+          backgroundColor: "#B22222", color: "#fff", textDecoration: "none",
+          fontSize: 11, fontWeight: 700, fontFamily: "system-ui",
+          boxSizing: "border-box",
+        }}>
+          ➕ Nouvelle séance
+        </a>
+        <div style={{ display: "flex", gap: 6 }}>
+          <input type="search" placeholder="🔍 Rechercher…" value={search} onChange={e => setSearch(e.target.value)}
+            style={{ flex: 1, padding: "6px 9px", borderRadius: 6, border: "1px solid #1e1e1e", backgroundColor: "#161616", color: "#F5F5F0", fontSize: 11, fontFamily: "system-ui", outline: "none", boxSizing: "border-box" }} />
+          <button onClick={onRefresh} title="Actualiser la liste" style={{ padding: "6px 9px", borderRadius: 6, border: "1px solid #1e1e1e", backgroundColor: "#161616", color: "#666", fontSize: 13, cursor: "pointer" }}>↺</button>
+        </div>
       </div>
       <div style={{ flex: 1, overflowY: "auto" }}>
         {filtered.map(s => (
@@ -322,7 +334,7 @@ function ProgrammeGrid({ data, seances, onChange }: {
   data: ProgrammeData; seances: SeanceRef[];
   onChange: (grid: Grid) => void;
 }) {
-  const nbSemaines = Math.ceil(data.duree_mois * 4.33);
+  const nbSemaines = data.duree_semaines;
   const weeks = Array.from({ length: nbSemaines }, (_, i) => i + 1);
 
   function addToCell(semaine: number, jour: number, item: CellItem) {
@@ -381,7 +393,7 @@ export interface ProgrammeBuilderProps {
 export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderProps) {
   const [seances, setSeances] = useState<SeanceRef[]>([]);
 
-  useEffect(() => {
+  const loadSeances = useCallback(() => {
     fetch("/api/coach/seances").then(r => r.json()).then(d => {
       setSeances((d.seances ?? []).map((s: Record<string, unknown>) => {
         let categorie = "", niveau = "";
@@ -394,11 +406,13 @@ export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderPro
     });
   }, []);
 
+  useEffect(() => { loadSeances(); }, [loadSeances]);
+
   const totalItems = Object.values(data.grid).reduce((a, items) => a + items.length, 0);
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", minHeight: 500, border: "1px solid #1a1a1a", borderRadius: 12, overflow: "hidden" }}>
-      <SeancesPanel seances={seances} />
+      <SeancesPanel seances={seances} onRefresh={loadSeances} />
       <div style={{ backgroundColor: "#f9f9f9", padding: "14px", overflowY: "auto" }}>
         <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
           <div>
