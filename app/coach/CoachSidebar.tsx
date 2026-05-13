@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+
+const ADMIN_EMAIL = "mael.ld@hotmail.fr";
 
 const NAV = [
   { href: "/coach",            icon: "🏠", label: "Tableau de bord" },
@@ -17,6 +19,23 @@ const NAV = [
 export default function CoachSidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [showAdminBtn, setShowAdminBtn] = useState(false);
+
+  useEffect(() => {
+    // Uniquement hors localhost
+    const isLocal = typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    if (isLocal) return;
+
+    const sb = createSupabaseBrowserClient();
+    sb.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      const role = user.user_metadata?.role ?? "";
+      if (user.email === ADMIN_EMAIL || role === "admin") {
+        setShowAdminBtn(true);
+      }
+    });
+  }, []);
 
   async function handleLogout() {
     const sb = createSupabaseBrowserClient();
@@ -34,6 +53,23 @@ export default function CoachSidebar() {
       position: "sticky", top: 0, height: "100vh",
       flexShrink: 0,
     }}>
+      {/* Bouton retour admin — visible uniquement si admin + hors localhost */}
+      {showAdminBtn && (
+        <Link href="/admin" style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "10px 16px", backgroundColor: "rgba(178,34,34,0.12)",
+          borderBottom: "1px solid rgba(178,34,34,0.2)",
+          color: "#B22222", textDecoration: "none",
+          fontSize: 12, fontWeight: 700, fontFamily: "system-ui",
+          transition: "background 0.15s",
+        }}
+          onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(178,34,34,0.22)"}
+          onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(178,34,34,0.12)"}
+        >
+          <span style={{ fontSize: 14 }}>←</span> Espace Admin
+        </Link>
+      )}
+
       {/* Logo */}
       <div style={{ padding: "28px 20px 24px", borderBottom: "1px solid #1e1e1e" }}>
         <p style={{ fontSize: 10, color: "#555", letterSpacing: "0.14em", textTransform: "uppercase", margin: "0 0 4px", fontFamily: "system-ui" }}>
