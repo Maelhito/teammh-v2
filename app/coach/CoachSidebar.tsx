@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { isAdminUser } from "@/lib/is-admin";
 
 const NAV = [
   { href: "/coach",            icon: "🏠", label: "Tableau de bord" },
@@ -17,6 +18,14 @@ const NAV = [
 export default function CoachSidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const sb = createSupabaseBrowserClient();
+    sb.auth.getUser().then(({ data: { user } }) => {
+      setIsAdmin(isAdminUser(user));
+    });
+  }, []);
 
   async function handleLogout() {
     const sb = createSupabaseBrowserClient();
@@ -64,7 +73,19 @@ export default function CoachSidebar() {
       </div>
 
       {/* Footer */}
-      <div style={{ padding: "16px 12px", borderTop: "1px solid #1e1e1e" }}>
+      <div style={{ padding: "16px 12px", borderTop: "1px solid #1e1e1e", display: "flex", flexDirection: "column", gap: 6 }}>
+        {isAdmin && (
+          <Link href="/admin" style={{
+            width: "100%", padding: "10px 12px", borderRadius: 8,
+            border: "1px solid #B22222", backgroundColor: "rgba(178,34,34,0.15)",
+            color: "#ff4444", fontSize: 13, cursor: "pointer",
+            textAlign: "left", fontFamily: "system-ui",
+            display: "flex", alignItems: "center", gap: 10,
+            fontWeight: 700, textDecoration: "none", letterSpacing: "0.02em",
+          }}>
+            <span>⬅</span> Retour admin
+          </Link>
+        )}
         <button onClick={handleLogout} style={{
           width: "100%", padding: "10px 12px", borderRadius: 8,
           border: "none", backgroundColor: "transparent",

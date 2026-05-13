@@ -2,11 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { isAdminUser } from "@/lib/is-admin";
 
 export default function BottomNav() {
   const pathname = usePathname();
   const active = "#B22222";
   const inactive = "#444";
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const sb = createSupabaseBrowserClient();
+    sb.auth.getUser().then(({ data: { user } }) => {
+      setIsAdmin(isAdminUser(user));
+    });
+  }, []);
   const isModules = pathname.startsWith("/dashboard") || pathname.startsWith("/modules");
   const isCalendrier = pathname.startsWith("/calendrier");
   const isProfil = pathname.startsWith("/profil");
@@ -20,6 +31,20 @@ export default function BottomNav() {
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
+      {isAdmin && (
+        <Link
+          href="/admin"
+          className="flex items-center justify-center gap-2 py-2"
+          style={{
+            backgroundColor: "rgba(178,34,34,0.15)",
+            borderBottom: "1px solid #B22222",
+            color: "#ff4444", fontSize: "0.72rem", fontWeight: 700,
+            letterSpacing: "0.06em", textDecoration: "none",
+          }}
+        >
+          <span style={{ fontSize: 14 }}>⬅</span> RETOUR ADMIN
+        </Link>
+      )}
       <div className="mx-auto flex" style={{ maxWidth: 480 }}>
 
         <Link href="/dashboard" className="flex-1 flex flex-col items-center justify-center gap-1 py-3">
