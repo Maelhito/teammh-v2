@@ -15,7 +15,6 @@ interface AdminEvent {
   date: string;
   heure: string | null;
   recurrence: string;
-  rappel: boolean;
   target_user_id: string | null;
 }
 
@@ -43,8 +42,6 @@ export default function CalendrierAdmin({ clients }: Props) {
     message: "",
     lien: "",
     target_user_id: "",
-    rappel: false,
-    rappel_minutes: 0,
     event_type: "coach",
   });
   const [saving, setSaving] = useState(false);
@@ -77,7 +74,7 @@ export default function CalendrierAdmin({ clients }: Props) {
         const { event } = await res.json();
         setStatus("success");
         setAdminEvents((prev) => [...prev, event]);
-        setForm({ titre: "", date: "", heure: "", recurrence: "none", message: "", lien: "", target_user_id: "", rappel: false, rappel_minutes: 0, event_type: "coach" });
+        setForm({ titre: "", date: "", heure: "", recurrence: "none", message: "", lien: "", target_user_id: "", event_type: "coach" });
         setTimeout(() => setStatus("idle"), 3000);
       } else {
         const { error } = await res.json().catch(() => ({ error: "Erreur inconnue" }));
@@ -219,31 +216,6 @@ export default function CalendrierAdmin({ clients }: Props) {
           style={inputStyle}
         />
 
-        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "4px 0" }}>
-          <input
-            type="checkbox"
-            checked={form.rappel}
-            onChange={(e) => setForm((f) => ({ ...f, rappel: e.target.checked }))}
-            style={{ width: 16, height: 16, accentColor: "#B22222", cursor: "pointer", flexShrink: 0 }}
-          />
-          <span style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.7)" }}>
-            🔔 Rappel — notification push la veille
-          </span>
-        </label>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.7)" }}>⏰ Rappel avant l&apos;événement :</span>
-          <select
-            value={form.rappel_minutes}
-            onChange={(e) => setForm((f) => ({ ...f, rappel_minutes: Number(e.target.value) }))}
-            style={{ ...inputStyle, width: "auto", flex: 1 }}
-          >
-            <option value={0}>Aucun</option>
-            <option value={30}>30 min avant</option>
-            <option value={60}>1h avant</option>
-          </select>
-        </div>
-
         <button
           type="submit"
           disabled={saving}
@@ -327,7 +299,7 @@ export default function CalendrierAdmin({ clients }: Props) {
                       }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ fontWeight: 600, color: "#F5F5F0", fontSize: "0.8rem", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {evt.rappel ? "🔔 " : ""}{evt.titre}
+                            {evt.titre}
                           </p>
                           <p style={{ color: "#555", fontSize: "0.7rem", margin: "2px 0 0" }}>
                             {evt.date}

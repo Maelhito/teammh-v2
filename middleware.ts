@@ -12,6 +12,11 @@ const CLIENT_PROTECTED = ["/dashboard", "/profil", "/modules", "/calendrier"];
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // En dev local, pas besoin de se connecter
+  if (process.env.NODE_ENV === "development") {
+    return NextResponse.next({ request });
+  }
+
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next({ request });
   }

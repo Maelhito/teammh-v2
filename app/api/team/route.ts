@@ -10,7 +10,7 @@ export async function GET(_request: NextRequest) {
 
   const admin = createSupabaseAdminClient();
   const [{ data: members, error: membersError }, { data: profile, error: profileError }] = await Promise.all([
-    admin.from("team_members").select("id, nom, titre, lien_zoom").order("created_at", { ascending: true }),
+    admin.from("team_members").select("id, nom, titre, lien_zoom, role").order("created_at", { ascending: true }),
     admin.from("user_profiles").select("coach_id, nutrition_id").eq("user_id", session.user.id).single(),
   ]);
 

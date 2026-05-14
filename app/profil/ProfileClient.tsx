@@ -9,6 +9,7 @@ interface TeamMember {
   nom: string;
   titre: string;
   lien_zoom: string | null;
+  role: "coach" | "nutrition";
 }
 
 interface Props {
@@ -490,8 +491,8 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
         <Field label="OBJECTIF BIEN-ÊTRE" value={obj12Bienetre} onChange={setObj12Bienetre} placeholder="ex: Une relation saine avec la nourriture" />
       </Section>
 
-      {/* Mon équipe */}
-      <Section title="👥 MON ÉQUIPE">
+      {/* Mes coachs */}
+      <Section title="👥 MES COACHS">
         {teamLoading ? (
           <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0 }}>Chargement...</p>
         ) : teamMembers.length === 0 ? (
@@ -501,14 +502,15 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {[
-              { role: "🔴 Coach", field: "coach_id" as const, currentId: coachId },
-              { role: "🟢 Nutritionniste", field: "nutrition_id" as const, currentId: nutritionId },
-            ].map(({ role, field, currentId }) => {
+              { label: "🔴 Coach", field: "coach_id" as const, currentId: coachId, memberRole: "coach" as const },
+              { label: "🟢 Coach Nutrition", field: "nutrition_id" as const, currentId: nutritionId, memberRole: "nutrition" as const },
+            ].map(({ label, field, currentId, memberRole }) => {
+              const eligible = teamMembers.filter((m) => m.role === memberRole);
               const chosen = currentId ? teamMembers.find((m) => m.id === currentId) : null;
               return (
                 <div key={field}>
                   <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", margin: "0 0 6px", letterSpacing: "0.04em" }}>
-                    {role}
+                    {label}
                   </p>
                   {chosen ? (
                     <div style={{
@@ -532,7 +534,7 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
                     </div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {teamMembers.map((m) => (
+                      {eligible.map((m) => (
                         <button
                           key={m.id}
                           onClick={() => handleChooseTeamMember(field, m.id)}

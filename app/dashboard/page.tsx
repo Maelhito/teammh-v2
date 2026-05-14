@@ -6,6 +6,7 @@ import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import DashboardModules from "@/components/DashboardModules";
 import PushSubscriber from "@/components/PushSubscriber";
+import WelcomeVideoPopup from "@/components/WelcomeVideoPopup";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 90 }}>
+      <WelcomeVideoPopup userId={userId} />
       <AppHeader />
       <PushSubscriber />
 

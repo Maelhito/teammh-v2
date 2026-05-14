@@ -19,6 +19,15 @@ export interface ClientData {
   acces_app: boolean;
   programme_type: ProgrammeType;
   programme_duree: ProgrammeDuree;
+  coach_id: string | null;
+  nutrition_id: string | null;
+}
+
+export interface TeamMember {
+  id: string;
+  nom: string;
+  titre: string;
+  role: "coach" | "nutrition";
 }
 
 function AccesDot({ acces }: { acces: boolean }) {
@@ -83,22 +92,33 @@ const COMBO_LABELS: Record<ProgrammeCombo, string> = {
 
 function ClientRow({
   client,
+  teamMembers,
   onToggleAcces,
   onDisconnect,
+  onDelete,
   onUpdateProgramme,
+  onUpdateTeam,
 }: {
   client: ClientData;
+  teamMembers: TeamMember[];
   onToggleAcces: (id: string, current: boolean) => Promise<void>;
   onDisconnect: (id: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   onUpdateProgramme: (id: string, type: ProgrammeType, duree: ProgrammeDuree) => Promise<void>;
+  onUpdateTeam: (id: string, field: "coach_id" | "nutrition_id", value: string | null) => Promise<void>;
 }) {
   const [acces, setAcces] = useState(client.acces_app);
   const [loadingAcces, setLoadingAcces] = useState(false);
   const [loadingDisconnect, setLoadingDisconnect] = useState(false);
+  const [loadingDelete, setLoadingDelete] = useState(false);
   const [combo, setCombo] = useState<ProgrammeCombo>(
     toCombo(client.programme_type, client.programme_duree)
   );
   const [savingProg, setSavingProg] = useState(false);
+  const [coachId, setCoachId] = useState<string>(client.coach_id ?? "");
+  const [nutritionId, setNutritionId] = useState<string>(client.nutrition_id ?? "");
+  const coaches = teamMembers.filter((m) => m.role === "coach");
+  const nutritionists = teamMembers.filter((m) => m.role === "nutrition");
 
   async function handleToggle() {
     setLoadingAcces(true);
@@ -113,12 +133,29 @@ function ClientRow({
     setLoadingDisconnect(false);
   }
 
+  async function handleDelete() {
+    if (!confirm(`Supprimer définitivement ${client.prenom ?? client.email} ? Cette action est irréversible.`)) return;
+    setLoadingDelete(true);
+    await onDelete(client.id);
+    setLoadingDelete(false);
+  }
+
   async function handleProgrammeChange(newCombo: ProgrammeCombo) {
     setCombo(newCombo);
     setSavingProg(true);
     const { programme_type, programme_duree } = fromCombo(newCombo);
     await onUpdateProgramme(client.id, programme_type, programme_duree);
     setSavingProg(false);
+  }
+
+  async function handleCoachChange(val: string) {
+    setCoachId(val);
+    await onUpdateTeam(client.id, "coach_id", val || null);
+  }
+
+  async function handleNutritionChange(val: string) {
+    setNutritionId(val);
+    await onUpdateTeam(client.id, "nutrition_id", val || null);
   }
 
   const dateDemarrage = client.date_demarrage
@@ -159,6 +196,26 @@ function ClientRow({
           ))}
         </select>
       </td>
+      <td style={{ ...tdStyle }}>
+        <select
+          value={coachId}
+          onChange={(e) => handleCoachChange(e.target.value)}
+          style={{ backgroundColor: "#0D0D0D", border: "1px solid rgba(178,34,34,0.4)", borderRadius: 6, padding: "4px 8px", color: coachId ? "#F5F5F0" : "#555", fontSize: 11, fontWeight: 700, cursor: "pointer", outline: "none" }}
+        >
+          <option value="">—</option>
+          {coaches.map((m) => <option key={m.id} value={m.id} style={{ backgroundColor: "#1A1A1A" }}>{m.nom}</option>)}
+        </select>
+      </td>
+      <td style={{ ...tdStyle }}>
+        <select
+          value={nutritionId}
+          onChange={(e) => handleNutritionChange(e.target.value)}
+          style={{ backgroundColor: "#0D0D0D", border: "1px solid rgba(34,197,94,0.4)", borderRadius: 6, padding: "4px 8px", color: nutritionId ? "#F5F5F0" : "#555", fontSize: 11, fontWeight: 700, cursor: "pointer", outline: "none" }}
+        >
+          <option value="">—</option>
+          {nutritionists.map((m) => <option key={m.id} value={m.id} style={{ backgroundColor: "#1A1A1A" }}>{m.nom}</option>)}
+        </select>
+      </td>
       <td style={{ ...tdStyle, textAlign: "center" }}>
         <AccesDot acces={acces} />
       </td>
@@ -177,10 +234,17 @@ function ClientRow({
           </button>
           <button
             onClick={handleDisconnect}
-            disabled={loadingAcces || loadingDisconnect}
-            style={btn("#FB923C", "rgba(251,146,60,0.1)", loadingAcces || loadingDisconnect)}
+            disabled={loadingAcces || loadingDisconnect || loadingDelete}
+            style={btn("#FB923C", "rgba(251,146,60,0.1)", loadingAcces || loadingDisconnect || loadingDelete)}
           >
             {loadingDisconnect ? "…" : "Déconnecter"}
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={loadingAcces || loadingDisconnect || loadingDelete}
+            style={btn("#F87171", "rgba(248,113,113,0.1)", loadingAcces || loadingDisconnect || loadingDelete)}
+          >
+            {loadingDelete ? "…" : "🗑 Supprimer"}
           </button>
         </div>
       </td>
@@ -191,9 +255,12 @@ function ClientRow({
 interface Props {
   initialClients: ClientData[];
   fetchError?: string | null;
+  teamMembers: TeamMember[];
 }
 
-export default function ClientsTable({ initialClients, fetchError }: Props) {
+export default function ClientsTable({ initialClients, fetchError, teamMembers }: Props) {
+  const [clients, setClients] = useState(initialClients);
+
   async function handleToggleAcces(userId: string, currentAcces: boolean) {
     await fetch("/api/admin/users", {
       method: "PATCH",
@@ -210,11 +277,28 @@ export default function ClientsTable({ initialClients, fetchError }: Props) {
     });
   }
 
+  async function handleDelete(userId: string) {
+    const res = await fetch("/api/admin/users", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    if (res.ok) setClients((prev) => prev.filter((c) => c.id !== userId));
+  }
+
   async function handleUpdateProgramme(userId: string, programme_type: ProgrammeType, programme_duree: ProgrammeDuree) {
     await fetch("/api/admin/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, action: "update_programme", programme_type, programme_duree }),
+    });
+  }
+
+  async function handleUpdateTeam(userId: string, field: "coach_id" | "nutrition_id", value: string | null) {
+    await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, action: "update_team", [field]: value }),
     });
   }
 
@@ -244,7 +328,7 @@ export default function ClientsTable({ initialClients, fetchError }: Props) {
         </div>
       )}
 
-      {!fetchError && initialClients.length === 0 ? (
+      {!fetchError && clients.length === 0 ? (
         <p style={{ fontSize: 13, color: "#555", fontStyle: "italic" }}>Aucune cliente pour le moment.</p>
       ) : (
         <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #1A1A1A" }}>
@@ -257,6 +341,8 @@ export default function ClientsTable({ initialClients, fetchError }: Props) {
                   { label: "EMAIL", align: "left" as const },
                   { label: "DÉMARRAGE", align: "left" as const },
                   { label: "PROGRAMME", align: "left" as const },
+                  { label: "🔴 COACH", align: "left" as const },
+                  { label: "🟢 NUTRITION", align: "left" as const },
                   { label: "ACCÈS APP", align: "center" as const },
                   { label: "ACTIONS", align: "left" as const },
                 ].map(({ label, align }) => (
@@ -278,13 +364,16 @@ export default function ClientsTable({ initialClients, fetchError }: Props) {
               </tr>
             </thead>
             <tbody>
-              {initialClients.map((client) => (
+              {clients.map((client) => (
                 <ClientRow
                   key={client.id}
                   client={client}
+                  teamMembers={teamMembers}
                   onToggleAcces={handleToggleAcces}
                   onDisconnect={handleDisconnect}
+                  onDelete={handleDelete}
                   onUpdateProgramme={handleUpdateProgramme}
+                  onUpdateTeam={handleUpdateTeam}
                 />
               ))}
             </tbody>

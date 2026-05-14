@@ -7,6 +7,7 @@ interface TeamMember {
   nom: string;
   titre: string;
   lien_zoom: string | null;
+  role: "coach" | "nutrition";
 }
 
 const inputStyle: React.CSSProperties = {
@@ -28,6 +29,7 @@ export default function TeamAdmin() {
   const [nom, setNom] = useState("");
   const [titre, setTitre] = useState("");
   const [lienZoom, setLienZoom] = useState("");
+  const [role, setRole] = useState<"coach" | "nutrition">("coach");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export default function TeamAdmin() {
       const res = await fetch("/api/admin/team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nom, titre, lien_zoom: lienZoom || null }),
+        body: JSON.stringify({ nom, titre, lien_zoom: lienZoom || null, role }),
       });
       if (res.ok) {
         const { member } = await res.json();
@@ -58,6 +60,7 @@ export default function TeamAdmin() {
         setNom("");
         setTitre("");
         setLienZoom("");
+        setRole("coach");
       } else {
         const d = await res.json().catch(() => ({}));
         setError(d.error ?? "Erreur");
@@ -118,6 +121,31 @@ export default function TeamAdmin() {
             <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", margin: "0 0 4px", letterSpacing: "0.04em" }}>
               AJOUTER UN MEMBRE
             </p>
+            {/* Sélecteur de rôle */}
+            <div style={{ display: "flex", gap: 8 }}>
+              {([
+                { value: "coach", label: "🔴 Coach", color: "#B22222" },
+                { value: "nutrition", label: "🟢 Coach Nutrition", color: "#22C55E" },
+              ] as const).map(({ value, label, color }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setRole(value)}
+                  style={{
+                    padding: "6px 12px",
+                    backgroundColor: role === value ? color : "transparent",
+                    border: `1px solid ${color}`,
+                    borderRadius: 6,
+                    color: role === value ? "#fff" : color,
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <input
                 type="text"
@@ -187,8 +215,22 @@ export default function TeamAdmin() {
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "#F5F5F0" }}>{m.nom}</p>
-                    <p style={{ margin: "2px 0 0", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{m.titre}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "#F5F5F0" }}>{m.nom}</p>
+                      <span style={{
+                        padding: "1px 7px",
+                        borderRadius: 10,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        backgroundColor: m.role === "nutrition" ? "rgba(34,197,94,0.15)" : "rgba(178,34,34,0.15)",
+                        color: m.role === "nutrition" ? "#22C55E" : "#B22222",
+                        border: `1px solid ${m.role === "nutrition" ? "#22C55E" : "#B22222"}`,
+                        flexShrink: 0,
+                      }}>
+                        {m.role === "nutrition" ? "Nutrition" : "Coach"}
+                      </span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{m.titre}</p>
                     {m.lien_zoom && (
                       <a
                         href={m.lien_zoom}

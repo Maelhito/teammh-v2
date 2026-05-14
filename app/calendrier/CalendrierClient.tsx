@@ -10,8 +10,6 @@ interface CalendarEvent {
   recurrence: "none" | "daily" | "weekly" | "monthly";
   message: string | null;
   lien: string | null;
-  rappel: boolean;
-  rappel_minutes?: number;
   created_by: "admin" | "cliente";
   event_type: "coach" | "nutrition" | "coaching_groupe" | null;
   user_id: string | null;
@@ -91,8 +89,6 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
     heure: "",
     recurrence: "none",
     message: "",
-    rappel: false,
-    rappel_minutes: 0,
     event_type: "",
     team_member_id: null as string | null,
   });
@@ -153,7 +149,7 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
         const { event } = await res.json();
         setEvents((prev) => [...prev, event]);
         setShowAddModal(false);
-        setForm({ titre: "", date: toLocalDate(todayRaw), heure: "", recurrence: "none", message: "", rappel: false, rappel_minutes: 0, event_type: "", team_member_id: null });
+        setForm({ titre: "", date: toLocalDate(todayRaw), heure: "", recurrence: "none", message: "", event_type: "", team_member_id: null });
       } else {
         const { error } = await res.json().catch(() => ({ error: "Erreur inconnue" }));
         setAddError(error ?? "Erreur");
@@ -342,7 +338,7 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
               }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                   <p style={{ fontWeight: 600, color: "#F5F5F0", fontSize: "0.9rem", margin: 0, flex: 1 }}>
-                    {evt.rappel ? "🔔 " : ""}{evt.rappel_minutes && evt.rappel_minutes > 0 ? "⏰ " : ""}{evt.titre}
+                    {evt.titre}
                   </p>
                   {evt.heure && (
                     <span style={{ fontSize: "0.75rem", color: eventColor(evt), fontWeight: 600, flexShrink: 0 }}>
@@ -352,11 +348,6 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                 </div>
                 {evt.message && (
                   <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.78rem", margin: "4px 0 0" }}>{evt.message}</p>
-                )}
-                {evt.rappel_minutes != null && evt.rappel_minutes > 0 && (
-                  <p style={{ color: "#3B82F6", fontSize: "0.72rem", margin: "4px 0 0" }}>
-                    ⏰ Rappel {evt.rappel_minutes} min avant
-                  </p>
                 )}
                 {evt.lien && (
                   <a href={evt.lien} target="_blank" rel="noopener noreferrer" style={{ color: "#B22222", fontSize: "0.78rem", marginTop: 4, display: "block" }}>
@@ -574,29 +565,6 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                 onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
                 style={{ ...inputStyle, minHeight: 64, resize: "none" }}
               />
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "2px 0" }}>
-                <input
-                  type="checkbox"
-                  checked={form.rappel}
-                  onChange={(e) => setForm((f) => ({ ...f, rappel: e.target.checked }))}
-                  style={{ width: 16, height: 16, accentColor: "#7C3AED", cursor: "pointer", flexShrink: 0 }}
-                />
-                <span style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.7)" }}>
-                  🔔 Rappel — notification push la veille
-                </span>
-              </label>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.7)" }}>⏰ Rappel avant l&apos;événement :</span>
-                <select
-                  value={form.rappel_minutes}
-                  onChange={(e) => setForm((f) => ({ ...f, rappel_minutes: Number(e.target.value) }))}
-                  style={{ ...inputStyle, width: "auto", flex: 1 }}
-                >
-                  <option value={0}>Aucun</option>
-                  <option value={30}>30 min avant</option>
-                  <option value={60}>1h avant</option>
-                </select>
-              </div>
               {addError && <p style={{ color: "#F87171", fontSize: "0.82rem", margin: 0 }}>{addError}</p>}
               <button
                 type="submit"
