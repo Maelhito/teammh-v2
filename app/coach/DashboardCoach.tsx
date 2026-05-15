@@ -81,18 +81,29 @@ export default function DashboardCoach({
     setTimezone(tz);
     saveTimezone(tz);
   }
-  // Construire les 7 jours de la semaine
-  const monday = new Date(mondayStr + "T00:00:00");
+  // Formateur de date LOCAL (évite le décalage UTC de toISOString)
+  const localISO = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  // Aujourd'hui en heure locale du navigateur (pas UTC)
+  const nowClient = new Date();
+  const localToday = localISO(nowClient);
+
+  // Lundi de la semaine courante calculé côté CLIENT (heure locale)
+  const monday = new Date(nowClient);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(nowClient.getDate() - ((nowClient.getDay() + 6) % 7));
+
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
     return {
-      iso: d.toISOString().slice(0, 10),
+      iso: localISO(d),
       label: JOURS[i],
       labelFull: JOURS_FULL[i],
       day: d.getDate(),
       month: MOIS[d.getMonth()],
-      isToday: d.toISOString().slice(0, 10) === today,
+      isToday: localISO(d) === localToday,
     };
   });
 
@@ -103,9 +114,10 @@ export default function DashboardCoach({
     eventsByDay[ev.date].push(ev);
   }
 
-  const todayDate = new Date(today + "T00:00:00");
-  const dayLabel = JOURS_FULL[(todayDate.getDay() + 6) % 7];
-  const fullDate = `${dayLabel} ${todayDate.getDate()} ${MOIS[todayDate.getMonth()]} ${todayDate.getFullYear()}`;
+  // En-tête date : on utilise la date locale du navigateur
+  const nowLocal = new Date();
+  const dayLabel = JOURS_FULL[(nowLocal.getDay() + 6) % 7];
+  const fullDate = `${dayLabel} ${nowLocal.getDate()} ${MOIS[nowLocal.getMonth()]} ${nowLocal.getFullYear()}`;
 
   return (
     <div>
