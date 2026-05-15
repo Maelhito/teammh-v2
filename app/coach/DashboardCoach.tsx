@@ -48,17 +48,9 @@ function eventColor(type: string) {
   return { bg: "#DBEAFE", border: "#2563EB", text: "#1E40AF" };
 }
 
-function formatHeure(h: string | null, tz: string) {
+function formatHeure(h: string | null) {
   if (!h) return "";
-  try {
-    // h est au format HH:MM:SS en UTC — on l'affiche dans la timezone du coach
-    const [hh, mm] = h.split(":");
-    const d = new Date();
-    d.setUTCHours(parseInt(hh), parseInt(mm), 0, 0);
-    return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: tz });
-  } catch {
-    return h.slice(0, 5);
-  }
+  return h.slice(0, 5); // affiche l'heure telle qu'enregistrée, sans conversion
 }
 
 async function saveTimezone(tz: string) {
@@ -228,10 +220,10 @@ export default function DashboardCoach({
                     const c = eventColor(ev.event_type);
                     return (
                       <div key={ev.id} style={{ backgroundColor: c.bg, border: `1px solid ${c.border}`, borderRadius: 6, padding: "4px 6px", cursor: "default" }}
-                        title={`${ev.titre}${ev.clientName ? ` · ${ev.clientName}` : ""}${ev.heure ? ` · ${formatHeure(ev.heure, timezone)}` : ""}`}>
+                        title={`${ev.titre}${ev.clientName ? ` · ${ev.clientName}` : ""}${ev.heure ? ` · ${formatHeure(ev.heure)}` : ""}`}>
                         {ev.heure && (
                           <p style={{ fontSize: 9, color: c.text, margin: "0 0 1px", fontFamily: "system-ui", fontWeight: 700 }}>
-                            {formatHeure(ev.heure, timezone)}
+                            {formatHeure(ev.heure)}
                           </p>
                         )}
                         <p style={{ fontSize: 10, color: c.text, margin: 0, fontFamily: "system-ui", fontWeight: 600, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } as React.CSSProperties}>
