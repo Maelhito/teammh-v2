@@ -75,11 +75,25 @@ function isEventOnDay(ev: CalendarEvent, day: Date): boolean {
     default:        return false;
   }
 }
+// Palette couleurs par type d'événement
+const EV_COLORS: Record<string, string> = {
+  seance:          "#F97316", // 🟠 Séance de sport
+  coach:           "#B22222", // 🔴 Rendez-vous coach
+  nutrition:       "#22C55E", // 🟢 Nutrition
+  coaching_groupe: "#3B82F6", // 🔵 Coaching de groupe
+  tache:           "#8B5CF6", // 🟣 Tâche
+};
+const EV_LABELS: Record<string, string> = {
+  seance:          "Séance de sport",
+  coach:           "Rendez-vous coach",
+  nutrition:       "Nutrition",
+  coaching_groupe: "Coaching de groupe",
+  tache:           "Tâche",
+};
+
 function evColor(ev: CalendarEvent): string {
-  if (ev.event_type === "coaching_groupe") return "#3B82F6";
-  if (ev.event_type === "nutrition") return "#22C55E";
   if (ev.created_by === "cliente") return "#7C3AED";
-  return "#B22222";
+  return EV_COLORS[ev.event_type ?? ""] ?? "#B22222";
 }
 function toLocalDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -401,11 +415,25 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
 
   return (
     <div style={{ backgroundColor: "#fff", borderRadius: 14, border: "1px solid #efefef", padding: "18px", marginBottom: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
         <div>
           <p style={{ fontSize: 10, fontWeight: 700, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "system-ui" }}>Calendrier</p>
           <p style={{ fontSize: 15, fontWeight: 800, color: "#1a1a1a", margin: "2px 0 0", fontFamily: "system-ui" }}>{MOIS_LONG[month]} {year}</p>
         </div>
+        {/* Légende couleurs */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {Object.entries(EV_LABELS).map(([type, label]) => (
+            <span key={type} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#666", fontFamily: "system-ui" }}>
+              <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: EV_COLORS[type], display: "inline-block", flexShrink: 0 }} />
+              {label}
+            </span>
+          ))}
+          <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#666", fontFamily: "system-ui" }}>
+            <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#7C3AED", display: "inline-block", flexShrink: 0 }} />
+            Cliente
+          </span>
+        </div>
+      </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <button onClick={() => setMonthOffset(o => o - 1)} style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #efefef", background: "#fafafa", cursor: "pointer", fontSize: 13 }}>‹</button>
           <button onClick={() => setMonthOffset(0)} disabled={monthOffset === 0} style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #efefef", background: monthOffset === 0 ? "#f0f0f0" : "#fafafa", cursor: monthOffset === 0 ? "default" : "pointer", fontSize: 11, color: "#888", fontFamily: "system-ui" }}>Ce mois</button>
