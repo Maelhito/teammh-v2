@@ -33,6 +33,7 @@ export default async function CoachProfilPage() {
         specialite={meta.specialite ?? ""}
         bio={meta.bio ?? ""}
         telephone={meta.telephone ?? ""}
+        lien_zoom={meta.lien_zoom ?? ""}
       />
     </div>
   );

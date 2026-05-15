@@ -6,10 +6,10 @@ export async function PUT(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
-  const { prenom, nom, specialite, bio, telephone } = await req.json();
+  const { prenom, nom, specialite, bio, telephone, lien_zoom } = await req.json();
 
   const { error } = await supabase.auth.updateUser({
-    data: { prenom, nom, specialite, bio, telephone },
+    data: { prenom, nom, specialite, bio, telephone, lien_zoom },
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

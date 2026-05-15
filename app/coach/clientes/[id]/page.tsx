@@ -242,6 +242,17 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
   });
   const [tacheForm, setTacheForm] = useState({ titre: "", date: defaultDate, description: "" });
 
+  // Auto-remplir le lien Zoom du coach connecté
+  useEffect(() => {
+    import("@/lib/supabase").then(({ createSupabaseBrowserClient }) => {
+      const sb = createSupabaseBrowserClient();
+      sb.auth.getUser().then(({ data: { user } }) => {
+        const zoom = user?.user_metadata?.lien_zoom;
+        if (zoom) setEvForm(f => ({ ...f, lien: zoom }));
+      });
+    });
+  }, []);
+
   const inp: React.CSSProperties = { width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #ddd", fontSize: 13, fontFamily: "system-ui", outline: "none", boxSizing: "border-box", color: "#1a1a1a", backgroundColor: "#fff" };
   const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#888", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5, fontFamily: "system-ui" };
 

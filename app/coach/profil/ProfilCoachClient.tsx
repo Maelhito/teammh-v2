@@ -10,6 +10,7 @@ interface Props {
   specialite: string;
   bio: string;
   telephone: string;
+  lien_zoom: string;
 }
 
 const inp: React.CSSProperties = {
@@ -24,12 +25,13 @@ const lbl: React.CSSProperties = {
   fontFamily: "system-ui",
 };
 
-export default function ProfilCoachClient({ prenom: initPrenom, nom: initNom, email, role, specialite: initSpecialite, bio: initBio, telephone: initTel }: Props) {
+export default function ProfilCoachClient({ prenom: initPrenom, nom: initNom, email, role, specialite: initSpecialite, bio: initBio, telephone: initTel, lien_zoom: initLienZoom }: Props) {
   const [prenom, setPrenom] = useState(initPrenom);
   const [nom, setNom] = useState(initNom);
   const [specialite, setSpecialite] = useState(initSpecialite);
   const [bio, setBio] = useState(initBio);
   const [telephone, setTelephone] = useState(initTel);
+  const [lienZoom, setLienZoom] = useState(initLienZoom);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export default function ProfilCoachClient({ prenom: initPrenom, nom: initNom, em
       const res = await fetch("/api/coach/profil", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prenom: prenom.trim(), nom: nom.trim(), specialite: specialite.trim(), bio: bio.trim(), telephone: telephone.trim() }),
+        body: JSON.stringify({ prenom: prenom.trim(), nom: nom.trim(), specialite: specialite.trim(), bio: bio.trim(), telephone: telephone.trim(), lien_zoom: lienZoom.trim() }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) { setError(d.error ?? "Erreur"); return; }
@@ -97,6 +99,18 @@ export default function ProfilCoachClient({ prenom: initPrenom, nom: initNom, em
         <div>
           <label style={lbl}>Téléphone</label>
           <input style={inp} type="tel" value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="+33 6 00 00 00 00" />
+        </div>
+
+        <div>
+          <label style={lbl}>🎥 Lien Zoom personnel</label>
+          <input
+            style={inp} type="url" value={lienZoom}
+            onChange={e => setLienZoom(e.target.value)}
+            placeholder="https://zoom.us/j/..."
+          />
+          <p style={{ fontSize: 11, color: "#aaa", margin: "4px 0 0", fontFamily: "system-ui" }}>
+            Ce lien sera ajouté automatiquement à chaque rendez-vous que tu crées avec tes clientes.
+          </p>
         </div>
 
         <div>
