@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface Exercise {
@@ -243,24 +243,52 @@ function VideoModal({ url, nom, onClose }: { url: string; nom: string; onClose: 
   );
 }
 
+// ─── Helpers sync description ↔ Mouvements ───────────────────────────────────
+function extractExercisesFromHtml(html: string): Exercise[] {
+  if (typeof window === "undefined" || !html) return [];
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    return Array.from(doc.querySelectorAll("[data-ex-nom]")).map(s => ({
+      id:               s.getAttribute("data-ex-id")    || "",
+      nom:              s.getAttribute("data-ex-nom")   || "",
+      video_url:        s.getAttribute("data-ex-video") || null,
+      groupe_musculaire:s.getAttribute("data-ex-groupe")|| "",
+      miniature_url:    s.getAttribute("data-ex-thumb") || null,
+      materiel:         "",
+    }));
+  } catch { return []; }
+}
+
+export interface RichTextEditorHandle {
+  removeExercise: (nom: string) => void;
+}
+
 // ─── Rich Text Editor ─────────────────────────────────────────────────────────
-function RichTextEditor({
-  initialHtml, onHtmlChange, onVideoClick, onExerciseAdded, placeholder,
-}: {
+const RichTextEditor = forwardRef<RichTextEditorHandle, {
   initialHtml: string;
   onHtmlChange: (html: string) => void;
   onVideoClick: (url: string, nom: string) => void;
-  onExerciseAdded?: (ex: Exercise) => void;
   placeholder?: string;
-}) {
+}>(function RichTextEditor({ initialHtml, onHtmlChange, onVideoClick, placeholder }, ref) {
   const divRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const div = divRef.current;
-    // Ne pas réinitialiser si le user est en train d'écrire dans l'éditeur
     if (!div || document.activeElement === div) return;
     div.innerHTML = initialHtml || "";
   }, [initialHtml]);
+
+  // Expose removeExercise aux parents (sync Mouvements → Description)
+  useImperativeHandle(ref, () => ({
+    removeExercise(nom: string) {
+      const div = divRef.current;
+      if (!div) return;
+      div.querySelectorAll(`[data-ex-nom]`).forEach(s => {
+        if (s.getAttribute("data-ex-nom") === nom) s.remove();
+      });
+      onHtmlChange(div.innerHTML);
+    },
+  }));
 
   function insertExerciseAtDrop(e: React.DragEvent, ex: Exercise) {
     const div = divRef.current;
@@ -276,13 +304,16 @@ function RichTextEditor({
       range = document.createRange(); range.selectNodeContents(div); range.collapse(false);
     }
 
-    // Nom en rouge/gras dans la description
+    // Span rouge/gras avec TOUTES les données pour le sync
     const span = document.createElement("span");
     span.setAttribute("contenteditable", "false");
-    span.dataset.exNom = ex.nom;
-    span.dataset.exVideo = ex.video_url || "";
-    span.style.cssText = "color:#B22222;font-weight:800;cursor:pointer;user-select:none;";
-    span.textContent = ex.nom;
+    span.dataset.exId     = ex.id;
+    span.dataset.exNom    = ex.nom;
+    span.dataset.exVideo  = ex.video_url || "";
+    span.dataset.exGroupe = ex.groupe_musculaire;
+    span.dataset.exThumb  = ex.miniature_url || ytThumb(ex.video_url) || "";
+    span.style.cssText    = "color:#B22222;font-weight:800;cursor:pointer;user-select:none;";
+    span.textContent      = ex.nom;
 
     const sel = window.getSelection();
     sel?.removeAllRanges(); sel?.addRange(range);
@@ -292,12 +323,9 @@ function RichTextEditor({
     sel?.removeAllRanges(); sel?.addRange(after);
     div.focus();
     onHtmlChange(div.innerHTML);
-
-    // Aussi ajouter automatiquement dans Mouvements
-    onExerciseAdded?.(ex);
   }
 
-  const ph = placeholder || "Tape tes consignes ici… Glisse un exercice depuis la banque pour l'insérer.";
+  const ph = placeholder || "Tape tes consignes… Glisse un exercice pour l'insérer en rouge et dans Mouvements.";
 
   return (
     <>
@@ -328,7 +356,7 @@ function RichTextEditor({
       <style>{`[data-placeholder]:empty:before{content:attr(data-placeholder);color:#333;pointer-events:none;}`}</style>
     </>
   );
-}
+});
 
 // ─── Exercise Bank (collapsible) ──────────────────────────────────────────────
 function ExerciseBank({
@@ -583,6 +611,25 @@ function BlocCard({
 }) {
   const [showMovements, setShowMovements] = useState(true);
   const [videoUrl, setVideoUrl] = useState<{ url: string; nom: string } | null>(null);
+  const editorRef = useRef<RichTextEditorHandle>(null);
+
+  // Sync Description → Mouvements : quand le HTML change, on recalcule rich_exercices
+  function handleDescriptionChange(html: string) {
+    onBlocChange(bloc._key, { instructions: html });
+    if (bloc.format !== "tabata") {
+      const exes = extractExercisesFromHtml(html);
+      // Garde les exercices du Mouvements qui ne viennent pas de la description
+      const fromDesc = new Set(exes.map(e => e.nom));
+      const directOnly = bloc.rich_exercices.filter(
+        re => !fromDesc.has(re.exercise.nom) && !html.includes(`data-ex-nom="${re.exercise.nom}"`)
+      );
+      const newRich = [
+        ...exes.map(e => ({ _key: `desc_${e.id}_${e.nom}`, exercise: e })),
+        ...directOnly,
+      ];
+      onBlocChange(bloc._key, { instructions: html, rich_exercices: newRich });
+    }
+  }
 
   const color = BCOLORS[bloc.type];
   const multiWod = bloc.type === "corps" && corpsTotal > 1;
@@ -710,18 +757,10 @@ function BlocCard({
             <span style={{ color: "#2a2a2a", fontSize: 12 }}>✏</span>
           </div>
           <RichTextEditor
+            ref={editorRef}
             initialHtml={bloc.instructions}
-            onHtmlChange={html => onBlocChange(bloc._key, { instructions: html })}
+            onHtmlChange={handleDescriptionChange}
             onVideoClick={(url, nom) => setVideoUrl({ url, nom })}
-            onExerciseAdded={ex => {
-              // Ajouter aussi dans Mouvements automatiquement
-              if (bloc.format === "tabata") {
-                const item: TabataItem = { _key: newKey(), exercise_id: ex.id, exercise: ex, series: "", tabata_work: bloc.tabata_work, tabata_rest: bloc.tabata_rest, notes: "" };
-                onBlocChange(bloc._key, { tabata_exercices: [...bloc.tabata_exercices, item] });
-              } else {
-                onBlocChange(bloc._key, { rich_exercices: [...bloc.rich_exercices, { _key: newKey(), exercise: ex }] });
-              }
-            }}
             placeholder="Redigez la description… Glisse un exercice pour l’insérer en rouge et dans Mouvements."
           />
         </div>
@@ -744,15 +783,28 @@ function BlocCard({
                 const thumb = re.exercise?.miniature_url || ytThumb(re.exercise?.video_url);
                 const groupes = re.exercise?.groupe_musculaire?.split(",").map(g => g.trim()).filter(Boolean) ?? [];
                 const fallbackColor = GC[re.exercise?.groupe_musculaire] ?? "#888";
+                const hasVideo = !!re.exercise?.video_url;
                 return (
                   <div key={re._key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", backgroundColor: "#0d0d0d", borderRadius: 8, marginBottom: 6, border: "1px solid #1a1a1a" }}>
-                    <div style={{ width: 50, height: 38, borderRadius: 6, overflow: "hidden", backgroundColor: "#1a1a1a", flexShrink: 0 }}>
+                    {/* Miniature cliquable → ouvre la vidéo */}
+                    <div
+                      onClick={() => hasVideo && setVideoUrl({ url: re.exercise.video_url!, nom: re.exercise.nom })}
+                      style={{ width: 50, height: 38, borderRadius: 6, overflow: "hidden", backgroundColor: "#1a1a1a", flexShrink: 0, cursor: hasVideo ? "pointer" : "default", position: "relative" }}>
                       {thumb
                         ? <img src={thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                         : <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🏋️</div>}
+                      {hasVideo && (
+                        <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ width: 18, height: 18, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8 }}>▶</div>
+                        </div>
+                      )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: "#F5F5F0", margin: "0 0 4px", fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{re.exercise?.nom}</p>
+                      <p
+                        onClick={() => hasVideo && setVideoUrl({ url: re.exercise.video_url!, nom: re.exercise.nom })}
+                        style={{ fontSize: 12, fontWeight: 700, color: hasVideo ? "#B22222" : "#F5F5F0", margin: "0 0 4px", fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: hasVideo ? "pointer" : "default" }}>
+                        {re.exercise?.nom}
+                      </p>
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                         {groupes.length > 0
                           ? groupes.map(g => (
@@ -763,10 +815,13 @@ function BlocCard({
                     </div>
                     <button
                       onClick={() => {
-                        if (bloc.format === "tabata")
+                        if (bloc.format === "tabata") {
                           onBlocChange(bloc._key, { tabata_exercices: bloc.tabata_exercices.filter(t => t._key !== re._key) });
-                        else
+                        } else {
+                          // Sync bidirectionnel : supprime aussi du span dans la description
+                          editorRef.current?.removeExercise(re.exercise.nom);
                           onBlocChange(bloc._key, { rich_exercices: bloc.rich_exercices.filter(r => r._key !== re._key) });
+                        }
                       }}
                       style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: 12, padding: 2 }}>✕</button>
                   </div>
