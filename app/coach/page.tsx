@@ -14,6 +14,7 @@ export default async function CoachPage() {
     ?? session?.user.email?.split("@")[0]
     ?? "Coach";
   const nom = session?.user.user_metadata?.nom ?? "";
+  const timezone = session?.user.user_metadata?.timezone ?? "Europe/Paris";
 
   const admin = createSupabaseAdminClient();
 
@@ -102,6 +103,7 @@ export default async function CoachPage() {
       activeClients={activeClients}
       seancesCount={seancesCount ?? 0}
       weekEvents={dedupedEvents}
+      timezone={timezone}
     />
   );
 }

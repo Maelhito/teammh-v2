@@ -1,6 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+
+const TIMEZONES = [
+  { value: "Australia/Darwin",    label: "Darwin — UTC+9:30" },
+  { value: "Australia/Brisbane",  label: "Brisbane — UTC+10" },
+  { value: "Australia/Sydney",    label: "Sydney — UTC+10/+11" },
+  { value: "Pacific/Noumea",      label: "Nouvelle-Calédonie — UTC+11" },
+  { value: "Europe/Paris",        label: "France — UTC+1/+2" },
+  { value: "Europe/London",       label: "Londres — UTC+0/+1" },
+  { value: "UTC",                 label: "UTC — UTC+0" },
+  { value: "America/New_York",    label: "New York — UTC-5/-4" },
+  { value: "America/Los_Angeles", label: "Los Angeles — UTC-8/-7" },
+  { value: "Asia/Tokyo",          label: "Tokyo — UTC+9" },
+  { value: "Asia/Dubai",          label: "Dubaï — UTC+4" },
+];
 
 const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const JOURS_FULL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
@@ -20,6 +35,7 @@ interface Props {
   activeClients: Client[];
   seancesCount: number;
   weekEvents: WeekEvent[];
+  timezone: string;
 }
 
 function initials(c: Client) {
@@ -32,14 +48,38 @@ function eventColor(type: string) {
   return { bg: "#DBEAFE", border: "#2563EB", text: "#1E40AF" };
 }
 
-function formatHeure(h: string | null) {
+function formatHeure(h: string | null, tz: string) {
   if (!h) return "";
-  return h.slice(0, 5);
+  try {
+    // h est au format HH:MM:SS en UTC — on l'affiche dans la timezone du coach
+    const [hh, mm] = h.split(":");
+    const d = new Date();
+    d.setUTCHours(parseInt(hh), parseInt(mm), 0, 0);
+    return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: tz });
+  } catch {
+    return h.slice(0, 5);
+  }
+}
+
+async function saveTimezone(tz: string) {
+  try {
+    await fetch("/api/coach/profil", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ timezone: tz }),
+    });
+  } catch {}
 }
 
 export default function DashboardCoach({
-  prenom, today, mondayStr, activeClients, seancesCount, weekEvents,
+  prenom, today, mondayStr, activeClients, seancesCount, weekEvents, timezone: initTz,
 }: Props) {
+  const [timezone, setTimezone] = useState(initTz);
+
+  function handleTimezoneChange(tz: string) {
+    setTimezone(tz);
+    saveTimezone(tz);
+  }
   // Construire les 7 jours de la semaine
   const monday = new Date(mondayStr + "T00:00:00");
   const weekDays = Array.from({ length: 7 }, (_, i) => {
@@ -136,13 +176,28 @@ export default function DashboardCoach({
 
         {/* Colonne droite : calendrier semaine */}
         <div style={{ backgroundColor: "#fff", borderRadius: 14, border: "1px solid #e8e8e8", overflow: "hidden" }}>
-          <div style={{ padding: "14px 18px", borderBottom: "1px solid #f0f0f0" }}>
-            <h2 style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a", margin: "0 0 2px", letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: "system-ui" }}>
-              Calendrier de la semaine
-            </h2>
-            <p style={{ fontSize: 11, color: "#aaa", margin: 0, fontFamily: "system-ui" }}>
-              Événements de toutes vos clientes · hors séances & tâches
-            </p>
+          <div style={{ padding: "14px 18px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <h2 style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a", margin: "0 0 2px", letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: "system-ui" }}>
+                Calendrier de la semaine
+              </h2>
+              <p style={{ fontSize: 11, color: "#aaa", margin: 0, fontFamily: "system-ui" }}>
+                Événements de toutes vos clientes · hors séances & tâches
+              </p>
+            </div>
+            {/* Sélecteur timezone */}
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <span style={{ fontSize: 14 }}>🌏</span>
+              <select
+                value={timezone}
+                onChange={e => handleTimezoneChange(e.target.value)}
+                style={{ padding: "5px 10px", borderRadius: 7, border: "1px solid #e8e8e8", backgroundColor: "#fafafa", fontSize: 12, color: "#1a1a1a", fontFamily: "system-ui", outline: "none", cursor: "pointer" }}
+              >
+                {TIMEZONES.map(tz => (
+                  <option key={tz.value} value={tz.value}>{tz.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Grille 7 jours */}
@@ -173,10 +228,10 @@ export default function DashboardCoach({
                     const c = eventColor(ev.event_type);
                     return (
                       <div key={ev.id} style={{ backgroundColor: c.bg, border: `1px solid ${c.border}`, borderRadius: 6, padding: "4px 6px", cursor: "default" }}
-                        title={`${ev.titre}${ev.clientName ? ` · ${ev.clientName}` : ""}${ev.heure ? ` · ${formatHeure(ev.heure)}` : ""}`}>
+                        title={`${ev.titre}${ev.clientName ? ` · ${ev.clientName}` : ""}${ev.heure ? ` · ${formatHeure(ev.heure, timezone)}` : ""}`}>
                         {ev.heure && (
                           <p style={{ fontSize: 9, color: c.text, margin: "0 0 1px", fontFamily: "system-ui", fontWeight: 700 }}>
-                            {formatHeure(ev.heure)}
+                            {formatHeure(ev.heure, timezone)}
                           </p>
                         )}
                         <p style={{ fontSize: 10, color: c.text, margin: 0, fontFamily: "system-ui", fontWeight: 600, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } as React.CSSProperties}>
