@@ -7,10 +7,10 @@ export const dynamic = "force-dynamic";
 export default async function CoachPage() {
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) redirect("/login");
+  if (!session && process.env.NODE_ENV !== "development") redirect("/login");
 
-  const prenom = session.user.user_metadata?.prenom
-    ?? session.user.email?.split("@")[0]
+  const prenom = session?.user.user_metadata?.prenom
+    ?? session?.user.email?.split("@")[0]
     ?? "Coach";
 
   const admin = createSupabaseAdminClient();

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import SeanceBuilder, { CATEGORIES, NIVEAUX, defaultBloc, encodeSeance, type SeanceData } from "../SeanceBuilder";
+import ImageUpload from "@/components/ImageUpload";
 
 const initData = (): SeanceData => ({
   nom: "", categorie: "full_body", niveau: "debutant", duree_estimee: "60", note: "",
@@ -19,6 +20,7 @@ export default function NouvelleSeancePage() {
   const router = useRouter();
   const [seanceData, setSeanceData] = useState<SeanceData>(initData());
   const [recurrence, setRecurrence] = useState("une_seule_fois");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -39,6 +41,7 @@ export default function NouvelleSeancePage() {
           type_format: "classique",
           duree_estimee: parseInt(seanceData.duree_estimee) || null,
           description,
+          image_url: imageUrl,
           exercices: flat_exercices,
         }),
       });
@@ -143,18 +146,7 @@ export default function NouvelleSeancePage() {
         </div>
 
         {/* Right: image upload */}
-        <div
-          style={{ backgroundColor: "#111", borderRadius: 12, border: "1px dashed #2a2a2a", padding: 20, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, cursor: "pointer", minHeight: 160, transition: "border-color 0.15s" }}
-          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "#3B82F6"; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "#2a2a2a"; }}>
-          <div style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🖼</div>
-          <p style={{ fontSize: 11, color: "#444", margin: 0, textAlign: "center", fontFamily: "system-ui" }}>Glissez une image ici</p>
-          <p style={{ fontSize: 10, color: "#2a2a2a", margin: 0, fontFamily: "system-ui" }}>ou</p>
-          <button style={{ padding: "7px 16px", borderRadius: 7, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>
-            Importer une image
-          </button>
-          <p style={{ fontSize: 9, color: "#2a2a2a", margin: 0, textAlign: "center", fontFamily: "system-ui" }}>PNG, JPG, WEBP — max 2 Mo</p>
-        </div>
+        <ImageUpload value={imageUrl} onChange={setImageUrl} dark />
       </div>
 
       {/* ── Builder ── */}

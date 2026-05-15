@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { checkCoachAccess } from "@/lib/check-coach-access";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
-async function checkAccess() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const role = user.user_metadata?.role ?? "cliente";
-  if (role !== "coach" && role !== "admin" && user.email !== "mael.ld@hotmail.fr") return null;
-  return user;
-}
-
 export async function GET() {
-  const user = await checkAccess();
+  const user = await checkCoachAccess();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
   const admin = createSupabaseAdminClient();
@@ -26,17 +17,17 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await checkAccess();
+  const user = await checkCoachAccess();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
   const body = await req.json();
-  const { nom, categorie, niveau, duree_semaines, description } = body;
+  const { nom, categorie, niveau, duree_semaines, description, image_url } = body;
   if (!nom?.trim()) return NextResponse.json({ error: "Nom requis." }, { status: 400 });
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("programmes")
-    .insert({ nom: nom.trim(), categorie, niveau, duree_semaines: duree_semaines ?? 4, description })
+    .insert({ nom: nom.trim(), categorie, niveau, duree_semaines: duree_semaines ?? 4, description, image_url: image_url || null })
     .select()
     .single();
 

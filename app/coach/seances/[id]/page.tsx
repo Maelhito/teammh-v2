@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import SeanceBuilder, { CATEGORIES, NIVEAUX, decodeSeance, encodeSeance, type SeanceData } from "../SeanceBuilder";
+import ImageUpload from "@/components/ImageUpload";
 
 const RECURRENCES = [
   { value: "une_seule_fois", label: "Une seule fois" },
@@ -15,6 +16,7 @@ export default function SeanceDetailPage() {
   const { id } = useParams() as { id: string };
   const [data, setData] = useState<SeanceData | null>(null);
   const [recurrence, setRecurrence] = useState("une_seule_fois");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -23,6 +25,7 @@ export default function SeanceDetailPage() {
     const d = await res.json();
     if (d.seance) {
       setData(decodeSeance(d.seance, d.exercices ?? []));
+      setImageUrl(d.seance.image_url ?? null);
     }
   }, [id]);
 
@@ -35,7 +38,7 @@ export default function SeanceDetailPage() {
     const res = await fetch(`/api/coach/seances/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nom: data.nom, type_format: "classique", duree_estimee: parseInt(data.duree_estimee) || null, description, exercices: flat_exercices }),
+      body: JSON.stringify({ nom: data.nom, type_format: "classique", duree_estimee: parseInt(data.duree_estimee) || null, description, image_url: imageUrl, exercices: flat_exercices }),
     });
     if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? "Erreur"); }
     else router.push("/coach/seances");
@@ -134,18 +137,8 @@ export default function SeanceDetailPage() {
           </div>
         </div>
 
-        {/* Right: image placeholder */}
-        <div
-          style={{ backgroundColor: "#111", borderRadius: 12, border: "1px dashed #2a2a2a", padding: 20, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, cursor: "pointer", minHeight: 160, transition: "border-color 0.15s" }}
-          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "#3B82F6"; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "#2a2a2a"; }}>
-          <div style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🖼</div>
-          <p style={{ fontSize: 11, color: "#444", margin: 0, textAlign: "center", fontFamily: "system-ui" }}>Glissez une image ici</p>
-          <button style={{ padding: "7px 16px", borderRadius: 7, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>
-            Importer une image
-          </button>
-          <p style={{ fontSize: 9, color: "#2a2a2a", margin: 0, textAlign: "center", fontFamily: "system-ui" }}>PNG, JPG, WEBP — max 2 Mo</p>
-        </div>
+        {/* Right: image upload */}
+        <ImageUpload value={imageUrl} onChange={setImageUrl} dark />
       </div>
 
       {/* ── Builder ── */}

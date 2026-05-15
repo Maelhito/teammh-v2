@@ -245,23 +245,22 @@ function VideoModal({ url, nom, onClose }: { url: string; nom: string; onClose: 
 
 // ─── Rich Text Editor ─────────────────────────────────────────────────────────
 function RichTextEditor({
-  initialHtml, onHtmlChange, onVideoClick, placeholder,
+  initialHtml, onHtmlChange, onVideoClick, onExerciseAdded, placeholder,
 }: {
   initialHtml: string;
   onHtmlChange: (html: string) => void;
   onVideoClick: (url: string, nom: string) => void;
+  onExerciseAdded?: (ex: Exercise) => void;
   placeholder?: string;
 }) {
   const divRef = useRef<HTMLDivElement>(null);
-  const initialized = useRef(false);
 
   useEffect(() => {
-    if (divRef.current && !initialized.current) {
-      divRef.current.innerHTML = initialHtml || "";
-      initialized.current = true;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const div = divRef.current;
+    // Ne pas réinitialiser si le user est en train d'écrire dans l'éditeur
+    if (!div || document.activeElement === div) return;
+    div.innerHTML = initialHtml || "";
+  }, [initialHtml]);
 
   function insertExerciseAtDrop(e: React.DragEvent, ex: Exercise) {
     const div = divRef.current;
@@ -276,12 +275,15 @@ function RichTextEditor({
     if (!range || !div.contains(range.startContainer)) {
       range = document.createRange(); range.selectNodeContents(div); range.collapse(false);
     }
+
+    // Nom en rouge/gras dans la description
     const span = document.createElement("span");
     span.setAttribute("contenteditable", "false");
     span.dataset.exNom = ex.nom;
     span.dataset.exVideo = ex.video_url || "";
     span.style.cssText = "color:#B22222;font-weight:800;cursor:pointer;user-select:none;";
     span.textContent = ex.nom;
+
     const sel = window.getSelection();
     sel?.removeAllRanges(); sel?.addRange(range);
     range.deleteContents(); range.insertNode(span);
@@ -290,6 +292,9 @@ function RichTextEditor({
     sel?.removeAllRanges(); sel?.addRange(after);
     div.focus();
     onHtmlChange(div.innerHTML);
+
+    // Aussi ajouter automatiquement dans Mouvements
+    onExerciseAdded?.(ex);
   }
 
   const ph = placeholder || "Tape tes consignes ici… Glisse un exercice depuis la banque pour l'insérer.";
@@ -416,34 +421,172 @@ function ExerciseBank({
   );
 }
 
+// ─── Timers ───────────────────────────────────────────────────────────────────
+function useInterval(cb: () => void, delay: number | null) {
+  const saved = useRef(cb);
+  useEffect(() => { saved.current = cb; }, [cb]);
+  useEffect(() => {
+    if (delay === null) return;
+    const id = setInterval(() => saved.current(), delay);
+    return () => clearInterval(id);
+  }, [delay]);
+}
+
+function TabataTimer({ workSec, restSec, rounds }: { workSec: number; restSec: number; rounds: number }) {
+  const [running, setRunning] = useState(false);
+  const [phase, setPhase] = useState<"work" | "rest">("work");
+  const [currentRound, setCurrentRound] = useState(1);
+  const [elapsed, setElapsed] = useState(0);
+  const done = currentRound > rounds;
+  const phaseDur = phase === "work" ? Math.max(1, workSec) : Math.max(1, restSec);
+  const remaining = Math.max(0, phaseDur - elapsed);
+  const rm = Math.floor(remaining / 60); const rs = remaining % 60;
+
+  useInterval(() => {
+    if (done) { setRunning(false); return; }
+    const next = elapsed + 1;
+    if (next >= phaseDur) {
+      if (phase === "work") { setPhase("rest"); setElapsed(0); }
+      else if (currentRound >= rounds) { setRunning(false); setCurrentRound(rounds + 1); }
+      else { setPhase("work"); setCurrentRound(r => r + 1); setElapsed(0); }
+    } else { setElapsed(next); }
+  }, running && !done ? 1000 : null);
+
+  function reset() { setRunning(false); setPhase("work"); setCurrentRound(1); setElapsed(0); }
+  const phaseColor = phase === "work" ? "#EF4444" : "#10B981";
+
+  return (
+    <div style={{ backgroundColor: "#0a0a0a", borderRadius: 8, padding: "10px 12px", border: "1px solid #1e1e1e" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+        <div>
+          <span style={{ fontSize: 8, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "system-ui" }}>
+            {done ? "TERMINÉ" : `${phase === "work" ? "EFFORT" : "REPOS"} — Round ${Math.min(currentRound, rounds)}/${rounds}`}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => setRunning(r => !r)} disabled={done}
+            style={{ padding: "4px 10px", borderRadius: 6, border: "none", backgroundColor: done ? "#1a1a1a" : running ? "#333" : phaseColor, color: done ? "#444" : "#fff", fontSize: 10, fontWeight: 700, cursor: done ? "default" : "pointer", fontFamily: "system-ui" }}>
+            {done ? "FIN" : running ? "⏸" : "▶"}
+          </button>
+          <button onClick={reset} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #222", backgroundColor: "transparent", color: "#555", fontSize: 10, cursor: "pointer", fontFamily: "system-ui" }}>↺</button>
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 28, fontWeight: 800, color: done ? "#444" : phaseColor, fontFamily: "system-ui", minWidth: 64 }}>
+          {rm > 0 ? `${rm}:` : ""}{String(rs).padStart(2, "0")}
+        </span>
+        <div style={{ flex: 1, height: 5, backgroundColor: "#1a1a1a", borderRadius: 99, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${done ? 100 : ((elapsed / phaseDur) * 100)}%`, backgroundColor: done ? "#333" : phaseColor, transition: "width 1s linear", borderRadius: 99 }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmomTimer({ rounds, intervalSec }: { rounds: number; intervalSec: number }) {
+  const inter = Math.max(1, intervalSec);
+  const [running, setRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const total = rounds * inter;
+  useInterval(() => { if (elapsed < total) setElapsed(e => e + 1); else setRunning(false); }, running ? 1000 : null);
+  const currentRound = Math.min(Math.floor(elapsed / inter) + 1, rounds);
+  const remaining = inter - (elapsed % inter);
+  const rm = Math.floor(remaining / 60); const rs = remaining % 60;
+  return (
+    <div style={{ backgroundColor: "#0a0a0a", borderRadius: 8, padding: "10px 12px", border: "1px solid #1e1e1e" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+        <span style={{ fontSize: 8, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "system-ui" }}>EMOM — Round {currentRound}/{rounds}</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => setRunning(r => !r)} style={{ padding: "4px 10px", borderRadius: 6, border: "none", backgroundColor: running ? "#333" : "#3B82F6", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>{running ? "⏸" : "▶"}</button>
+          <button onClick={() => { setRunning(false); setElapsed(0); }} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #222", backgroundColor: "transparent", color: "#555", fontSize: 10, cursor: "pointer", fontFamily: "system-ui" }}>↺</button>
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 28, fontWeight: 800, color: remaining <= 10 ? "#EF4444" : "#60A5FA", fontFamily: "system-ui", minWidth: 64 }}>{rm > 0 ? `${rm}:` : ""}{String(rs).padStart(2, "0")}</span>
+        <div style={{ flex: 1, height: 5, backgroundColor: "#1a1a1a", borderRadius: 99, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${(elapsed / total) * 100}%`, backgroundColor: "#3B82F6", transition: "width 1s linear", borderRadius: 99 }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AmrapTimer({ totalMin }: { totalMin: number }) {
+  const total = totalMin * 60;
+  const [running, setRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  useInterval(() => { if (elapsed < total) setElapsed(e => e + 1); else setRunning(false); }, running ? 1000 : null);
+  const remaining = Math.max(0, total - elapsed);
+  const m = Math.floor(remaining / 60); const s = remaining % 60;
+  const alert = remaining <= 30 && running && elapsed > 0;
+  return (
+    <div style={{ backgroundColor: "#0a0a0a", borderRadius: 8, padding: "10px 12px", border: "1px solid #1e1e1e" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+        <span style={{ fontSize: 8, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "system-ui" }}>AMRAP — {totalMin} min</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => setRunning(r => !r)} style={{ padding: "4px 10px", borderRadius: 6, border: "none", backgroundColor: running ? "#333" : "#8B5CF6", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>{running ? "⏸" : "▶"}</button>
+          <button onClick={() => { setRunning(false); setElapsed(0); }} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #222", backgroundColor: "transparent", color: "#555", fontSize: 10, cursor: "pointer", fontFamily: "system-ui" }}>↺</button>
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 28, fontWeight: 800, color: alert ? "#EF4444" : "#8B5CF6", fontFamily: "system-ui", minWidth: 64 }}>{String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}</span>
+        <div style={{ flex: 1, height: 5, backgroundColor: "#1a1a1a", borderRadius: 99, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${(elapsed / total) * 100}%`, backgroundColor: alert ? "#EF4444" : "#8B5CF6", transition: "width 1s linear", borderRadius: 99 }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ForTimeTimer({ limitMin }: { limitMin: number }) {
+  const [running, setRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const limit = limitMin * 60;
+  useInterval(() => { setElapsed(e => e + 1); }, running ? 1000 : null);
+  const m = Math.floor(elapsed / 60); const s = elapsed % 60;
+  const over = limit > 0 && elapsed >= limit;
+  return (
+    <div style={{ backgroundColor: "#0a0a0a", borderRadius: 8, padding: "10px 12px", border: "1px solid #1e1e1e" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+        <span style={{ fontSize: 8, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "system-ui" }}>FOR TIME{limit > 0 ? ` — limite ${limitMin} min` : ""}</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => { if (!over) setRunning(r => !r); }} disabled={over}
+            style={{ padding: "4px 10px", borderRadius: 6, border: "none", backgroundColor: over ? "#1a1a1a" : running ? "#333" : "#10B981", color: over ? "#444" : "#fff", fontSize: 10, fontWeight: 700, cursor: over ? "default" : "pointer", fontFamily: "system-ui" }}>
+            {over ? "FIN" : running ? "⏸" : "▶"}
+          </button>
+          <button onClick={() => { setRunning(false); setElapsed(0); }} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #222", backgroundColor: "transparent", color: "#555", fontSize: 10, cursor: "pointer", fontFamily: "system-ui" }}>↺</button>
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 28, fontWeight: 800, color: over ? "#EF4444" : "#10B981", fontFamily: "system-ui", minWidth: 64 }}>{String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}</span>
+        {limit > 0 && (
+          <div style={{ flex: 1, height: 5, backgroundColor: "#1a1a1a", borderRadius: 99, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${Math.min(100, (elapsed / limit) * 100)}%`, backgroundColor: over ? "#EF4444" : "#10B981", transition: "width 1s linear", borderRadius: 99 }} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Bloc Card (style Azeoo) ───────────────────────────────────────────────────
 function BlocCard({
-  bloc, blocNum, corpsTotal, onBlocChange, onBlocRemove, onOpenBank, isActive, onDrop,
+  bloc, blocNum, corpsTotal, onBlocChange, onBlocRemove, isActive, onDrop,
 }: {
   bloc: Bloc;
   blocNum: number;
   corpsTotal: number;
   onBlocChange: (key: string, changes: Partial<Bloc>) => void;
   onBlocRemove: (key: string) => void;
-  onOpenBank: (blocKey: string) => void;
   isActive: boolean;
   onDrop: (e: React.DragEvent) => void;
 }) {
-  const [showTimerConfig, setShowTimerConfig] = useState(false);
   const [showMovements, setShowMovements] = useState(true);
   const [videoUrl, setVideoUrl] = useState<{ url: string; nom: string } | null>(null);
 
   const color = BCOLORS[bloc.type];
   const multiWod = bloc.type === "corps" && corpsTotal > 1;
   const label = multiWod ? `WOD ${blocNum}` : BLOC_LABELS[bloc.type];
-
-  const timerLabel = (() => {
-    if (bloc.format === "emom") return `EMOM : ${bloc.emom_interval_min}min, ${bloc.emom_rounds} rounds`;
-    if (bloc.format === "tabata") return `Tabata : ${bloc.tabata_work}s effort · ${bloc.tabata_rest}s repos · ${bloc.tabata_tours} rounds`;
-    if (bloc.format === "amrap") return `AMRAP : ${bloc.amrap_duree} min`;
-    if (bloc.format === "for_time") return `For Time${parseInt(bloc.for_time_limit) > 0 ? ` — limite ${bloc.for_time_limit} min` : ""}`;
-    return null;
-  })();
 
   const exercises = bloc.format === "tabata"
     ? bloc.tabata_exercices.map(ti => ({ _key: ti._key, exercise: ti.exercise }))
@@ -459,12 +602,14 @@ function BlocCard({
     borderBottom: "1px solid #1e1e1e", paddingBottom: 10, marginBottom: 10,
   };
 
+  const intervalSec = (parseInt(bloc.emom_interval_min) || 0) * 60 + (parseInt(bloc.emom_interval_sec) || 0);
+
   return (
     <div
       onDragOver={e => e.preventDefault()}
       onDrop={e => { e.preventDefault(); if (e.dataTransfer.getData("source") !== "bank") return; onDrop(e); }}
       style={{
-        width: 360, flexShrink: 0,
+        width: 370, flexShrink: 0,
         backgroundColor: "#111",
         border: `1px solid ${isActive ? color : "#1e1e1e"}`,
         borderRadius: 14,
@@ -480,40 +625,15 @@ function BlocCard({
           <div style={{ width: 3, height: 14, backgroundColor: color, borderRadius: 2, flexShrink: 0 }} />
           <span style={{ fontSize: 9, fontWeight: 800, color: "#666", textTransform: "uppercase", letterSpacing: "0.14em", fontFamily: "system-ui" }}>{label}</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {bloc.type === "corps" && (
-            <select
-              value={bloc.format}
-              onChange={e => onBlocChange(bloc._key, { format: e.target.value })}
-              style={{ ...inp, fontSize: 10, cursor: "pointer", color: bloc.format !== "classique" ? color : "#555", padding: "3px 6px" }}>
-              {FORMATS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-            </select>
-          )}
-          {(bloc.type !== "corps" || corpsTotal > 1) && (
-            <button onClick={() => onBlocRemove(bloc._key)}
-              style={{ background: "none", border: "none", color: "#444", cursor: "pointer", fontSize: 13, padding: "2px 4px", lineHeight: 1 }}
-              title="Supprimer ce bloc">✕</button>
-          )}
-        </div>
+        {(bloc.type !== "corps" || corpsTotal > 1) && (
+          <button onClick={() => onBlocRemove(bloc._key)}
+            style={{ background: "none", border: "none", color: "#444", cursor: "pointer", fontSize: 13, padding: "2px 4px", lineHeight: 1 }}
+            title="Supprimer ce bloc">✕</button>
+        )}
       </div>
 
       {/* ── Body ── */}
       <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", flex: 1 }}>
-
-        {/* Créer depuis bibliothèque */}
-        <button
-          onClick={() => onOpenBank(bloc._key)}
-          style={{
-            width: "100%", padding: "8px", borderRadius: 8, marginBottom: 12,
-            border: `1px solid ${isActive ? "#3B82F6" : "#2a2a2a"}`,
-            backgroundColor: isActive ? "rgba(59,130,246,0.07)" : "transparent",
-            color: isActive ? "#3B82F6" : "#555",
-            fontSize: 11, cursor: "pointer", fontFamily: "system-ui",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-            transition: "all 0.15s",
-          }}>
-          <span style={{ fontSize: 15, lineHeight: 1 }}>+</span> Créer à partir de la bibliothèque
-        </button>
 
         {/* Nom du bloc */}
         <div style={{ ...rowSep, display: "flex", alignItems: "center", gap: 8 }}>
@@ -526,40 +646,35 @@ function BlocCard({
           <span style={{ color: "#2a2a2a", fontSize: 12 }}>✏</span>
         </div>
 
-        {/* WOD — Type de score */}
-        {bloc.type === "corps" && (
-          <div style={{ ...rowSep, display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui", minWidth: 110 }}>Type de score</span>
-            <select
-              value={bloc.type_score}
-              onChange={e => onBlocChange(bloc._key, { type_score: e.target.value })}
-              style={{ flex: 1, background: "none", border: "none", color: bloc.type_score ? "#F5F5F0" : "#333", fontSize: 11, fontFamily: "system-ui", outline: "none", cursor: "pointer", backgroundColor: "transparent" }}>
-              {TYPE_SCORES.map(ts => (
-                <option key={ts.value} value={ts.value} style={{ backgroundColor: "#1a1a1a" }}>{ts.label}</option>
-              ))}
-            </select>
-            <span style={{ color: "#2a2a2a", fontSize: 12 }}>✏</span>
-          </div>
-        )}
-
-        {/* WOD — Timer */}
+        {/* WOD — Timer complet (format select + config + live timer) */}
         {bloc.type === "corps" && (
           <div style={{ ...rowSep }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui", minWidth: 110 }}>Timer</span>
-              <span style={{ flex: 1, fontSize: 11, color: timerLabel ? "#F5F5F0" : "#333", fontFamily: "system-ui" }}>
-                {timerLabel ?? "Ajouter un timer"}
-              </span>
-              <button onClick={() => setShowTimerConfig(c => !c)}
-                style={{ background: "none", border: "none", color: showTimerConfig ? color : "#2a2a2a", cursor: "pointer", fontSize: 12, padding: 2 }}>✏</button>
+            {/* Format select */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui", minWidth: 50 }}>Timer</span>
+              <select
+                value={bloc.format}
+                onChange={e => onBlocChange(bloc._key, { format: e.target.value })}
+                style={{ ...inp, flex: 1, cursor: "pointer", color: bloc.format !== "classique" ? color : "#888", fontWeight: bloc.format !== "classique" ? 700 : 400 }}>
+                {FORMATS.map(f => <option key={f.value} value={f.value} style={{ backgroundColor: "#1a1a1a" }}>{f.label}</option>)}
+              </select>
             </div>
 
-            {showTimerConfig && (
-              <div style={{ marginTop: 8, padding: "8px 10px", backgroundColor: "#0a0a0a", borderRadius: 8, border: "1px solid #222", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            {/* Config fields (toujours visible si format != classique) */}
+            {bloc.format !== "classique" && (
+              <div style={{ padding: "8px 10px", backgroundColor: "#0a0a0a", borderRadius: 8, border: "1px solid #1e1e1e", marginBottom: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                {bloc.format === "tabata" && <>
+                  <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>Effort</label>
+                  <input style={{ ...inp, width: 52 }} type="number" min="1" value={bloc.tabata_work} onChange={e => onBlocChange(bloc._key, { tabata_work: e.target.value })} />
+                  <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>s · Repos</label>
+                  <input style={{ ...inp, width: 52 }} type="number" min="1" value={bloc.tabata_rest} onChange={e => onBlocChange(bloc._key, { tabata_rest: e.target.value })} />
+                  <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>s · Tours</label>
+                  <input style={{ ...inp, width: 52 }} type="number" min="1" value={bloc.tabata_tours} onChange={e => onBlocChange(bloc._key, { tabata_tours: e.target.value })} />
+                </>}
                 {bloc.format === "emom" && <>
                   <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>Rounds</label>
-                  <input style={{ ...inp, width: 48 }} type="number" min="1" value={bloc.emom_rounds} onChange={e => onBlocChange(bloc._key, { emom_rounds: e.target.value })} />
-                  <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>Intervalle</label>
+                  <input style={{ ...inp, width: 52 }} type="number" min="1" value={bloc.emom_rounds} onChange={e => onBlocChange(bloc._key, { emom_rounds: e.target.value })} />
+                  <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>· Intervalle</label>
                   <select style={{ ...inp, cursor: "pointer" }} value={bloc.emom_interval_min} onChange={e => onBlocChange(bloc._key, { emom_interval_min: e.target.value })}>
                     {Array.from({ length: 10 }, (_, i) => <option key={i} value={i}>{i} min</option>)}
                   </select>
@@ -567,46 +682,47 @@ function BlocCard({
                     {[0,5,10,15,20,25,30,35,40,45,50,55].map(s => <option key={s} value={s}>{String(s).padStart(2,"0")}s</option>)}
                   </select>
                 </>}
-                {bloc.format === "tabata" && <>
-                  <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>Effort</label>
-                  <input style={{ ...inp, width: 48 }} type="number" value={bloc.tabata_work} onChange={e => onBlocChange(bloc._key, { tabata_work: e.target.value })} />
-                  <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>s Repos</label>
-                  <input style={{ ...inp, width: 48 }} type="number" value={bloc.tabata_rest} onChange={e => onBlocChange(bloc._key, { tabata_rest: e.target.value })} />
-                  <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>s Rounds</label>
-                  <input style={{ ...inp, width: 48 }} type="number" value={bloc.tabata_tours} onChange={e => onBlocChange(bloc._key, { tabata_tours: e.target.value })} />
-                </>}
                 {bloc.format === "amrap" && <>
                   <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>Durée</label>
-                  <input style={{ ...inp, width: 55 }} type="number" min="1" value={bloc.amrap_duree} onChange={e => onBlocChange(bloc._key, { amrap_duree: e.target.value })} />
+                  <input style={{ ...inp, width: 60 }} type="number" min="1" value={bloc.amrap_duree} onChange={e => onBlocChange(bloc._key, { amrap_duree: e.target.value })} />
                   <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>min</label>
                 </>}
                 {bloc.format === "for_time" && <>
                   <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>Limite</label>
-                  <input style={{ ...inp, width: 55 }} type="number" min="0" value={bloc.for_time_limit} onChange={e => onBlocChange(bloc._key, { for_time_limit: e.target.value })} />
-                  <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>min (0 = sans limite)</label>
+                  <input style={{ ...inp, width: 60 }} type="number" min="0" value={bloc.for_time_limit} onChange={e => onBlocChange(bloc._key, { for_time_limit: e.target.value })} />
+                  <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>min</label>
                 </>}
               </div>
             )}
+
+            {/* Live timer widget */}
+            {bloc.format === "tabata" && <TabataTimer workSec={parseInt(bloc.tabata_work)||20} restSec={parseInt(bloc.tabata_rest)||10} rounds={parseInt(bloc.tabata_tours)||8} />}
+            {bloc.format === "emom" && <EmomTimer rounds={parseInt(bloc.emom_rounds)||10} intervalSec={intervalSec||60} />}
+            {bloc.format === "amrap" && <AmrapTimer totalMin={parseInt(bloc.amrap_duree)||10} />}
+            {bloc.format === "for_time" && <ForTimeTimer limitMin={parseInt(bloc.for_time_limit)||0} />}
           </div>
         )}
 
-        {/* Niveau Rx'd / Description */}
+        {/* Description (tous les blocs) */}
         <div style={{ ...rowSep }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#555", fontFamily: "system-ui" }}>
-              {bloc.type === "corps" ? "Niveau Rx’d" : "Description"}
-            </span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#555", fontFamily: "system-ui" }}>Description</span>
             <span style={{ color: "#2a2a2a", fontSize: 12 }}>✏</span>
           </div>
           <RichTextEditor
             initialHtml={bloc.instructions}
             onHtmlChange={html => onBlocChange(bloc._key, { instructions: html })}
             onVideoClick={(url, nom) => setVideoUrl({ url, nom })}
-            placeholder={
-              bloc.type === "corps"
-                ? "Redigez la description détaillée du WOD Rx’d…"
-                : `Redigez la description de la partie ${bloc.type === "echauffement" ? "échauffement" : "finisher"}…`
-            }
+            onExerciseAdded={ex => {
+              // Ajouter aussi dans Mouvements automatiquement
+              if (bloc.format === "tabata") {
+                const item: TabataItem = { _key: newKey(), exercise_id: ex.id, exercise: ex, series: "", tabata_work: bloc.tabata_work, tabata_rest: bloc.tabata_rest, notes: "" };
+                onBlocChange(bloc._key, { tabata_exercices: [...bloc.tabata_exercices, item] });
+              } else {
+                onBlocChange(bloc._key, { rich_exercices: [...bloc.rich_exercices, { _key: newKey(), exercise: ex }] });
+              }
+            }}
+            placeholder="Redigez la description… Glisse un exercice pour l’insérer en rouge et dans Mouvements."
           />
         </div>
 
@@ -658,7 +774,7 @@ function BlocCard({
               })}
               {exercises.length === 0 && (
                 <p style={{ fontSize: 10, color: "#2a2a2a", margin: 0, textAlign: "center", fontFamily: "system-ui", padding: "10px 0" }}>
-                  Glisse ou clique dans la bibliothèque pour ajouter
+                  Glisse un exercice depuis la bibliothèque
                 </p>
               )}
             </div>
@@ -753,11 +869,6 @@ export default function SeanceBuilder({ data, onChange }: SeanceBuilderProps) {
     } catch {}
   }
 
-  function handleOpenBank(blocKey: string) {
-    setActiveBlocKey(blocKey);
-    if (bankCollapsed) setBankCollapsed(false);
-  }
-
   function scrollToBloc(idx: number) {
     if (!scrollRef.current) return;
     const cards = scrollRef.current.querySelectorAll("[data-bloc-card]");
@@ -801,6 +912,17 @@ export default function SeanceBuilder({ data, onChange }: SeanceBuilderProps) {
             style={{ padding: "7px 14px", borderRadius: 7, border: `1px solid ${hasFinisher ? "#8B5CF6" : "#2a2a2a"}`, backgroundColor: hasFinisher ? "rgba(139,92,246,0.08)" : "transparent", color: hasFinisher ? "#8B5CF6" : "#555", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>
             {hasFinisher ? "🏁 Retirer cool down" : "+ Cool down"}
           </button>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 7, backgroundColor: "#161616", border: "1px solid #2a2a2a" }}>
+            <span style={{ fontSize: 12 }}>⏱</span>
+            <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui" }}>Durée :</span>
+            <input
+              type="number" min="1"
+              value={data.duree_estimee}
+              onChange={e => onChange({ ...data, duree_estimee: e.target.value })}
+              style={{ width: 52, padding: "3px 6px", borderRadius: 6, border: "1px solid #2a2a2a", backgroundColor: "#0d0d0d", color: "#F5F5F0", fontSize: 13, fontWeight: 700, fontFamily: "system-ui", outline: "none", textAlign: "center" }}
+            />
+            <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui" }}>min</span>
+          </div>
         </div>
 
         {/* Circle navigation */}
@@ -840,7 +962,6 @@ export default function SeanceBuilder({ data, onChange }: SeanceBuilderProps) {
                     corpsTotal={corpsTotal}
                     onBlocChange={updateBloc}
                     onBlocRemove={removeBloc}
-                    onOpenBank={handleOpenBank}
                     isActive={activeBlocKey === bloc._key}
                     onDrop={e => handleDropOnBloc(e, bloc._key)}
                   />

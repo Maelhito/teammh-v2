@@ -4,18 +4,20 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import ProgrammeBuilder, { encodeProgData, decodeProgData, type ProgrammeData } from "../ProgrammeBuilder";
 import { NIVEAUX } from "../../seances/SeanceBuilder";
+import ImageUpload from "@/components/ImageUpload";
 
 export default function EditProgrammePage() {
   const router = useRouter();
   const { id } = useParams() as { id: string };
   const [data, setData] = useState<ProgrammeData | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/coach/programmes/${id}`);
     const d = await res.json();
-    if (d.programme) setData(decodeProgData(d.programme));
+    if (d.programme) { setData(decodeProgData(d.programme)); setImageUrl(d.programme.image_url ?? null); }
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
@@ -30,6 +32,7 @@ export default function EditProgrammePage() {
         nom: data.nom, categorie: "custom", niveau: data.niveau,
         duree_semaines: data.duree_semaines,
         description: encodeProgData(data),
+        image_url: imageUrl,
       }),
     });
     if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? "Erreur"); }
@@ -53,7 +56,7 @@ export default function EditProgrammePage() {
 
       {/* Infos */}
       <div style={{ backgroundColor: "#111", borderRadius: 12, border: "1px solid #1a1a1a", padding: "16px 18px", marginBottom: 14 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
           <div><label style={lbl}>Nom</label><input style={inp} value={data.nom} onChange={e => setData(d => d ? { ...d, nom: e.target.value } : d)} /></div>
           <div>
             <label style={lbl}>Niveau</label>
@@ -70,6 +73,10 @@ export default function EditProgrammePage() {
               <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui", whiteSpace: "nowrap" }}>semaine{data.duree_semaines > 1 ? "s" : ""}</span>
             </div>
           </div>
+        </div>
+        <div>
+          <label style={lbl}>Image de couverture</label>
+          <ImageUpload value={imageUrl} onChange={setImageUrl} dark />
         </div>
       </div>
 

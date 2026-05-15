@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { checkCoachAccess } from "@/lib/check-coach-access";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
-async function checkAccess() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const role = user.user_metadata?.role ?? "cliente";
-  if (role !== "coach" && role !== "admin" && user.email !== "mael.ld@hotmail.fr") return null;
-  return user;
-}
-
 export async function GET() {
-  const user = await checkAccess();
+  const user = await checkCoachAccess();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
   const admin = createSupabaseAdminClient();
@@ -46,11 +37,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await checkAccess();
+  const user = await checkCoachAccess();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
   const body = await req.json();
-  const { nom, type_format, duree_estimee, description, exercices } = body;
+  const { nom, type_format, duree_estimee, description, image_url, exercices } = body;
 
   if (!nom?.trim()) return NextResponse.json({ error: "Nom requis." }, { status: 400 });
 
@@ -59,7 +50,7 @@ export async function POST(req: NextRequest) {
   // Crée la séance
   const { data: seance, error } = await admin
     .from("seances")
-    .insert({ nom: nom.trim(), type_format, duree_estimee: duree_estimee || null, description, created_by: user.id })
+    .insert({ nom: nom.trim(), type_format, duree_estimee: duree_estimee || null, description, image_url: image_url || null, created_by: user.id })
     .select()
     .single();
 

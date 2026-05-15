@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ProgrammeBuilder, { encodeProgData, type ProgrammeData } from "../ProgrammeBuilder";
 import { NIVEAUX } from "../../seances/SeanceBuilder";
+import ImageUpload from "@/components/ImageUpload";
 
 const init = (): ProgrammeData => ({
   nom: "", niveau: "debutant", duree_semaines: 1, note: "", grid: {},
@@ -13,6 +14,7 @@ export default function NouveauProgrammePage() {
   const router = useRouter();
   const [step, setStep] = useState<1|2>(1);
   const [data, setData] = useState<ProgrammeData>(init());
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -26,6 +28,7 @@ export default function NouveauProgrammePage() {
           nom: data.nom, categorie: "custom", niveau: data.niveau,
           duree_semaines: data.duree_semaines,
           description: encodeProgData(data),
+          image_url: imageUrl,
         }),
       });
       const d = await res.json().catch(() => ({}));
@@ -118,6 +121,11 @@ export default function NouveauProgrammePage() {
             </div>
 
             {error && <p style={{ fontSize: 12, color: "#EF4444", margin: 0, fontFamily: "system-ui" }}>{error}</p>}
+
+            <div>
+              <label style={lbl}>Image de couverture</label>
+              <ImageUpload value={imageUrl} onChange={setImageUrl} dark />
+            </div>
 
             <button onClick={() => { if (!data.nom.trim()) { setError("Nom obligatoire."); return; } setError(""); setStep(2); }}
               disabled={!data.nom.trim()}
