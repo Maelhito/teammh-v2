@@ -49,9 +49,17 @@ function ytEmbed(url: string): string | null {
 }
 
 const EMPTY_FORM = {
-  nom: "", groupe_musculaire: GROUPES[0], materiel: MATERIELS[0],
+  nom: "", groupe_musculaire: "", materiel: MATERIELS[0],
   description: "", video_url: "", miniature_url: "",
 };
+
+// Parse groupes (stockés en virgule-séparés)
+function parseGroupes(s: string): string[] {
+  return s ? s.split(",").map(g => g.trim()).filter(Boolean) : [];
+}
+function joinGroupes(gs: string[]): string {
+  return gs.join(", ");
+}
 
 // ─── Modal vidéo ─────────────────────────────────────────────────────────────
 function VideoModal({ url, nom, onClose }: { url: string; nom: string; onClose: () => void }) {
@@ -172,13 +180,19 @@ function ExerciseRow({
           {ex.nom}
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-          <span style={{
-            fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 99,
-            backgroundColor: `${color}18`, color, border: `1px solid ${color}25`,
-            fontFamily: "system-ui",
-          }}>
-            {ex.groupe_musculaire}
-          </span>
+          {parseGroupes(ex.groupe_musculaire).map(g => {
+            const c = GROUPE_COLORS[g] ?? "#888";
+            return (
+              <span key={g} style={{
+                fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 99,
+                backgroundColor: `${c}18`, color: c, border: `1px solid ${c}25`,
+                fontFamily: "system-ui",
+              }}>{g}</span>
+            );
+          })}
+          {!ex.groupe_musculaire && (
+            <span style={{ fontSize: 10, color: "#ccc", fontFamily: "system-ui" }}>—</span>
+          )}
           {ex.materiel !== "aucun" && (
             <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 99, backgroundColor: "#f0f0f0", color: "#888", fontFamily: "system-ui" }}>
               {ex.materiel}
@@ -214,6 +228,14 @@ function ExercisePanel({
     video_url: exercise.video_url ?? "", miniature_url: exercise.miniature_url ?? "",
     type_format: exercise.type_format ?? defaultTypeFormat,
   } : { ...EMPTY_FORM, type_format: defaultTypeFormat });
+
+  const selectedGroupes = parseGroupes(form.groupe_musculaire);
+
+  function toggleGroupe(g: string) {
+    const current = parseGroupes(form.groupe_musculaire);
+    const next = current.includes(g) ? current.filter(x => x !== g) : [...current, g];
+    setForm(f => ({ ...f, groupe_musculaire: joinGroupes(next) }));
+  }
   const [preview, setPreview] = useState<string | null>(
     exercise?.miniature_url || (exercise?.video_url ? ytThumb(exercise.video_url) : null)
   );
@@ -277,19 +299,40 @@ function ExercisePanel({
             <input style={inp} value={form.nom} onChange={e => setForm(f => ({ ...f, nom: e.target.value }))} placeholder="Ex: Squat bulgare" required />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div>
-              <label style={lbl}>Groupe musculaire *</label>
-              <select style={{ ...inp, cursor: "pointer" }} value={form.groupe_musculaire} onChange={e => setForm(f => ({ ...f, groupe_musculaire: e.target.value }))}>
-                {GROUPES.map(g => <option key={g} value={g}>{g}</option>)}
-              </select>
+          <div>
+            <label style={lbl}>
+              Groupes musculaires *
+              {selectedGroupes.length > 0 && (
+                <span style={{ marginLeft: 8, fontSize: 10, color: "#B22222", fontWeight: 700, textTransform: "none", letterSpacing: 0 }}>
+                  {selectedGroupes.length} sélectionné{selectedGroupes.length > 1 ? "s" : ""}
+                </span>
+              )}
+            </label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+              {GROUPES.map(g => {
+                const c = GROUPE_COLORS[g] ?? "#888";
+                const active = selectedGroupes.includes(g);
+                return (
+                  <button key={g} type="button" onClick={() => toggleGroupe(g)}
+                    style={{
+                      padding: "4px 10px", borderRadius: 99, fontSize: 11, fontWeight: 700,
+                      cursor: "pointer", fontFamily: "system-ui", border: `1.5px solid ${active ? c : "#e0e0e0"}`,
+                      backgroundColor: active ? `${c}18` : "#fafafa",
+                      color: active ? c : "#aaa",
+                      transition: "all 0.12s",
+                    }}>
+                    {g}
+                  </button>
+                );
+              })}
             </div>
-            <div>
-              <label style={lbl}>Matériel</label>
-              <select style={{ ...inp, cursor: "pointer" }} value={form.materiel} onChange={e => setForm(f => ({ ...f, materiel: e.target.value }))}>
-                {MATERIELS.map(m => <option key={m} value={m}>{m === "aucun" ? "Aucun" : m.charAt(0).toUpperCase() + m.slice(1)}</option>)}
-              </select>
-            </div>
+          </div>
+
+          <div>
+            <label style={lbl}>Matériel</label>
+            <select style={{ ...inp, cursor: "pointer" }} value={form.materiel} onChange={e => setForm(f => ({ ...f, materiel: e.target.value }))}>
+              {MATERIELS.map(m => <option key={m} value={m}>{m === "aucun" ? "Aucun" : m.charAt(0).toUpperCase() + m.slice(1)}</option>)}
+            </select>
           </div>
 
           <div>
@@ -393,7 +436,7 @@ export default function CoachExercicesPage() {
     if (activeTab === "exercices" && ex.type_format === "echauffement") return false;
     // Filtres texte / groupe / matériel
     if (search && !ex.nom.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filterGroupe !== "tous" && ex.groupe_musculaire !== filterGroupe) return false;
+    if (filterGroupe !== "tous" && !parseGroupes(ex.groupe_musculaire).includes(filterGroupe)) return false;
     if (filterMateriel !== "tous" && ex.materiel !== filterMateriel) return false;
     return true;
   });
