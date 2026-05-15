@@ -206,13 +206,14 @@ function ExerciseRow({
 
 // ─── Panneau ajout/modif ──────────────────────────────────────────────────────
 function ExercisePanel({
-  exercise, onClose, onSaved,
-}: { exercise: Exercise | null; onClose: () => void; onSaved: (ex: Exercise) => void }) {
+  exercise, onClose, onSaved, defaultTypeFormat = "classique",
+}: { exercise: Exercise | null; onClose: () => void; onSaved: (ex: Exercise) => void; defaultTypeFormat?: string }) {
   const [form, setForm] = useState(exercise ? {
     nom: exercise.nom, groupe_musculaire: exercise.groupe_musculaire,
     materiel: exercise.materiel, description: exercise.description ?? "",
     video_url: exercise.video_url ?? "", miniature_url: exercise.miniature_url ?? "",
-  } : { ...EMPTY_FORM });
+    type_format: exercise.type_format ?? defaultTypeFormat,
+  } : { ...EMPTY_FORM, type_format: defaultTypeFormat });
   const [preview, setPreview] = useState<string | null>(
     exercise?.miniature_url || (exercise?.video_url ? ytThumb(exercise.video_url) : null)
   );
@@ -234,7 +235,7 @@ function ExercisePanel({
       const res = await fetch(url, {
         method: exercise ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, type_format: "classique" }),
+        body: JSON.stringify({ ...form }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setError(data.error ?? "Erreur"); setSaving(false); return; }
@@ -309,6 +310,21 @@ function ExercisePanel({
             )}
           </div>
 
+          {/* Toggle échauffement */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", backgroundColor: form.type_format === "echauffement" ? "rgba(249,115,22,0.06)" : "#fafafa", borderRadius: 8, border: `1px solid ${form.type_format === "echauffement" ? "rgba(249,115,22,0.3)" : "#e8e8e8"}` }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: form.type_format === "echauffement" ? "#F97316" : "#1a1a1a", margin: "0 0 2px", fontFamily: "system-ui" }}>
+                🔥 Exercice d'échauffement
+              </p>
+              <p style={{ fontSize: 11, color: "#aaa", margin: 0, fontFamily: "system-ui" }}>Apparaîtra dans la banque d'échauffements</p>
+            </div>
+            <button type="button"
+              onClick={() => setForm(f => ({ ...f, type_format: f.type_format === "echauffement" ? "classique" : "echauffement" }))}
+              style={{ width: 44, height: 24, borderRadius: 99, border: "none", cursor: "pointer", backgroundColor: form.type_format === "echauffement" ? "#F97316" : "#e0e0e0", transition: "background 0.2s", position: "relative", flexShrink: 0 }}>
+              <span style={{ position: "absolute", top: 2, width: 20, height: 20, borderRadius: "50%", backgroundColor: "#fff", transition: "left 0.2s", left: form.type_format === "echauffement" ? 22 : 2, boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+            </button>
+          </div>
+
           {error && <p style={{ fontSize: 12, color: "#EF4444", margin: 0, padding: "7px 10px", backgroundColor: "rgba(239,68,68,0.06)", borderRadius: 8, fontFamily: "system-ui" }}>{error}</p>}
 
           <div style={{ display: "flex", gap: 8, paddingTop: 4 }}>
@@ -341,6 +357,7 @@ export default function CoachExercicesPage() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [editing, setEditing] = useState<Exercise | null>(null);
   const [videoEx, setVideoEx] = useState<Exercise | null>(null);
+  const [activeTab, setActiveTab] = useState<"exercices" | "echauffements">("exercices");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -371,6 +388,10 @@ export default function CoachExercicesPage() {
   }
 
   const filtered = exercises.filter(ex => {
+    // Filtre par onglet
+    if (activeTab === "echauffements" && ex.type_format !== "echauffement") return false;
+    if (activeTab === "exercices" && ex.type_format === "echauffement") return false;
+    // Filtres texte / groupe / matériel
     if (search && !ex.nom.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterGroupe !== "tous" && ex.groupe_musculaire !== filterGroupe) return false;
     if (filterMateriel !== "tous" && ex.materiel !== filterMateriel) return false;
@@ -387,13 +408,13 @@ export default function CoachExercicesPage() {
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
 
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
         <div>
           <p style={{ fontSize: 10, color: "#999", letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 2px", fontFamily: "system-ui" }}>
             Portail Coach
           </p>
           <h1 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#1a1a1a", margin: 0, fontFamily: "system-ui" }}>
-            🏋️ Banque d&apos;exercices
+            {activeTab === "exercices" ? "🏋️ Banque d'exercices" : "🔥 Banque d'échauffements"}
           </h1>
         </div>
         <button onClick={() => { setEditing(null); setPanelOpen(true); }} style={{
@@ -405,6 +426,30 @@ export default function CoachExercicesPage() {
         }}>
           ➕ Ajouter
         </button>
+      </div>
+
+      {/* Onglets */}
+      <div style={{ display: "flex", gap: 0, marginBottom: 14, backgroundColor: "#f4f4f4", borderRadius: 10, padding: 4 }}>
+        {([
+          { key: "exercices",     label: "🏋️ Exercices",      count: exercises.filter(e => e.type_format !== "echauffement").length },
+          { key: "echauffements", label: "🔥 Échauffements",   count: exercises.filter(e => e.type_format === "echauffement").length },
+        ] as const).map(tab => (
+          <button key={tab.key} onClick={() => { setActiveTab(tab.key); setSearch(""); setFilterGroupe("tous"); setFilterMateriel("tous"); }}
+            style={{
+              flex: 1, padding: "8px 14px", borderRadius: 7, border: "none", cursor: "pointer",
+              fontFamily: "system-ui", fontSize: 13, fontWeight: activeTab === tab.key ? 700 : 400,
+              backgroundColor: activeTab === tab.key ? "#fff" : "transparent",
+              color: activeTab === tab.key ? "#B22222" : "#888",
+              boxShadow: activeTab === tab.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+              transition: "all 0.15s",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            }}>
+            {tab.label}
+            <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 7px", borderRadius: 99, backgroundColor: activeTab === tab.key ? "#B2222218" : "#e8e8e8", color: activeTab === tab.key ? "#B22222" : "#aaa" }}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Filtres */}
@@ -466,12 +511,16 @@ export default function CoachExercicesPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ padding: "50px 24px", textAlign: "center" }}>
-            <p style={{ fontSize: 28, margin: "0 0 10px" }}>🏋️</p>
+            <p style={{ fontSize: 28, margin: "0 0 10px" }}>{activeTab === "echauffements" ? "🔥" : "🏋️"}</p>
             <p style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a", margin: "0 0 4px", fontFamily: "system-ui" }}>
-              {exercises.length === 0 ? "Aucun exercice pour l'instant" : "Aucun résultat"}
+              {filtered.length === 0 && search === "" && filterGroupe === "tous" && filterMateriel === "tous"
+                ? activeTab === "echauffements" ? "Aucun échauffement pour l'instant" : "Aucun exercice pour l'instant"
+                : "Aucun résultat"}
             </p>
             <p style={{ fontSize: 12, color: "#aaa", margin: "0 0 16px", fontFamily: "system-ui" }}>
-              {exercises.length === 0 ? "Commence par ajouter tes premiers exercices." : "Essaie d'autres filtres."}
+              {filtered.length === 0 && search === "" && filterGroupe === "tous" && filterMateriel === "tous"
+                ? activeTab === "echauffements" ? "Ajoute des exercices et active le toggle Échauffement." : "Commence par ajouter tes premiers exercices."
+                : "Essaie d'autres filtres."}
             </p>
             {exercises.length === 0 && (
               <button onClick={() => { setEditing(null); setPanelOpen(true); }} style={{
@@ -495,7 +544,12 @@ export default function CoachExercicesPage() {
 
       {/* Panneau ajout/modif */}
       {panelOpen && (
-        <ExercisePanel exercise={editing} onClose={() => setPanelOpen(false)} onSaved={handleSaved} />
+        <ExercisePanel
+          exercise={editing}
+          defaultTypeFormat={activeTab === "echauffements" ? "echauffement" : "classique"}
+          onClose={() => setPanelOpen(false)}
+          onSaved={handleSaved}
+        />
       )}
 
       {/* Modal vidéo */}
