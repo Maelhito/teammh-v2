@@ -24,7 +24,8 @@ const MOIS = ["jan.", "fév.", "mars", "avr.", "mai", "juin", "juil.", "août", 
 type Client = { id: string; prenom: string; nom: string; email: string; statut: string };
 type WeekEvent = {
   id: string; titre: string; date: string; heure: string | null;
-  event_type: string; target_user_id: string; message: string | null; clientName: string;
+  event_type: string; target_user_id: string; lien?: string | null;
+  clientName: string; displayTitle: string;
 };
 
 interface Props {
@@ -36,6 +37,7 @@ interface Props {
   seancesCount: number;
   weekEvents: WeekEvent[];
   timezone: string;
+  coachUserId: string | null;
 }
 
 function initials(c: Client) {
@@ -73,7 +75,7 @@ async function saveTimezone(tz: string) {
 }
 
 export default function DashboardCoach({
-  prenom, today, mondayStr, activeClients, seancesCount, weekEvents, timezone: initTz,
+  prenom, today, mondayStr, activeClients, seancesCount, weekEvents, timezone: initTz, coachUserId: _coachUserId,
 }: Props) {
   const [timezone, setTimezone] = useState(initTz);
 
@@ -240,20 +242,22 @@ export default function DashboardCoach({
                   {evs.map(ev => {
                     const c = eventColor(ev.event_type);
                     return (
-                      <div key={ev.id} style={{ backgroundColor: c.bg, border: `1px solid ${c.border}`, borderRadius: 6, padding: "4px 6px", cursor: "default" }}
-                        title={`${ev.titre}${ev.clientName ? ` · ${ev.clientName}` : ""}${ev.heure ? ` · ${formatHeure(ev.heure, ev.date, timezone)}` : ""}`}>
+                      <div key={ev.id} style={{ backgroundColor: c.bg, border: `1px solid ${c.border}`, borderRadius: 6, padding: "4px 6px" }}
+                        title={`${ev.displayTitle}${ev.heure ? ` · ${formatHeure(ev.heure, ev.date, timezone)}` : ""}${ev.lien ? ` · 🔗 ${ev.lien}` : ""}`}>
                         {ev.heure && (
                           <p style={{ fontSize: 9, color: c.text, margin: "0 0 1px", fontFamily: "system-ui", fontWeight: 700 }}>
                             {formatHeure(ev.heure, ev.date, timezone)}
                           </p>
                         )}
-                        <p style={{ fontSize: 10, color: c.text, margin: 0, fontFamily: "system-ui", fontWeight: 600, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } as React.CSSProperties}>
-                          {ev.titre}
+                        <p style={{ fontSize: 10, color: c.text, margin: 0, fontFamily: "system-ui", fontWeight: 700, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } as React.CSSProperties}>
+                          {ev.displayTitle}
                         </p>
-                        {ev.clientName && (
-                          <p style={{ fontSize: 9, color: c.text, opacity: 0.7, margin: "2px 0 0", fontFamily: "system-ui" }}>
-                            {ev.clientName}
-                          </p>
+                        {ev.lien && (
+                          <a href={ev.lien} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: 9, color: c.text, opacity: 0.8, margin: "2px 0 0", display: "block", textDecoration: "none", fontFamily: "system-ui" }}
+                            onClick={e => e.stopPropagation()}>
+                            🔗 Rejoindre
+                          </a>
                         )}
                       </div>
                     );

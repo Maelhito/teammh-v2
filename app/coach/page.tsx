@@ -15,6 +15,7 @@ export default async function CoachPage() {
     ?? "Coach";
   const nom = session?.user.user_metadata?.nom ?? "";
   const timezone = session?.user.user_metadata?.timezone ?? "Europe/Paris";
+  const coachUserId = session?.user.id ?? null;
 
   const admin = createSupabaseAdminClient();
 
@@ -67,32 +68,34 @@ export default async function CoachPage() {
         .lte("date", todayStr)
     : { count: 0 };
 
-  // ── Événements semaine (hors séances sport + tâches) ──────────────────────
-  const { data: weekEvents } = activeIds.length
-    ? await admin
+  // ── Événements semaine du coach (créés par lui, hors séances + tâches) ─────
+  // On filtre par user_id = coach → chaque coach voit uniquement SES rendez-vous
+  const eventsQuery = coachUserId
+    ? admin
         .from("calendar_events")
-        .select("id, titre, date, heure, event_type, target_user_id, message")
-        .in("target_user_id", activeIds)
+        .select("id, titre, date, heure, event_type, target_user_id, lien")
+        .eq("user_id", coachUserId)
         .not("event_type", "in", '("seance","tache")')
         .gte("date", mondayStr)
         .lte("date", sundayStr)
         .order("date")
         .order("heure", { nullsFirst: true })
-    : { data: [] };
+    : null;
 
-  // Dédoublonnage par titre + date
-  const seen = new Set<string>();
-  const dedupedEvents = (weekEvents ?? []).filter(ev => {
-    const key = `${ev.titre}__${ev.date}__${ev.heure ?? ""}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).map(ev => ({
-    ...ev,
-    clientName: activeClients.find(c => c.id === ev.target_user_id)
-      ? `${activeClients.find(c => c.id === ev.target_user_id)!.prenom}`
-      : "",
-  }));
+  const { data: weekEvents } = eventsQuery ? await eventsQuery : { data: [] };
+
+  // Construction du label "Rendez-vous [prénom cliente]"
+  const clientMap = Object.fromEntries(activeClients.map(c => [c.id, c]));
+
+  const dedupedEvents = (weekEvents ?? []).map(ev => {
+    const client = clientMap[ev.target_user_id];
+    const clientName = client ? `${client.prenom} ${client.nom}`.trim() : "";
+    return {
+      ...ev,
+      clientName,
+      displayTitle: clientName ? `Rdv · ${clientName}` : ev.titre,
+    };
+  });
 
   return (
     <DashboardCoach
@@ -104,6 +107,7 @@ export default async function CoachPage() {
       seancesCount={seancesCount ?? 0}
       weekEvents={dedupedEvents}
       timezone={timezone}
+      coachUserId={coachUserId}
     />
   );
 }
