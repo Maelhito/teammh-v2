@@ -335,6 +335,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
         suppressContentEditableWarning
         data-placeholder={ph}
         onInput={() => divRef.current && onHtmlChange(divRef.current.innerHTML)}
+        onKeyUp={() => divRef.current && onHtmlChange(divRef.current.innerHTML)}
         onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
         onDrop={e => {
           e.preventDefault(); e.stopPropagation();
@@ -615,20 +616,21 @@ function BlocCard({
 
   // Sync Description → Mouvements : quand le HTML change, on recalcule rich_exercices
   function handleDescriptionChange(html: string) {
-    onBlocChange(bloc._key, { instructions: html });
-    if (bloc.format !== "tabata") {
-      const exes = extractExercisesFromHtml(html);
-      // Garde les exercices du Mouvements qui ne viennent pas de la description
-      const fromDesc = new Set(exes.map(e => e.nom));
-      const directOnly = bloc.rich_exercices.filter(
-        re => !fromDesc.has(re.exercise.nom) && !html.includes(`data-ex-nom="${re.exercise.nom}"`)
-      );
-      const newRich = [
-        ...exes.map(e => ({ _key: `desc_${e.id}_${e.nom}`, exercise: e })),
-        ...directOnly,
-      ];
-      onBlocChange(bloc._key, { instructions: html, rich_exercices: newRich });
+    if (bloc.format === "tabata") {
+      onBlocChange(bloc._key, { instructions: html });
+      return;
     }
+    const exes = extractExercisesFromHtml(html);
+    const fromDescNoms = new Set(exes.map(e => e.nom));
+    // Garde les exercices ajoutés directement dans Mouvements (pas via description)
+    const directOnly = bloc.rich_exercices.filter(
+      re => !fromDescNoms.has(re.exercise.nom) && !re._key.startsWith("desc_")
+    );
+    const newRich = [
+      ...exes.map(e => ({ _key: `desc_${e.id || e.nom}`, exercise: e })),
+      ...directOnly,
+    ];
+    onBlocChange(bloc._key, { instructions: html, rich_exercices: newRich });
   }
 
   const color = BCOLORS[bloc.type];
