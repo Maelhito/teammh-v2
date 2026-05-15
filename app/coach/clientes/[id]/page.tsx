@@ -247,7 +247,7 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
 
   async function handleSave() {
     const body = tab === "tache"
-      ? { titre: tacheForm.titre, date: tacheForm.date, message: tacheForm.description || null, heure: null, recurrence: "none", event_type: "coach", rappel: false, rappel_minutes: 0, lien: null }
+      ? { titre: tacheForm.titre, date: tacheForm.date, message: tacheForm.description || null, heure: null, recurrence: "none", event_type: "tache", rappel: false, rappel_minutes: 0, lien: null }
       : { ...evForm, heure: evForm.heure || null };
 
     if (!body.titre) { setError("Titre requis"); return; }
