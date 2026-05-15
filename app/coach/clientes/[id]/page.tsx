@@ -415,12 +415,12 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
 
   return (
     <div style={{ backgroundColor: "#fff", borderRadius: 14, border: "1px solid #efefef", padding: "18px", marginBottom: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
+      {/* Ligne 1 : titre + légende */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
         <div>
           <p style={{ fontSize: 10, fontWeight: 700, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "system-ui" }}>Calendrier</p>
           <p style={{ fontSize: 15, fontWeight: 800, color: "#1a1a1a", margin: "2px 0 0", fontFamily: "system-ui" }}>{MOIS_LONG[month]} {year}</p>
         </div>
-        {/* Légende couleurs */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {Object.entries(EV_LABELS).map(([type, label]) => (
             <span key={type} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#666", fontFamily: "system-ui" }}>
@@ -434,15 +434,15 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
           </span>
         </div>
       </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <button onClick={() => setMonthOffset(o => o - 1)} style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #efefef", background: "#fafafa", cursor: "pointer", fontSize: 13 }}>‹</button>
-          <button onClick={() => setMonthOffset(0)} disabled={monthOffset === 0} style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #efefef", background: monthOffset === 0 ? "#f0f0f0" : "#fafafa", cursor: monthOffset === 0 ? "default" : "pointer", fontSize: 11, color: "#888", fontFamily: "system-ui" }}>Ce mois</button>
-          <button onClick={() => setMonthOffset(o => o + 1)} style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #efefef", background: "#fafafa", cursor: "pointer", fontSize: 13 }}>›</button>
-          <button onClick={() => onAddEvent(new Date(year, month, today.getMonth() === month && today.getFullYear() === year ? today.getDate() : 1))}
-            style={{ marginLeft: 4, padding: "6px 12px", borderRadius: 7, border: "none", background: "#B22222", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui", display: "flex", alignItems: "center", gap: 4 }}>
-            + Ajouter
-          </button>
-        </div>
+      {/* Ligne 2 : navigation mois + bouton ajouter */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 14 }}>
+        <button onClick={() => setMonthOffset(o => o - 1)} style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #efefef", background: "#fafafa", cursor: "pointer", fontSize: 13 }}>‹</button>
+        <button onClick={() => setMonthOffset(0)} disabled={monthOffset === 0} style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #efefef", background: monthOffset === 0 ? "#f0f0f0" : "#fafafa", cursor: monthOffset === 0 ? "default" : "pointer", fontSize: 11, color: "#888", fontFamily: "system-ui" }}>Ce mois</button>
+        <button onClick={() => setMonthOffset(o => o + 1)} style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #efefef", background: "#fafafa", cursor: "pointer", fontSize: 13 }}>›</button>
+        <button onClick={() => onAddEvent(new Date(year, month, today.getMonth() === month && today.getFullYear() === year ? today.getDate() : 1))}
+          style={{ marginLeft: 4, padding: "6px 12px", borderRadius: 7, border: "none", background: "#B22222", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui", display: "flex", alignItems: "center", gap: 4 }}>
+          + Ajouter
+        </button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, marginBottom: 3 }}>
