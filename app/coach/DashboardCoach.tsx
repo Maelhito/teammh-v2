@@ -48,9 +48,18 @@ function eventColor(type: string) {
   return { bg: "#DBEAFE", border: "#2563EB", text: "#1E40AF" };
 }
 
-function formatHeure(h: string | null) {
+// Les heures sont saisies en heure Nouméa (Pacific/Noumea, UTC+11)
+// On les convertit dans la timezone du coach
+function formatHeure(h: string | null, date: string, coachTz: string) {
   if (!h) return "";
-  return h.slice(0, 5); // affiche l'heure telle qu'enregistrée, sans conversion
+  try {
+    const [hh, mm] = h.split(":");
+    // Crée un Date en interprétant l'heure comme heure Nouméa
+    const d = new Date(`${date}T${hh.padStart(2,"0")}:${(mm ?? "00").padStart(2,"0")}:00+11:00`);
+    return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: coachTz });
+  } catch {
+    return h.slice(0, 5);
+  }
 }
 
 async function saveTimezone(tz: string) {
@@ -220,10 +229,10 @@ export default function DashboardCoach({
                     const c = eventColor(ev.event_type);
                     return (
                       <div key={ev.id} style={{ backgroundColor: c.bg, border: `1px solid ${c.border}`, borderRadius: 6, padding: "4px 6px", cursor: "default" }}
-                        title={`${ev.titre}${ev.clientName ? ` · ${ev.clientName}` : ""}${ev.heure ? ` · ${formatHeure(ev.heure)}` : ""}`}>
+                        title={`${ev.titre}${ev.clientName ? ` · ${ev.clientName}` : ""}${ev.heure ? ` · ${formatHeure(ev.heure, ev.date, timezone)}` : ""}`}>
                         {ev.heure && (
                           <p style={{ fontSize: 9, color: c.text, margin: "0 0 1px", fontFamily: "system-ui", fontWeight: 700 }}>
-                            {formatHeure(ev.heure)}
+                            {formatHeure(ev.heure, ev.date, timezone)}
                           </p>
                         )}
                         <p style={{ fontSize: 10, color: c.text, margin: 0, fontFamily: "system-ui", fontWeight: 600, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } as React.CSSProperties}>
