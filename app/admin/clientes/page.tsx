@@ -31,7 +31,7 @@ export default async function AdminClientesPage() {
         </div>
       )}
 
-      <ClientsTable initialClients={clients} fetchError={error} teamMembers={teamMembers ?? []} />
+      <ClientsTable initialClients={clients} fetchError={error} teamMembers={(teamMembers ?? []).map(m => ({ ...m, role: m.role as "coach" | "nutrition" }))} />
     </div>
   );
 }

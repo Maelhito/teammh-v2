@@ -348,13 +348,13 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
         }}
         style={{
           minHeight: 80, padding: "8px 10px", borderRadius: 7,
-          border: "1px solid #222", backgroundColor: "#0d0d0d",
-          color: "#F5F5F0", fontSize: 12, fontFamily: "system-ui",
+          border: "1px solid #e0e0e0", backgroundColor: "#fafafa",
+          color: "#1a1a1a", fontSize: 12, fontFamily: "system-ui",
           outline: "none", lineHeight: 1.7, whiteSpace: "pre-wrap",
           wordBreak: "break-word", cursor: "text",
         }}
       />
-      <style>{`[data-placeholder]:empty:before{content:attr(data-placeholder);color:#333;pointer-events:none;}`}</style>
+      <style>{`[data-placeholder]:empty:before{content:attr(data-placeholder);color:#aaa;pointer-events:none;}`}</style>
     </>
   );
 });
@@ -379,10 +379,10 @@ function ExerciseBank({
 
   if (collapsed) {
     return (
-      <div style={{ width: 32, backgroundColor: "#0D0D0D", borderRight: "1px solid #1a1a1a", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 12, flexShrink: 0 }}>
+      <div style={{ width: 32, backgroundColor: "#fff", borderRight: "1px solid #e8e8e8", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 12, flexShrink: 0 }}>
         <button onClick={onToggleCollapse} title="Ouvrir la bibliothèque"
-          style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: 14, padding: 4 }}>⟫</button>
-        <span style={{ marginTop: 10, writingMode: "vertical-rl", fontSize: 8, color: "#333", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "system-ui" }}>Bibliothèque</span>
+          style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", fontSize: 14, padding: 4 }}>⟫</button>
+        <span style={{ marginTop: 10, writingMode: "vertical-rl", fontSize: 8, color: "#ccc", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "system-ui" }}>Bibliothèque</span>
       </div>
     );
   }
@@ -393,11 +393,11 @@ function ExerciseBank({
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#0D0D0D", borderRight: "1px solid #1a1a1a", width: 260, flexShrink: 0 }}>
-      <div style={{ padding: "10px 12px", borderBottom: "1px solid #1a1a1a", flexShrink: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#fff", borderRight: "1px solid #e8e8e8", width: 260, flexShrink: 0 }}>
+      <div style={{ padding: "10px 12px", borderBottom: "1px solid #f0f0f0", flexShrink: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <p style={{ fontSize: 9, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", margin: 0, fontFamily: "system-ui" }}>Bibliothèque d&apos;exercices</p>
-          <button onClick={onToggleCollapse} style={{ background: "none", border: "none", color: "#444", cursor: "pointer", fontSize: 13, padding: 2 }}>⟪</button>
+          <p style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.1em", margin: 0, fontFamily: "system-ui" }}>Bibliothèque d&apos;exercices</p>
+          <button onClick={onToggleCollapse} style={{ background: "none", border: "none", color: "#bbb", cursor: "pointer", fontSize: 13, padding: 2 }}>⟪</button>
         </div>
         {activeBlocKey && (
           <p style={{ fontSize: 9, color: "#B22222", margin: "0 0 6px", fontFamily: "system-ui" }}>→ Clique ou glisse vers le bloc actif</p>
@@ -405,11 +405,11 @@ function ExerciseBank({
         <input
           type="search" placeholder="🔍 Rechercher…" value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ width: "100%", padding: "5px 8px", borderRadius: 6, border: "1px solid #1e1e1e", backgroundColor: "#161616", color: "#F5F5F0", fontSize: 11, fontFamily: "system-ui", outline: "none", boxSizing: "border-box", marginBottom: 5 }}
+          style={{ width: "100%", padding: "5px 8px", borderRadius: 6, border: "1px solid #e8e8e8", backgroundColor: "#f5f5f5", color: "#1a1a1a", fontSize: 11, fontFamily: "system-ui", outline: "none", boxSizing: "border-box", marginBottom: 5 }}
         />
         <select
           value={filterGroupe} onChange={e => setFilterGroupe(e.target.value)}
-          style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1px solid #1e1e1e", backgroundColor: "#161616", color: "#F5F5F0", fontSize: 10, fontFamily: "system-ui", outline: "none", cursor: "pointer", boxSizing: "border-box" }}>
+          style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1px solid #e8e8e8", backgroundColor: "#f5f5f5", color: "#1a1a1a", fontSize: 10, fontFamily: "system-ui", outline: "none", cursor: "pointer", boxSizing: "border-box" }}>
           <option value="tous">Tous les groupes</option>
           {GROUPES.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
@@ -427,24 +427,24 @@ function ExerciseBank({
                 onDragStart();
               }}
               onClick={() => onAdd(ex)}
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderBottom: "1px solid #111", cursor: "pointer", backgroundColor: "#0D0D0D" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.backgroundColor = "#111"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.backgroundColor = "#0D0D0D"; }}>
-              <div style={{ width: 36, height: 28, borderRadius: 5, overflow: "hidden", backgroundColor: "#1a1a1a", flexShrink: 0 }}>
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderBottom: "1px solid #f5f5f5", cursor: "pointer", backgroundColor: "#fff" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.backgroundColor = "#f8f8f8"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.backgroundColor = "#fff"; }}>
+              <div style={{ width: 36, height: 28, borderRadius: 5, overflow: "hidden", backgroundColor: "#f0f0f0", flexShrink: 0 }}>
                 {thumb
                   ? <img src={thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                   : <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>🏋️</div>}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 10, fontWeight: 600, color: "#F5F5F0", margin: "0 0 2px", fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ex.nom}</p>
+                <p style={{ fontSize: 10, fontWeight: 600, color: "#1a1a1a", margin: "0 0 2px", fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ex.nom}</p>
                 <span style={{ fontSize: 8, fontWeight: 700, padding: "1px 5px", borderRadius: 99, color, backgroundColor: `${color}20`, fontFamily: "system-ui" }}>{ex.groupe_musculaire}</span>
               </div>
             </div>
           );
         })}
       </div>
-      <div style={{ padding: "6px 12px", borderTop: "1px solid #1a1a1a", flexShrink: 0 }}>
-        <p style={{ fontSize: 8, color: "#2a2a2a", margin: 0, fontFamily: "system-ui" }}>⠿ Glisse ou clique pour ajouter au bloc actif</p>
+      <div style={{ padding: "6px 12px", borderTop: "1px solid #f0f0f0", flexShrink: 0 }}>
+        <p style={{ fontSize: 8, color: "#ccc", margin: 0, fontFamily: "system-ui" }}>⠿ Glisse ou clique pour ajouter au bloc actif</p>
       </div>
     </div>
   );
@@ -485,7 +485,7 @@ function TabataTimer({ workSec, restSec, rounds }: { workSec: number; restSec: n
   const phaseColor = phase === "work" ? "#EF4444" : "#10B981";
 
   return (
-    <div style={{ backgroundColor: "#0a0a0a", borderRadius: 8, padding: "10px 12px", border: "1px solid #1e1e1e" }}>
+    <div style={{ backgroundColor: "#f5f5f5", borderRadius: 8, padding: "10px 12px", border: "1px solid #e8e8e8" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
         <div>
           <span style={{ fontSize: 8, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "system-ui" }}>
@@ -497,14 +497,14 @@ function TabataTimer({ workSec, restSec, rounds }: { workSec: number; restSec: n
             style={{ padding: "4px 10px", borderRadius: 6, border: "none", backgroundColor: done ? "#1a1a1a" : running ? "#333" : phaseColor, color: done ? "#444" : "#fff", fontSize: 10, fontWeight: 700, cursor: done ? "default" : "pointer", fontFamily: "system-ui" }}>
             {done ? "FIN" : running ? "⏸" : "▶"}
           </button>
-          <button onClick={reset} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #222", backgroundColor: "transparent", color: "#555", fontSize: 10, cursor: "pointer", fontFamily: "system-ui" }}>↺</button>
+          <button onClick={reset} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #e0e0e0", backgroundColor: "transparent", color: "#aaa", fontSize: 10, cursor: "pointer", fontFamily: "system-ui" }}>↺</button>
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ fontSize: 28, fontWeight: 800, color: done ? "#444" : phaseColor, fontFamily: "system-ui", minWidth: 64 }}>
           {rm > 0 ? `${rm}:` : ""}{String(rs).padStart(2, "0")}
         </span>
-        <div style={{ flex: 1, height: 5, backgroundColor: "#1a1a1a", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{ flex: 1, height: 5, backgroundColor: "#e0e0e0", borderRadius: 99, overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${done ? 100 : ((elapsed / phaseDur) * 100)}%`, backgroundColor: done ? "#333" : phaseColor, transition: "width 1s linear", borderRadius: 99 }} />
         </div>
       </div>
@@ -522,17 +522,17 @@ function EmomTimer({ rounds, intervalSec }: { rounds: number; intervalSec: numbe
   const remaining = inter - (elapsed % inter);
   const rm = Math.floor(remaining / 60); const rs = remaining % 60;
   return (
-    <div style={{ backgroundColor: "#0a0a0a", borderRadius: 8, padding: "10px 12px", border: "1px solid #1e1e1e" }}>
+    <div style={{ backgroundColor: "#f5f5f5", borderRadius: 8, padding: "10px 12px", border: "1px solid #e8e8e8" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
         <span style={{ fontSize: 8, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "system-ui" }}>EMOM — Round {currentRound}/{rounds}</span>
         <div style={{ display: "flex", gap: 6 }}>
           <button onClick={() => setRunning(r => !r)} style={{ padding: "4px 10px", borderRadius: 6, border: "none", backgroundColor: running ? "#333" : "#3B82F6", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>{running ? "⏸" : "▶"}</button>
-          <button onClick={() => { setRunning(false); setElapsed(0); }} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #222", backgroundColor: "transparent", color: "#555", fontSize: 10, cursor: "pointer", fontFamily: "system-ui" }}>↺</button>
+          <button onClick={() => { setRunning(false); setElapsed(0); }} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #e0e0e0", backgroundColor: "transparent", color: "#aaa", fontSize: 10, cursor: "pointer", fontFamily: "system-ui" }}>↺</button>
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ fontSize: 28, fontWeight: 800, color: remaining <= 10 ? "#EF4444" : "#60A5FA", fontFamily: "system-ui", minWidth: 64 }}>{rm > 0 ? `${rm}:` : ""}{String(rs).padStart(2, "0")}</span>
-        <div style={{ flex: 1, height: 5, backgroundColor: "#1a1a1a", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{ flex: 1, height: 5, backgroundColor: "#e0e0e0", borderRadius: 99, overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${(elapsed / total) * 100}%`, backgroundColor: "#3B82F6", transition: "width 1s linear", borderRadius: 99 }} />
         </div>
       </div>
@@ -549,17 +549,17 @@ function AmrapTimer({ totalMin }: { totalMin: number }) {
   const m = Math.floor(remaining / 60); const s = remaining % 60;
   const alert = remaining <= 30 && running && elapsed > 0;
   return (
-    <div style={{ backgroundColor: "#0a0a0a", borderRadius: 8, padding: "10px 12px", border: "1px solid #1e1e1e" }}>
+    <div style={{ backgroundColor: "#f5f5f5", borderRadius: 8, padding: "10px 12px", border: "1px solid #e8e8e8" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
         <span style={{ fontSize: 8, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "system-ui" }}>AMRAP — {totalMin} min</span>
         <div style={{ display: "flex", gap: 6 }}>
           <button onClick={() => setRunning(r => !r)} style={{ padding: "4px 10px", borderRadius: 6, border: "none", backgroundColor: running ? "#333" : "#8B5CF6", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>{running ? "⏸" : "▶"}</button>
-          <button onClick={() => { setRunning(false); setElapsed(0); }} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #222", backgroundColor: "transparent", color: "#555", fontSize: 10, cursor: "pointer", fontFamily: "system-ui" }}>↺</button>
+          <button onClick={() => { setRunning(false); setElapsed(0); }} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #e0e0e0", backgroundColor: "transparent", color: "#aaa", fontSize: 10, cursor: "pointer", fontFamily: "system-ui" }}>↺</button>
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ fontSize: 28, fontWeight: 800, color: alert ? "#EF4444" : "#8B5CF6", fontFamily: "system-ui", minWidth: 64 }}>{String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}</span>
-        <div style={{ flex: 1, height: 5, backgroundColor: "#1a1a1a", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{ flex: 1, height: 5, backgroundColor: "#e0e0e0", borderRadius: 99, overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${(elapsed / total) * 100}%`, backgroundColor: alert ? "#EF4444" : "#8B5CF6", transition: "width 1s linear", borderRadius: 99 }} />
         </div>
       </div>
@@ -575,7 +575,7 @@ function ForTimeTimer({ limitMin }: { limitMin: number }) {
   const m = Math.floor(elapsed / 60); const s = elapsed % 60;
   const over = limit > 0 && elapsed >= limit;
   return (
-    <div style={{ backgroundColor: "#0a0a0a", borderRadius: 8, padding: "10px 12px", border: "1px solid #1e1e1e" }}>
+    <div style={{ backgroundColor: "#f5f5f5", borderRadius: 8, padding: "10px 12px", border: "1px solid #e8e8e8" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
         <span style={{ fontSize: 8, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "system-ui" }}>FOR TIME{limit > 0 ? ` — limite ${limitMin} min` : ""}</span>
         <div style={{ display: "flex", gap: 6 }}>
@@ -583,13 +583,13 @@ function ForTimeTimer({ limitMin }: { limitMin: number }) {
             style={{ padding: "4px 10px", borderRadius: 6, border: "none", backgroundColor: over ? "#1a1a1a" : running ? "#333" : "#10B981", color: over ? "#444" : "#fff", fontSize: 10, fontWeight: 700, cursor: over ? "default" : "pointer", fontFamily: "system-ui" }}>
             {over ? "FIN" : running ? "⏸" : "▶"}
           </button>
-          <button onClick={() => { setRunning(false); setElapsed(0); }} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #222", backgroundColor: "transparent", color: "#555", fontSize: 10, cursor: "pointer", fontFamily: "system-ui" }}>↺</button>
+          <button onClick={() => { setRunning(false); setElapsed(0); }} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #e0e0e0", backgroundColor: "transparent", color: "#aaa", fontSize: 10, cursor: "pointer", fontFamily: "system-ui" }}>↺</button>
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ fontSize: 28, fontWeight: 800, color: over ? "#EF4444" : "#10B981", fontFamily: "system-ui", minWidth: 64 }}>{String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}</span>
         {limit > 0 && (
-          <div style={{ flex: 1, height: 5, backgroundColor: "#1a1a1a", borderRadius: 99, overflow: "hidden" }}>
+          <div style={{ flex: 1, height: 5, backgroundColor: "#e0e0e0", borderRadius: 99, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${Math.min(100, (elapsed / limit) * 100)}%`, backgroundColor: over ? "#EF4444" : "#10B981", transition: "width 1s linear", borderRadius: 99 }} />
           </div>
         )}
@@ -642,13 +642,13 @@ function BlocCard({
     : bloc.rich_exercices;
 
   const inp: React.CSSProperties = {
-    padding: "4px 7px", borderRadius: 5, border: "1px solid #2a2a2a",
-    backgroundColor: "#1a1a1a", color: "#F5F5F0", fontSize: 11,
+    padding: "4px 7px", borderRadius: 5, border: "1px solid #e0e0e0",
+    backgroundColor: "#f5f5f5", color: "#1a1a1a", fontSize: 11,
     fontFamily: "system-ui", outline: "none",
   };
 
   const rowSep: React.CSSProperties = {
-    borderBottom: "1px solid #1e1e1e", paddingBottom: 10, marginBottom: 10,
+    borderBottom: "1px solid #f0f0f0", paddingBottom: 10, marginBottom: 10,
   };
 
   const intervalSec = (parseInt(bloc.emom_interval_min) || 0) * 60 + (parseInt(bloc.emom_interval_sec) || 0);
@@ -659,24 +659,25 @@ function BlocCard({
       onDrop={e => { e.preventDefault(); if (e.dataTransfer.getData("source") !== "bank") return; onDrop(e); }}
       style={{
         width: 370, flexShrink: 0,
-        backgroundColor: "#111",
-        border: `1px solid ${isActive ? color : "#1e1e1e"}`,
+        backgroundColor: "#fff",
+        border: `1px solid ${isActive ? color : "#e8e8e8"}`,
         borderRadius: 14,
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
         transition: "border-color 0.15s",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
       }}>
 
       {/* ── Header ── */}
-      <div style={{ padding: "11px 14px", borderBottom: "1px solid #1e1e1e", display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#0d0d0d" }}>
+      <div style={{ padding: "11px 14px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8f8f8" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 3, height: 14, backgroundColor: color, borderRadius: 2, flexShrink: 0 }} />
-          <span style={{ fontSize: 9, fontWeight: 800, color: "#666", textTransform: "uppercase", letterSpacing: "0.14em", fontFamily: "system-ui" }}>{label}</span>
+          <span style={{ fontSize: 9, fontWeight: 800, color: "#999", textTransform: "uppercase", letterSpacing: "0.14em", fontFamily: "system-ui" }}>{label}</span>
         </div>
         {(bloc.type !== "corps" || corpsTotal > 1) && (
           <button onClick={() => onBlocRemove(bloc._key)}
-            style={{ background: "none", border: "none", color: "#444", cursor: "pointer", fontSize: 13, padding: "2px 4px", lineHeight: 1 }}
+            style={{ background: "none", border: "none", color: "#bbb", cursor: "pointer", fontSize: 13, padding: "2px 4px", lineHeight: 1 }}
             title="Supprimer ce bloc">✕</button>
         )}
       </div>
@@ -690,9 +691,9 @@ function BlocCard({
             value={bloc.nom}
             onChange={e => onBlocChange(bloc._key, { nom: e.target.value })}
             placeholder={`Saisissez un nom (ex: ${bloc.type === "echauffement" ? "échauffement haut du corps" : bloc.type === "finisher" ? "finisher cardio" : "Fran"})`}
-            style={{ flex: 1, background: "none", border: "none", color: "#F5F5F0", fontSize: 13, fontWeight: 700, fontFamily: "system-ui", outline: "none" }}
+            style={{ flex: 1, background: "none", border: "none", color: "#1a1a1a", fontSize: 13, fontWeight: 700, fontFamily: "system-ui", outline: "none" }}
           />
-          <span style={{ color: "#2a2a2a", fontSize: 12 }}>✏</span>
+          <span style={{ color: "#ccc", fontSize: 12 }}>✏</span>
         </div>
 
         {/* WOD — Timer complet (format select + config + live timer) */}
@@ -700,7 +701,7 @@ function BlocCard({
           <div style={{ ...rowSep }}>
             {/* Format select */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui", minWidth: 50 }}>Timer</span>
+              <span style={{ fontSize: 11, color: "#888", fontFamily: "system-ui", minWidth: 50 }}>Timer</span>
               <select
                 value={bloc.format}
                 onChange={e => onBlocChange(bloc._key, { format: e.target.value })}
@@ -711,7 +712,7 @@ function BlocCard({
 
             {/* Config fields (toujours visible si format != classique) */}
             {bloc.format !== "classique" && (
-              <div style={{ padding: "8px 10px", backgroundColor: "#0a0a0a", borderRadius: 8, border: "1px solid #1e1e1e", marginBottom: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ padding: "8px 10px", backgroundColor: "#f5f5f5", borderRadius: 8, border: "1px solid #e8e8e8", marginBottom: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 {bloc.format === "tabata" && <>
                   <label style={{ fontSize: 9, color: "#666", fontFamily: "system-ui" }}>Effort</label>
                   <input style={{ ...inp, width: 52 }} type="number" min="1" value={bloc.tabata_work} onChange={e => onBlocChange(bloc._key, { tabata_work: e.target.value })} />
@@ -755,8 +756,8 @@ function BlocCard({
         {/* Description (tous les blocs) */}
         <div style={{ ...rowSep }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#555", fontFamily: "system-ui" }}>Description</span>
-            <span style={{ color: "#2a2a2a", fontSize: 12 }}>✏</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#888", fontFamily: "system-ui" }}>Description</span>
+            <span style={{ color: "#ccc", fontSize: 12 }}>✏</span>
           </div>
           <RichTextEditor
             ref={editorRef}
@@ -770,7 +771,7 @@ function BlocCard({
         {/* Mouvements */}
         <div style={{ ...rowSep }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#555", fontFamily: "system-ui" }}>Mouvements</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#888", fontFamily: "system-ui" }}>Mouvements</span>
             <button onClick={() => setShowMovements(m => !m)}
               style={{ background: "none", border: "none", color: "#444", cursor: "pointer", fontSize: 11, padding: 2 }}>
               {showMovements ? "▲" : "▼"}
@@ -787,11 +788,11 @@ function BlocCard({
                 const fallbackColor = GC[re.exercise?.groupe_musculaire] ?? "#888";
                 const hasVideo = !!re.exercise?.video_url;
                 return (
-                  <div key={re._key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", backgroundColor: "#0d0d0d", borderRadius: 8, marginBottom: 6, border: "1px solid #1a1a1a" }}>
+                  <div key={re._key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", backgroundColor: "#f5f5f5", borderRadius: 8, marginBottom: 6, border: "1px solid #e8e8e8" }}>
                     {/* Miniature cliquable → ouvre la vidéo */}
                     <div
                       onClick={() => hasVideo && setVideoUrl({ url: re.exercise.video_url!, nom: re.exercise.nom })}
-                      style={{ width: 50, height: 38, borderRadius: 6, overflow: "hidden", backgroundColor: "#1a1a1a", flexShrink: 0, cursor: hasVideo ? "pointer" : "default", position: "relative" }}>
+                      style={{ width: 50, height: 38, borderRadius: 6, overflow: "hidden", backgroundColor: "#e8e8e8", flexShrink: 0, cursor: hasVideo ? "pointer" : "default", position: "relative" }}>
                       {thumb
                         ? <img src={thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                         : <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🏋️</div>}
@@ -830,7 +831,7 @@ function BlocCard({
                 );
               })}
               {exercises.length === 0 && (
-                <p style={{ fontSize: 10, color: "#2a2a2a", margin: 0, textAlign: "center", fontFamily: "system-ui", padding: "10px 0" }}>
+                <p style={{ fontSize: 10, color: "#ccc", margin: 0, textAlign: "center", fontFamily: "system-ui", padding: "10px 0" }}>
                   Glisse un exercice depuis la bibliothèque
                 </p>
               )}
@@ -847,7 +848,7 @@ function BlocCard({
             rows={2}
             style={{ flex: 1, background: "none", border: "none", color: "#666", fontSize: 11, fontFamily: "system-ui", outline: "none", resize: "none", padding: 0 }}
           />
-          <span style={{ color: "#2a2a2a", fontSize: 12, paddingTop: 2 }}>✏</span>
+          <span style={{ color: "#ccc", fontSize: 12, paddingTop: 2 }}>✏</span>
         </div>
       </div>
 
@@ -976,7 +977,7 @@ export default function SeanceBuilder({ data, onChange }: SeanceBuilderProps) {
               type="number" min="1"
               value={data.duree_estimee}
               onChange={e => onChange({ ...data, duree_estimee: e.target.value })}
-              style={{ width: 52, padding: "3px 6px", borderRadius: 6, border: "1px solid #2a2a2a", backgroundColor: "#0d0d0d", color: "#F5F5F0", fontSize: 13, fontWeight: 700, fontFamily: "system-ui", outline: "none", textAlign: "center" }}
+              style={{ width: 52, padding: "3px 6px", borderRadius: 6, border: "1px solid #e0e0e0", backgroundColor: "#f5f5f5", color: "#1a1a1a", fontSize: 13, fontWeight: 700, fontFamily: "system-ui", outline: "none", textAlign: "center" }}
             />
             <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui" }}>min</span>
           </div>
