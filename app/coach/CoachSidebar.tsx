@@ -13,6 +13,7 @@ const NAV = [
   { href: "/coach/exercices",  icon: "🏋️", label: "Banque d'exercices" },
   { href: "/coach/seances",    icon: "📋", label: "Séances" },
   { href: "/coach/programmes", icon: "📅", label: "Programmes" },
+  { href: "/coach/visios",     icon: "🎥", label: "Visios de groupe" },
   { href: "/coach/profil",     icon: "👤", label: "Mon profil" },
 ];
 
