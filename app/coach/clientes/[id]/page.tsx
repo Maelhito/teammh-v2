@@ -242,12 +242,18 @@ function SeanceEditPanel({ item, cellKey, dureeSemaines, otherInstancesCount, on
 
 // ─── Modal ajout événement / tâche ────────────────────────────────────────────
 type EvTab = "evenement" | "tache";
+interface TeamInfo {
+  coach:     { id: string; nom: string; titre: string; lien_zoom: string | null } | null;
+  nutrition: { id: string; nom: string; titre: string; lien_zoom: string | null } | null;
+}
+
 function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
   clienteId: string; defaultDate: string; onAdded: (ev: CalendarEvent) => void; onClose: () => void;
 }) {
   const [tab, setTab] = useState<EvTab>("evenement");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [team, setTeam] = useState<TeamInfo>({ coach: null, nutrition: null });
 
   const [evForm, setEvForm] = useState({
     titre: "", date: defaultDate, heure: "",
@@ -256,16 +262,37 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
   });
   const [tacheForm, setTacheForm] = useState({ titre: "", date: defaultDate, description: "" });
 
-  // Auto-remplir le lien Zoom du coach connecté
+  // Charge les coachs assignés à cette cliente + leur lien Zoom
   useEffect(() => {
-    import("@/lib/supabase").then(({ createSupabaseBrowserClient }) => {
-      const sb = createSupabaseBrowserClient();
-      sb.auth.getUser().then(({ data: { user } }) => {
-        const zoom = user?.user_metadata?.lien_zoom;
-        if (zoom) setEvForm(f => ({ ...f, lien: zoom }));
-      });
-    });
-  }, []);
+    fetch(`/api/coach/clientes/${clienteId}/team`)
+      .then(r => r.json())
+      .then(d => {
+        setTeam(d);
+        // Pré-remplir avec le lien du coach si disponible
+        if (d.coach?.lien_zoom) {
+          setEvForm(f => ({ ...f, lien: d.coach.lien_zoom }));
+        } else {
+          // Fallback : lien Zoom du coach connecté
+          import("@/lib/supabase").then(({ createSupabaseBrowserClient }) => {
+            const sb = createSupabaseBrowserClient();
+            sb.auth.getUser().then(({ data: { user } }) => {
+              const zoom = user?.user_metadata?.lien_zoom;
+              if (zoom) setEvForm(f => ({ ...f, lien: zoom }));
+            });
+          });
+        }
+      })
+      .catch(() => {});
+  }, [clienteId]);
+
+  // Quand le type change, mettre à jour le lien automatiquement
+  function handleTypeChange(type: string) {
+    let lien = evForm.lien;
+    if (type === "coach" && team.coach?.lien_zoom)         lien = team.coach.lien_zoom;
+    if (type === "nutrition" && team.nutrition?.lien_zoom)  lien = team.nutrition.lien_zoom;
+    if (type === "coaching_groupe")                         lien = evForm.lien; // garde le lien actuel
+    setEvForm(f => ({ ...f, event_type: type, lien }));
+  }
 
   const inp: React.CSSProperties = { width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #ddd", fontSize: 13, fontFamily: "system-ui", outline: "none", boxSizing: "border-box", color: "#1a1a1a", backgroundColor: "#fff" };
   const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#888", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5, fontFamily: "system-ui" };
@@ -333,12 +360,24 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
                 <input type="time" style={{ ...inp, color: evForm.heure ? "#1a1a1a" : "#bbb" }} value={evForm.heure} onChange={e => setEvForm(f => ({ ...f, heure: e.target.value }))} />
               </div>
             </div>
-            <div><label style={lbl}>Type</label>
-              <select style={{ ...inp, cursor: "pointer" }} value={evForm.event_type} onChange={e => setEvForm(f => ({ ...f, event_type: e.target.value }))}>
-                <option value="coach">🔴 Coach</option>
-                <option value="nutrition">🟢 Nutrition</option>
-                <option value="coaching_groupe">🔵 Coaching de groupe</option>
-              </select>
+            <div>
+              <label style={lbl}>Type de rendez-vous</label>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {[
+                  { type: "coach",           label: "🔴 Coach",              info: team.coach     ? `${team.coach.nom}${team.coach.lien_zoom ? " · 🔗 Zoom prêt" : " · ⚠️ Pas de lien Zoom"}` : "Aucun coach attitré", color: "#B22222" },
+                  { type: "nutrition",       label: "🟢 Nutrition",           info: team.nutrition ? `${team.nutrition.nom}${team.nutrition.lien_zoom ? " · 🔗 Zoom prêt" : " · ⚠️ Pas de lien Zoom"}` : "Aucun coach nutrition attitré", color: "#22C55E" },
+                  { type: "coaching_groupe", label: "🔵 Coaching de groupe",  info: "Lien à renseigner manuellement", color: "#3B82F6" },
+                ].map(({ type, label, info, color }) => {
+                  const active = evForm.event_type === type;
+                  return (
+                    <button key={type} type="button" onClick={() => handleTypeChange(type)}
+                      style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: `2px solid ${active ? color : "#e8e8e8"}`, backgroundColor: active ? `${color}08` : "#fafafa", cursor: "pointer", textAlign: "left", transition: "all 0.12s" }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: active ? color : "#555", margin: "0 0 2px", fontFamily: "system-ui" }}>{label}</p>
+                      <p style={{ fontSize: 11, color: "#aaa", margin: 0, fontFamily: "system-ui" }}>{info}</p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div><label style={lbl}>Récurrence</label>
               <select style={{ ...inp, cursor: "pointer" }} value={evForm.recurrence} onChange={e => setEvForm(f => ({ ...f, recurrence: e.target.value }))}>
