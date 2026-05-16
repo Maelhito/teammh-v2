@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHand
 export interface Exercise {
   id: string; nom: string; groupe_musculaire: string; materiel: string;
   video_url: string | null; miniature_url: string | null;
+  type_format?: string | null;
 }
 export interface TabataItem {
   _key: string; exercise_id: string; exercise: Exercise;
@@ -372,6 +373,7 @@ function ExerciseBank({
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [search, setSearch] = useState("");
   const [filterGroupe, setFilterGroupe] = useState("tous");
+  const [bankTab, setBankTab] = useState<"exercices" | "echauffements">("exercices");
 
   useEffect(() => {
     fetch("/api/coach/exercices").then(r => r.json()).then(d => setExercises(d.exercises ?? []));
@@ -387,18 +389,45 @@ function ExerciseBank({
     );
   }
 
-  const filtered = exercises.filter(ex =>
-    (filterGroupe === "tous" || ex.groupe_musculaire === filterGroupe) &&
-    (!search || ex.nom.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = exercises.filter(ex => {
+    const isEchauff = ex.type_format === "echauffement";
+    if (bankTab === "echauffements" && !isEchauff) return false;
+    if (bankTab === "exercices" && isEchauff) return false;
+    if (filterGroupe !== "tous" && ex.groupe_musculaire !== filterGroupe) return false;
+    if (search && !ex.nom.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#fff", borderRight: "1px solid #e8e8e8", width: 260, flexShrink: 0 }}>
       <div style={{ padding: "10px 12px", borderBottom: "1px solid #f0f0f0", flexShrink: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <p style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.1em", margin: 0, fontFamily: "system-ui" }}>Bibliothèque d&apos;exercices</p>
+          <p style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.1em", margin: 0, fontFamily: "system-ui" }}>
+            {bankTab === "exercices" ? "Bibliothèque" : "Échauffements"}
+          </p>
           <button onClick={onToggleCollapse} style={{ background: "none", border: "none", color: "#bbb", cursor: "pointer", fontSize: 13, padding: 2 }}>⟪</button>
         </div>
+
+        {/* Toggle Exercices / Échauffements */}
+        <div style={{ display: "flex", gap: 3, marginBottom: 8, backgroundColor: "#f5f5f5", borderRadius: 7, padding: 3 }}>
+          {([
+            { key: "exercices",     label: "🏋️ Exercices" },
+            { key: "echauffements", label: "🔥 Échauff." },
+          ] as const).map(tab => (
+            <button key={tab.key} onClick={() => { setBankTab(tab.key); setSearch(""); setFilterGroupe("tous"); }}
+              style={{
+                flex: 1, padding: "4px 6px", borderRadius: 5, border: "none", cursor: "pointer",
+                fontSize: 10, fontWeight: bankTab === tab.key ? 700 : 400,
+                backgroundColor: bankTab === tab.key ? "#fff" : "transparent",
+                color: bankTab === tab.key ? "#B22222" : "#aaa",
+                boxShadow: bankTab === tab.key ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                transition: "all 0.12s", fontFamily: "system-ui",
+              }}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         {activeBlocKey && (
           <p style={{ fontSize: 9, color: "#B22222", margin: "0 0 6px", fontFamily: "system-ui" }}>→ Clique ou glisse vers le bloc actif</p>
         )}

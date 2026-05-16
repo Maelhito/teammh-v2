@@ -155,19 +155,18 @@ function ExerciseRow({
             <span style={{ fontSize: 20, opacity: 0.2 }}>🏋️</span>
           </div>
         )}
-        {/* Bouton play overlay */}
-        {hasVideo && (
+        {/* Icône play discrète au survol uniquement */}
+        {hasVideo && hovered && (
           <div style={{
             position: "absolute", inset: 0,
-            backgroundColor: hovered ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.18)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "background 0.15s",
+            pointerEvents: "none",
           }}>
             <div style={{
-              width: 26, height: 26, borderRadius: "50%",
-              backgroundColor: "rgba(255,255,255,0.9)",
+              width: 22, height: 22, borderRadius: "50%",
+              backgroundColor: "rgba(255,255,255,0.85)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 10,
+              fontSize: 9, boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
             }}>▶</div>
           </div>
         )}
