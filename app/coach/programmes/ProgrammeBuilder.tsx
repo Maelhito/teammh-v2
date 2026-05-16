@@ -96,8 +96,8 @@ function InlineSeanceCreator({ jourLabel, duree_semaines, semaine_debut, onCreat
   // Max répétitions = semaines restantes depuis la semaine de début
   const maxRep = Math.max(1, duree_semaines - semaine_debut + 1);
 
-  const inp: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #2a2a2a", backgroundColor: "#161616", fontSize: 13, color: "#F5F5F0", fontFamily: "system-ui", outline: "none", boxSizing: "border-box" };
-  const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#666", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, fontFamily: "system-ui" };
+  const inp: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #e0e0e0", backgroundColor: "#f8f8f8", fontSize: 13, color: "#1a1a1a", fontFamily: "system-ui", outline: "none", boxSizing: "border-box" };
+  const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#999", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, fontFamily: "system-ui" };
 
   function handleSave() {
     if (!seanceData.nom.trim()) { setError("Nom obligatoire."); return; }
@@ -108,36 +108,36 @@ function InlineSeanceCreator({ jourLabel, duree_semaines, semaine_debut, onCreat
     a + (b.format === "tabata" ? b.tabata_exercices?.length ?? 0 : b.rich_exercices?.length ?? 0), 0);
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 500, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", alignItems: "stretch", justifyContent: "flex-end" }}>
-      <div style={{ width: "min(900px, 95vw)", backgroundColor: "#0D0D0D", display: "flex", flexDirection: "column", boxShadow: "-4px 0 40px rgba(0,0,0,0.4)" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 500, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "stretch", justifyContent: "flex-end" }}>
+      <div style={{ width: "min(900px, 95vw)", backgroundColor: "#fff", display: "flex", flexDirection: "column", boxShadow: "-4px 0 40px rgba(0,0,0,0.15)" }}>
         {/* Header */}
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, backgroundColor: "#fff" }}>
           <div>
             <p style={{ fontSize: 10, color: "#B22222", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 2px", fontFamily: "system-ui" }}>
               Nouvelle séance → {jourLabel}
             </p>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#F5F5F0", margin: 0, fontFamily: "system-ui" }}>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#1a1a1a", margin: 0, fontFamily: "system-ui" }}>
               {step === 1 ? "Informations de la séance" : seanceData.nom || "Construction"}
             </h2>
           </div>
-          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 7, color: "#888", fontSize: 16, cursor: "pointer", padding: "6px 12px", fontFamily: "system-ui" }}>✕ Annuler</button>
+          <button onClick={onClose} style={{ background: "#f4f4f4", border: "none", borderRadius: 7, color: "#888", fontSize: 16, cursor: "pointer", padding: "6px 12px", fontFamily: "system-ui" }}>✕ Annuler</button>
         </div>
 
         {/* Stepper */}
-        <div style={{ padding: "10px 20px", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 0, flexShrink: 0 }}>
+        <div style={{ padding: "10px 20px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", gap: 0, flexShrink: 0, backgroundColor: "#fafafa" }}>
           {[{n:1,l:"Infos"},{n:2,l:"Blocs & exercices"}].map(({n,l},i) => (
             <div key={n} style={{ display: "flex", alignItems: "center" }}>
-              {i > 0 && <div style={{ width: 30, height: 2, backgroundColor: step > 1 ? "#B22222" : "#222" }} />}
+              {i > 0 && <div style={{ width: 30, height: 2, backgroundColor: step > 1 ? "#B22222" : "#e0e0e0" }} />}
               <div style={{ display: "flex", alignItems: "center", gap: 5, cursor: n < step ? "pointer" : "default" }} onClick={() => n < step && setStep(n as 1|2)}>
-                <div style={{ width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: step >= n ? "#B22222" : "#1a1a1a", color: step >= n ? "#fff" : "#555", fontSize: 10, fontWeight: 700, fontFamily: "system-ui" }}>{n}</div>
-                <span style={{ fontSize: 11, fontWeight: step === n ? 700 : 400, color: step === n ? "#F5F5F0" : "#555", fontFamily: "system-ui" }}>{l}</span>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: step >= n ? "#B22222" : "#e8e8e8", color: step >= n ? "#fff" : "#aaa", fontSize: 10, fontWeight: 700, fontFamily: "system-ui" }}>{n}</div>
+                <span style={{ fontSize: 11, fontWeight: step === n ? 700 : 400, color: step === n ? "#1a1a1a" : "#aaa", fontFamily: "system-ui" }}>{l}</span>
               </div>
             </div>
           ))}
         </div>
 
         {/* Contenu scrollable */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px", backgroundColor: "#fff" }}>
 
           {/* Étape 1 */}
           {step === 1 && (
@@ -329,8 +329,8 @@ function InlineSeanceEditor({ seanceData: initialData, jourLabel, semaine, jour,
   });
   const [selectedWeeks, setSelectedWeeks] = useState<number[]>(initialWeeks.length > 0 ? initialWeeks : [semaine]);
 
-  const inp: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #2a2a2a", backgroundColor: "#161616", fontSize: 13, color: "#F5F5F0", fontFamily: "system-ui", outline: "none", boxSizing: "border-box" };
-  const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#666", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, fontFamily: "system-ui" };
+  const inp: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #e0e0e0", backgroundColor: "#f8f8f8", fontSize: 13, color: "#1a1a1a", fontFamily: "system-ui", outline: "none", boxSizing: "border-box" };
+  const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#999", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, fontFamily: "system-ui" };
 
   const totalExercices = seanceData.blocs.reduce((a, b) =>
     a + (b.format === "tabata" ? b.tabata_exercices?.length ?? 0 : b.rich_exercices?.length ?? 0), 0);
@@ -338,37 +338,37 @@ function InlineSeanceEditor({ seanceData: initialData, jourLabel, semaine, jour,
   const STEPS = [{n:1,l:"Infos"},{n:2,l:"Blocs & exercices"},{n:3,l:"Planification"}];
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 500, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", alignItems: "stretch", justifyContent: "flex-end" }}>
-      <div style={{ width: "min(900px, 95vw)", backgroundColor: "#0D0D0D", display: "flex", flexDirection: "column", boxShadow: "-4px 0 40px rgba(0,0,0,0.4)" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 500, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "stretch", justifyContent: "flex-end" }}>
+      <div style={{ width: "min(900px, 95vw)", backgroundColor: "#fff", display: "flex", flexDirection: "column", boxShadow: "-4px 0 40px rgba(0,0,0,0.15)" }}>
 
         {/* Header */}
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, backgroundColor: "#fff" }}>
           <div>
             <p style={{ fontSize: 10, color: "#F59E0B", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 2px", fontFamily: "system-ui" }}>
               Modifier · {jourLabel}
             </p>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#F5F5F0", margin: 0, fontFamily: "system-ui" }}>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#1a1a1a", margin: 0, fontFamily: "system-ui" }}>
               {seanceData.nom || "Sans titre"}
             </h2>
           </div>
-          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 7, color: "#888", fontSize: 16, cursor: "pointer", padding: "6px 12px", fontFamily: "system-ui" }}>✕ Fermer</button>
+          <button onClick={onClose} style={{ background: "#f4f4f4", border: "none", borderRadius: 7, color: "#888", fontSize: 16, cursor: "pointer", padding: "6px 12px", fontFamily: "system-ui" }}>✕ Fermer</button>
         </div>
 
         {/* Stepper */}
-        <div style={{ padding: "10px 20px", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", flexShrink: 0 }}>
+        <div style={{ padding: "10px 20px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", flexShrink: 0, backgroundColor: "#fafafa" }}>
           {STEPS.map(({n,l},i) => (
             <div key={n} style={{ display: "flex", alignItems: "center" }}>
-              {i > 0 && <div style={{ width: 30, height: 2, backgroundColor: step > i ? "#F59E0B" : "#222" }} />}
+              {i > 0 && <div style={{ width: 30, height: 2, backgroundColor: step > i ? "#F59E0B" : "#e0e0e0" }} />}
               <div style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }} onClick={() => setStep(n as 1|2|3)}>
-                <div style={{ width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: step >= n ? "#F59E0B" : "#1a1a1a", color: step >= n ? "#fff" : "#555", fontSize: 10, fontWeight: 700, fontFamily: "system-ui" }}>{n}</div>
-                <span style={{ fontSize: 11, fontWeight: step === n ? 700 : 400, color: step === n ? "#F5F5F0" : "#555", fontFamily: "system-ui" }}>{l}</span>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: step >= n ? "#F59E0B" : "#e8e8e8", color: step >= n ? "#fff" : "#aaa", fontSize: 10, fontWeight: 700, fontFamily: "system-ui" }}>{n}</div>
+                <span style={{ fontSize: 11, fontWeight: step === n ? 700 : 400, color: step === n ? "#1a1a1a" : "#aaa", fontFamily: "system-ui" }}>{l}</span>
               </div>
             </div>
           ))}
         </div>
 
         {/* Contenu */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px", backgroundColor: "#fff" }}>
 
           {/* Étape 1 : Infos */}
           {step === 1 && (

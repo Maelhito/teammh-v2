@@ -17,7 +17,7 @@ interface Exercise {
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const GROUPES = [
-  "Quadriceps", "Ischiojambier", "Fessier", "Abducteur", "Adducteur",
+  "Quadriceps", "Ischiojambier", "Mollet", "Fessier", "Abducteur", "Adducteur",
   "Abdominaux", "Biceps", "Triceps", "Pec", "Dos", "Lombaire", "Épaule", "Coeur",
 ];
 
@@ -27,8 +27,8 @@ const MATERIELS = [
 ];
 
 const GROUPE_COLORS: Record<string, string> = {
-  "Quadriceps": "#3B82F6", "Ischiojambier": "#8B5CF6", "Fessier": "#EC4899",
-  "Abducteur": "#F59E0B", "Adducteur": "#F97316", "Abdominaux": "#EF4444",
+  "Quadriceps": "#3B82F6", "Ischiojambier": "#8B5CF6", "Mollet": "#0EA5E9",
+  "Fessier": "#EC4899", "Abducteur": "#F59E0B", "Adducteur": "#F97316", "Abdominaux": "#EF4444",
   "Biceps": "#10B981", "Triceps": "#06B6D4", "Pec": "#F97316",
   "Dos": "#8B5CF6", "Lombaire": "#84CC16", "Épaule": "#B22222", "Coeur": "#EF4444",
 };
