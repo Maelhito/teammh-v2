@@ -124,9 +124,12 @@ function VisioAdminSection() {
   const [loading, setLoading] = useState(true);
   const [newUrls, setNewUrls] = useState<Record<string, string>>({ boost_mental: "", visio_sport: "", visio_stretching: "" });
   const [newTitres, setNewTitres] = useState<Record<string, string>>({ boost_mental: "", visio_sport: "", visio_stretching: "" });
+  const [addModes, setAddModes] = useState<Record<string, "url" | "file">>({ boost_mental: "url", visio_sport: "url", visio_stretching: "url" });
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [adding, setAdding] = useState<Record<string, boolean>>({});
   const [deleting, setDeleting] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Record<string, string>>({});
+  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
     fetch("/api/admin/visio-replays")
@@ -136,26 +139,78 @@ function VisioAdminSection() {
       .finally(() => setLoading(false));
   }, []);
 
+  async function saveReplayUrl(categorie: string, video_url: string, titre: string | null) {
+    const res = await fetch("/api/admin/visio-replays", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categorie, video_url, titre }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setReplays((p) => [...p, data.replay]);
+      setMsgs((p) => ({ ...p, [categorie]: "✓ Ajouté" }));
+    } else {
+      setMsgs((p) => ({ ...p, [categorie]: data.error ?? "Erreur" }));
+    }
+  }
+
   async function addReplay(categorie: string) {
     const url = newUrls[categorie]?.trim();
     if (!url) return;
     setAdding((p) => ({ ...p, [categorie]: true }));
     setMsgs((p) => ({ ...p, [categorie]: "" }));
-    const res = await fetch("/api/admin/visio-replays", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categorie, video_url: url, titre: newTitres[categorie]?.trim() || null }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setReplays((p) => [...p, data.replay]);
-      setNewUrls((p) => ({ ...p, [categorie]: "" }));
-      setNewTitres((p) => ({ ...p, [categorie]: "" }));
-      setMsgs((p) => ({ ...p, [categorie]: "✓ Ajouté" }));
-    } else {
-      setMsgs((p) => ({ ...p, [categorie]: data.error ?? "Erreur" }));
-    }
+    await saveReplayUrl(categorie, url, newTitres[categorie]?.trim() || null);
+    setNewUrls((p) => ({ ...p, [categorie]: "" }));
+    setNewTitres((p) => ({ ...p, [categorie]: "" }));
     setAdding((p) => ({ ...p, [categorie]: false }));
+  }
+
+  async function uploadVideo(categorie: string, file: File) {
+    const titre = newTitres[categorie]?.trim() || file.name.replace(/\.[^.]+$/, "");
+    setAdding((p) => ({ ...p, [categorie]: true }));
+    setMsgs((p) => ({ ...p, [categorie]: "Upload en cours…" }));
+    setUploadProgress((p) => ({ ...p, [categorie]: 0 }));
+    try {
+      // 1. Obtenir la signed URL
+      const urlRes = await fetch("/api/admin/video-signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categorie, filename: file.name }),
+      });
+      if (!urlRes.ok) {
+        const d = await urlRes.json();
+        setMsgs((p) => ({ ...p, [categorie]: d.error ?? "Erreur URL" }));
+        return;
+      }
+      const { token, storagePath, publicUrl } = await urlRes.json();
+
+      // 2. Upload direct navigateur → Supabase Storage
+      const supabase = createSupabaseBrowserClient();
+      const { error: uploadError } = await supabase.storage
+        .from("visio-videos")
+        .uploadToSignedUrl(storagePath, token, file, {
+          contentType: file.type || "video/mp4",
+          // @ts-expect-error onUploadProgress disponible dans supabase-js récent
+          onUploadProgress: (evt: { loaded: number; total: number }) => {
+            if (evt.total > 0) setUploadProgress((p) => ({ ...p, [categorie]: Math.round((evt.loaded / evt.total) * 100) }));
+          },
+        });
+
+      if (uploadError) {
+        setMsgs((p) => ({ ...p, [categorie]: uploadError.message ?? "Erreur upload" }));
+        return;
+      }
+
+      // 3. Sauvegarder l'URL publique en DB
+      await saveReplayUrl(categorie, publicUrl, titre);
+      setNewTitres((p) => ({ ...p, [categorie]: "" }));
+      if (fileRefs.current[categorie]) fileRefs.current[categorie]!.value = "";
+    } catch (err) {
+      setMsgs((p) => ({ ...p, [categorie]: err instanceof Error ? err.message : "Erreur" }));
+    } finally {
+      setAdding((p) => ({ ...p, [categorie]: false }));
+      setUploadProgress((p) => ({ ...p, [categorie]: 0 }));
+    }
   }
 
   async function deleteReplay(id: string) {
@@ -201,24 +256,62 @@ function VisioAdminSection() {
                 placeholder="Titre (optionnel)"
                 value={newTitres[cat.key] ?? ""}
                 onChange={(e) => setNewTitres((p) => ({ ...p, [cat.key]: e.target.value }))}
-                style={{ width: "100%", backgroundColor: "#0D0D0D", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "7px 10px", color: "#FFF", fontSize: 12, outline: "none", marginBottom: 4, boxSizing: "border-box" }}
+                style={{ width: "100%", backgroundColor: "#0D0D0D", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "7px 10px", color: "#FFF", fontSize: 12, outline: "none", marginBottom: 6, boxSizing: "border-box" }}
               />
-              <div style={{ display: "flex", gap: 6 }}>
-                <input
-                  type="url"
-                  placeholder="https://youtube.com/watch?v=..."
-                  value={newUrls[cat.key] ?? ""}
-                  onChange={(e) => setNewUrls((p) => ({ ...p, [cat.key]: e.target.value }))}
-                  style={{ flex: 1, minWidth: 0, backgroundColor: "#0D0D0D", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "7px 10px", color: "#FFF", fontSize: 12, outline: "none" }}
-                />
-                <button
-                  onClick={() => addReplay(cat.key)}
-                  disabled={!!adding[cat.key]}
-                  style={{ backgroundColor: adding[cat.key] ? "#8B1515" : "#B22222", color: "#fff", border: "none", borderRadius: 8, padding: "0 14px", fontSize: 12, fontWeight: 700, cursor: adding[cat.key] ? "not-allowed" : "pointer", flexShrink: 0 }}
-                >
-                  {adding[cat.key] ? "…" : "+ Ajouter"}
-                </button>
+
+              {/* Toggle URL / MP4 */}
+              <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+                {(["url", "file"] as const).map(mode => (
+                  <button key={mode} onClick={() => setAddModes(p => ({ ...p, [cat.key]: mode }))}
+                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700,
+                      backgroundColor: addModes[cat.key] === mode ? "#B22222" : "#1a1a1a",
+                      color: addModes[cat.key] === mode ? "#fff" : "#666" }}>
+                    {mode === "url" ? "🔗 Lien YouTube" : "📁 Fichier MP4"}
+                  </button>
+                ))}
               </div>
+
+              {addModes[cat.key] === "url" ? (
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    type="url"
+                    placeholder="https://youtube.com/watch?v=..."
+                    value={newUrls[cat.key] ?? ""}
+                    onChange={(e) => setNewUrls((p) => ({ ...p, [cat.key]: e.target.value }))}
+                    style={{ flex: 1, minWidth: 0, backgroundColor: "#0D0D0D", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "7px 10px", color: "#FFF", fontSize: 12, outline: "none" }}
+                  />
+                  <button
+                    onClick={() => addReplay(cat.key)}
+                    disabled={!!adding[cat.key]}
+                    style={{ backgroundColor: adding[cat.key] ? "#8B1515" : "#B22222", color: "#fff", border: "none", borderRadius: 8, padding: "0 14px", fontSize: 12, fontWeight: 700, cursor: adding[cat.key] ? "not-allowed" : "pointer", flexShrink: 0 }}
+                  >
+                    {adding[cat.key] ? "…" : "+ Ajouter"}
+                  </button>
+                </div>
+              ) : (
+                /* Mode fichier MP4 */
+                <div>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", backgroundColor: "#0D0D0D", borderRadius: 8, border: "1px dashed rgba(255,255,255,0.15)", cursor: adding[cat.key] ? "not-allowed" : "pointer" }}>
+                    <span style={{ fontSize: 18 }}>📁</span>
+                    <span style={{ fontSize: 12, color: "#aaa" }}>
+                      {adding[cat.key] ? `Upload… ${uploadProgress[cat.key] ?? 0}%` : "Choisir un fichier MP4 / MOV"}
+                    </span>
+                    <input
+                      ref={el => { fileRefs.current[cat.key] = el; }}
+                      type="file" accept="video/mp4,video/mov,video/quicktime,.mp4,.mov"
+                      disabled={!!adding[cat.key]}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadVideo(cat.key, f); }}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                  {adding[cat.key] && uploadProgress[cat.key] > 0 && (
+                    <div style={{ marginTop: 6, height: 4, backgroundColor: "#1a1a1a", borderRadius: 99, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${uploadProgress[cat.key]}%`, backgroundColor: "#B22222", transition: "width 0.3s", borderRadius: 99 }} />
+                    </div>
+                  )}
+                </div>
+              )}
+
               {msgs[cat.key] && (
                 <p style={{ fontSize: 11, margin: "4px 0 0", color: msgs[cat.key].startsWith("✓") ? "#4ADE80" : "#F87171" }}>{msgs[cat.key]}</p>
               )}

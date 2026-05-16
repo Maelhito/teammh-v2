@@ -24,6 +24,10 @@ function youtubeEmbed(url: string): string {
   return url;
 }
 
+function isVideoFile(url: string): boolean {
+  return /\.(mp4|mov|webm|avi|mkv)(\?|$)/i.test(url) || url.includes("/storage/v1/object/public/visio-videos/");
+}
+
 function AccordionSection({ category, replays }: { category: typeof CATEGORIES[number]; replays: Replay[] }) {
   const [open, setOpen] = useState(false);
   const sectionReplays = replays.filter((r) => r.categorie === category.key);
@@ -69,14 +73,25 @@ function AccordionSection({ category, replays }: { category: typeof CATEGORIES[n
                     {replay.titre}
                   </p>
                 )}
-                <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: 10, overflow: "hidden" }}>
-                  <iframe
-                    src={youtubeEmbed(replay.video_url)}
-                    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
-                    allowFullScreen
-                    loading="lazy"
-                  />
-                </div>
+                {isVideoFile(replay.video_url) ? (
+                  <video
+                    controls
+                    preload="metadata"
+                    style={{ width: "100%", borderRadius: 10, backgroundColor: "#000", display: "block" }}
+                  >
+                    <source src={replay.video_url} type="video/mp4" />
+                    Ton navigateur ne supporte pas la lecture vidéo.
+                  </video>
+                ) : (
+                  <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: 10, overflow: "hidden" }}>
+                    <iframe
+                      src={youtubeEmbed(replay.video_url)}
+                      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+                      allowFullScreen
+                      loading="lazy"
+                    />
+                  </div>
+                )}
               </div>
             ))
           )}
