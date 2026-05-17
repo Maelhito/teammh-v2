@@ -34,7 +34,7 @@ export function computeUnlockStatuses(
   return slugs.map((slug, i) => {
     // Modules 1 et 2 : toujours accessibles
     // Module Visio de Groupe (module-8) : toujours accessible pour toutes les clientes
-    if (i === 0 || i === 1 || slug === "module-8") {
+    if (i === 0 || i === 1 || slug === "module-7" || slug === "module-8") {
       return { slug, unlocked: true, unlocksAt: null };
     }
 

@@ -550,6 +550,7 @@ function ModuleRow({
 }) {
   const count = module.videoLabels.length;
   const [isOpen, setIsOpen] = useState(false);
+  const isMissionCaddie = module.slug === "module-7";
 
   const [videoUrls, setVideoUrls] = useState<string[]>(
     Array.from({ length: count }, (_, i) => {
@@ -557,10 +558,18 @@ function ModuleRow({
       return (initialContent?.[key] as string | null) ?? "";
     })
   );
+  const [videoTitles, setVideoTitles] = useState<string[]>(
+    Array.from({ length: count }, (_, i) => {
+      const key = `video_title_${i + 1}` as keyof ModuleContent;
+      return (initialContent?.[key] as string | null) ?? "";
+    })
+  );
   const [savingVideo, setSavingVideo] = useState<boolean[]>(Array(count).fill(false));
+  const [savingTitle, setSavingTitle] = useState<boolean[]>(Array(count).fill(false));
   const [videoMsg, setVideoMsg] = useState<string[]>(Array(count).fill(""));
+  const [titleMsg, setTitleMsg] = useState<string[]>(Array(count).fill(""));
 
-  // Sync video URLs quand initialContent change (après fetch dans le parent)
+  // Sync video URLs et titres quand initialContent change
   useEffect(() => {
     setVideoUrls(
       Array.from({ length: count }, (_, i) => {
@@ -568,7 +577,33 @@ function ModuleRow({
         return (initialContent?.[key] as string | null) ?? "";
       })
     );
+    setVideoTitles(
+      Array.from({ length: count }, (_, i) => {
+        const key = `video_title_${i + 1}` as keyof ModuleContent;
+        return (initialContent?.[key] as string | null) ?? "";
+      })
+    );
   }, [initialContent, count]);
+
+  async function saveTitle(i: number) {
+    setSavingTitle((p) => { const n = [...p]; n[i] = true; return n; });
+    setTitleMsg((p) => { const n = [...p]; n[i] = ""; return n; });
+
+    const field = `video_title_${i + 1}`;
+    const res = await fetch("/api/admin/video-title", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: module.slug, field, title: videoTitles[i] }),
+    });
+    const data = await res.json();
+
+    setSavingTitle((p) => { const n = [...p]; n[i] = false; return n; });
+    setTitleMsg((p) => {
+      const n = [...p];
+      n[i] = res.ok ? "✓ Sauvegardé" : (data.error ?? "Erreur");
+      return n;
+    });
+  }
 
   async function saveVideo(i: number) {
     setSavingVideo((p) => { const n = [...p]; n[i] = true; return n; });
@@ -635,6 +670,57 @@ function ModuleRow({
                 <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6, letterSpacing: "0.04em" }}>
                   🎥 {label}
                 </label>
+
+                {/* Champ titre custom (uniquement Mission Caddie) */}
+                {isMissionCaddie && (
+                  <div style={{ marginBottom: 6 }}>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input
+                        type="text"
+                        value={videoTitles[i] ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setVideoTitles((p) => { const n = [...p]; n[i] = val; return n; });
+                        }}
+                        placeholder="Titre de la mission (ex: Les produits ultra-transformés)"
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          backgroundColor: "#0D0D0D",
+                          border: "1px solid rgba(178,34,34,0.4)",
+                          borderRadius: 8,
+                          padding: "8px 12px",
+                          color: "#FFFFFF",
+                          fontSize: 12,
+                          outline: "none",
+                        }}
+                      />
+                      <button
+                        onClick={() => saveTitle(i)}
+                        disabled={savingTitle[i]}
+                        style={{
+                          backgroundColor: savingTitle[i] ? "#8B1515" : "#B22222",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 8,
+                          padding: "0 14px",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: savingTitle[i] ? "not-allowed" : "pointer",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {savingTitle[i] ? "…" : "Titre"}
+                      </button>
+                    </div>
+                    {titleMsg[i] && (
+                      <p style={{ fontSize: 11, margin: "3px 0 0", color: titleMsg[i].startsWith("✓") ? "#4ADE80" : "#F87171" }}>
+                        {titleMsg[i]}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div style={{ display: "flex", gap: 8 }}>
                   <input
                     type="url"

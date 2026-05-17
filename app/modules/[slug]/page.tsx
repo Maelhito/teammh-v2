@@ -27,6 +27,7 @@ function processInline(text: string): string {
 
 interface RenderCtx {
   videos: (string | null | undefined)[];
+  videoTitles?: (string | null | undefined)[];
   pdfUrl?: string | null;
   pdfName?: string | null;
 }
@@ -42,7 +43,9 @@ function renderMarkdown(content: string, ctx: RenderCtx = { videos: [] }): strin
 
     if (line.startsWith("VIDEO:: ")) {
       const parts = line.slice(8).split(" | ");
-      const title = parts[0]?.trim() || "Vidéo";
+      const mdxTitle = parts[0]?.trim() || "Vidéo";
+      const customTitle = ctx.videoTitles?.[videoIndex];
+      const title = customTitle || mdxTitle;
       let url = (parts[1] || "").trim();
 
       // Override `#` avec URL Supabase si disponible
@@ -167,6 +170,18 @@ export default async function ModulePage({ params }: PageProps) {
       dbContent?.video_url_8,
       dbContent?.video_url_9,
       dbContent?.video_url_10,
+    ],
+    videoTitles: [
+      dbContent?.video_title_1,
+      dbContent?.video_title_2,
+      dbContent?.video_title_3,
+      dbContent?.video_title_4,
+      dbContent?.video_title_5,
+      dbContent?.video_title_6,
+      dbContent?.video_title_7,
+      dbContent?.video_title_8,
+      dbContent?.video_title_9,
+      dbContent?.video_title_10,
     ],
     pdfUrl: dbContent?.pdf_url,
     pdfName: dbContent?.pdf_name,

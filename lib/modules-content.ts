@@ -12,6 +12,16 @@ export interface ModuleContent {
   video_url_8: string | null;
   video_url_9: string | null;
   video_url_10: string | null;
+  video_title_1: string | null;
+  video_title_2: string | null;
+  video_title_3: string | null;
+  video_title_4: string | null;
+  video_title_5: string | null;
+  video_title_6: string | null;
+  video_title_7: string | null;
+  video_title_8: string | null;
+  video_title_9: string | null;
+  video_title_10: string | null;
   pdf_url: string | null;
   pdf_name: string | null;
   pdf_url_2: string | null;
