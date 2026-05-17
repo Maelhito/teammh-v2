@@ -28,6 +28,7 @@ function processInline(text: string): string {
 interface RenderCtx {
   videos: (string | null | undefined)[];
   videoTitles?: (string | null | undefined)[];
+  images?: (string | null | undefined)[];
   pdfUrl?: string | null;
   pdfName?: string | null;
 }
@@ -37,9 +38,26 @@ function renderMarkdown(content: string, ctx: RenderCtx = { videos: [] }): strin
   const html: string[] = [];
   let i = 0;
   let videoIndex = 0;
+  let imageIndex = 0;
 
   while (i < lines.length) {
     const line = lines[i];
+
+    if (line.startsWith("IMAGE:: ")) {
+      const parts = line.slice(8).split(" | ");
+      const alt = parts[0]?.trim() || "Image";
+      let url = (parts[1] || "").trim();
+
+      if (url === "#") url = ctx.images?.[imageIndex] ?? "#";
+      imageIndex++;
+
+      if (!url || url === "#") {
+        html.push(`<div class="image-block image-block--placeholder"><p class="image-block-caption">${processInline(alt)}</p><div class="video-placeholder-box">Image à venir</div></div>`);
+      } else {
+        html.push(`<div class="image-block"><img src="${url}" alt="${alt}" class="image-block-img" loading="lazy" /></div>`);
+      }
+      i++; continue;
+    }
 
     if (line.startsWith("VIDEO:: ")) {
       const parts = line.slice(8).split(" | ");
@@ -182,6 +200,9 @@ export default async function ModulePage({ params }: PageProps) {
       dbContent?.video_title_8,
       dbContent?.video_title_9,
       dbContent?.video_title_10,
+    ],
+    images: [
+      dbContent?.image_url_1,
     ],
     pdfUrl: dbContent?.pdf_url,
     pdfName: dbContent?.pdf_name,

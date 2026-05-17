@@ -19,6 +19,11 @@ const MODULE_PDF2_LABEL: Record<string, string> = {
   "module-3": "Batch cooking",
 };
 
+// Modules qui ont une image (image_url_1), avec son label
+const MODULE_IMAGE_LABEL: Record<string, string> = {
+  "module-2": "📸 Photo matériel mois 2",
+};
+
 export default function ModuleManager({ modules, initialContent }: Props) {
   const [content, setContent] = useState<Record<string, ModuleContent>>(initialContent);
 
@@ -537,6 +542,110 @@ function PdfSection({
   );
 }
 
+// ─── Image Section ────────────────────────────────────────────────────────────
+
+function ImageSection({
+  label,
+  slug,
+  imageUrl,
+}: {
+  label: string;
+  slug: string;
+  imageUrl: string | null | undefined;
+}) {
+  const [uploaded, setUploaded] = useState<string | null>(imageUrl ?? null);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [msg, setMsg] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setUploaded(imageUrl ?? null); }, [imageUrl]);
+
+  async function uploadImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const filename = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    setUploading(true);
+    setProgress(0);
+    setMsg("");
+
+    try {
+      const urlRes = await fetch("/api/admin/image-signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, filename }),
+      });
+      if (!urlRes.ok) { const d = await urlRes.json(); setMsg(d.error ?? "Erreur URL"); return; }
+      const { token, storagePath } = await urlRes.json();
+
+      const supabase = createSupabaseBrowserClient();
+      const { error: uploadError } = await supabase.storage
+        .from("module-images")
+        .uploadToSignedUrl(storagePath, token, file, {
+          contentType: file.type || "image/jpeg",
+          // @ts-expect-error onUploadProgress disponible dans supabase-js récent
+          onUploadProgress: (evt: { loaded: number; total: number }) => {
+            if (evt.total > 0) setProgress(Math.round((evt.loaded / evt.total) * 100));
+          },
+        });
+
+      if (uploadError) { setMsg(uploadError.message ?? "Erreur upload"); return; }
+
+      const confirmRes = await fetch("/api/admin/image-confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, filename }),
+      });
+      const confirmData = await confirmRes.json();
+      if (confirmRes.ok) { setUploaded(confirmData.url); setMsg("✓ Image uploadée"); }
+      else setMsg(confirmData.error ?? "Erreur confirmation");
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Erreur inattendue");
+    } finally {
+      setUploading(false);
+      setProgress(0);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6, letterSpacing: "0.04em" }}>
+        {label}
+      </label>
+
+      {uploaded ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <img src={uploaded} alt="aperçu" style={{ width: "100%", borderRadius: 8, maxHeight: 160, objectFit: "cover" }} />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            style={{ alignSelf: "flex-start", backgroundColor: "transparent", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "6px 12px", color: "rgba(255,255,255,0.5)", fontSize: 11, cursor: uploading ? "not-allowed" : "pointer" }}
+          >
+            {uploading ? `Upload… ${progress > 0 ? `${progress}%` : ""}` : "🔄 Remplacer l'image"}
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          style={{ backgroundColor: "transparent", border: "1px dashed rgba(255,255,255,0.2)", borderRadius: 8, padding: "10px 16px", color: "rgba(255,255,255,0.4)", fontSize: 12, cursor: uploading ? "not-allowed" : "pointer", width: "100%", textAlign: "center" }}
+        >
+          {uploading ? `Upload en cours… ${progress > 0 ? `${progress}%` : ""}` : "↑ Uploader une image"}
+        </button>
+      )}
+
+      {uploading && progress > 0 && (
+        <div style={{ marginTop: 8, height: 4, backgroundColor: "#1a1a1a", borderRadius: 2, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${progress}%`, backgroundColor: "#B22222", transition: "width 0.2s ease", borderRadius: 2 }} />
+        </div>
+      )}
+      <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={uploadImage} />
+      {msg && <p style={{ fontSize: 11, margin: "6px 0 0", color: msg.startsWith("✓") ? "#4ADE80" : "#F87171" }}>{msg}</p>}
+    </div>
+  );
+}
+
 // ─── Module Row ───────────────────────────────────────────────────────────────
 
 function ModuleRow({
@@ -626,6 +735,7 @@ function ModuleRow({
   }
 
   const pdf2Label = MODULE_PDF2_LABEL[module.slug];
+  const imageLabel = MODULE_IMAGE_LABEL[module.slug];
   const canvaLabel = MODULE_CANVA_LABEL[module.slug];
   const isVisio = module.slug === "module-8";
 
@@ -779,6 +889,15 @@ function ModuleRow({
               )}
             </div>
           ))}
+
+          {/* Image (module-2 : photo matériel) */}
+          {imageLabel && (
+            <ImageSection
+              label={imageLabel}
+              slug={module.slug}
+              imageUrl={initialContent?.image_url_1}
+            />
+          )}
 
           {/* PDF principal ou lien Canva (pas pour module-8) */}
           {!isVisio && (canvaLabel ? (
