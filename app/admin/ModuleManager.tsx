@@ -580,7 +580,7 @@ function ImageSection({
 
       const supabase = createSupabaseBrowserClient();
       const { error: uploadError } = await supabase.storage
-        .from("module-images")
+        .from("module-image")
         .uploadToSignedUrl(storagePath, token, file, {
           contentType: file.type || "image/jpeg",
           // @ts-expect-error onUploadProgress disponible dans supabase-js récent

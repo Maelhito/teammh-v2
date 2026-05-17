@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   const storagePath = `${slug}/${filename}`;
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.storage
-    .from("module-images")
+    .from("module-image")
     .createSignedUploadUrl(storagePath);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

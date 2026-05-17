@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   const admin = createSupabaseAdminClient();
 
   const { data: { publicUrl } } = admin.storage
-    .from("module-images")
+    .from("module-image")
     .getPublicUrl(storagePath);
 
   const { error } = await admin
