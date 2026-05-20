@@ -54,6 +54,23 @@ export default function CoachSidebar() {
       position: "sticky", top: 0, height: "100vh",
       flexShrink: 0,
     }}>
+      {/* Bouton Vision cliente — toujours visible */}
+      <Link href="/dashboard" target="_blank" style={{
+        display: "flex", alignItems: "center", gap: 8,
+        padding: "11px 16px",
+        border: "2px solid #ef4444",
+        borderLeft: "none", borderRight: "none",
+        color: "#ef4444", textDecoration: "none",
+        fontSize: 12, fontWeight: 800, fontFamily: "system-ui",
+        letterSpacing: "0.04em",
+        transition: "background 0.15s",
+      }}
+        onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(239,68,68,0.12)"}
+        onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"}
+      >
+        <span style={{ fontSize: 14 }}>👁</span> Vision cliente
+      </Link>
+
       {/* Bouton retour admin — visible uniquement si admin + hors localhost */}
       {showAdminBtn && (
         <Link href="/admin" style={{

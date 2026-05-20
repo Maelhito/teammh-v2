@@ -6,7 +6,7 @@ import { decodeProgData, type Grid, type CellItem } from "../../programmes/Progr
 import SeanceBuildComp, { type SeanceData } from "../../seances/SeanceBuilder";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface Cliente { id: string; email: string; prenom: string | null; nom: string | null; statut: string; }
+interface Cliente { id: string; email: string; prenom: string | null; nom: string | null; statut: string; date_demarrage: string | null; }
 interface Programme { id: string; nom: string; niveau: string; duree_semaines: number; description: string | null; }
 interface CalendarEvent {
   id: string; titre: string; date: string; heure: string | null;
@@ -858,9 +858,19 @@ export default function ClienteFichePage() {
             </div>
           </div>
         )}
-        <button onClick={() => setShowModal(true)} style={{ marginLeft: "auto", padding: "9px 16px", borderRadius: 8, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui", boxShadow: "0 2px 6px rgba(178,34,34,0.25)" }}>
-          📅 Assigner un programme
-        </button>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+          {cliente?.date_demarrage && (
+            <div style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #e8e8e8", backgroundColor: "#fafafa", textAlign: "center" }}>
+              <p style={{ fontSize: 9, fontWeight: 700, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 2px", fontFamily: "system-ui" }}>Démarrage</p>
+              <p style={{ fontSize: 13, fontWeight: 800, color: "#1a1a1a", margin: 0, fontFamily: "system-ui" }}>
+                {new Date(cliente.date_demarrage).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+              </p>
+            </div>
+          )}
+          <button onClick={() => setShowModal(true)} style={{ padding: "9px 16px", borderRadius: 8, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui", boxShadow: "0 2px 6px rgba(178,34,34,0.25)" }}>
+            📅 Assigner un programme
+          </button>
+        </div>
       </div>
 
       {/* Calendrier */}

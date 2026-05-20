@@ -11,18 +11,24 @@ export async function GET() {
   const { data: { users }, error } = await admin.auth.admin.listUsers({ perPage: 500 });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const clientes = users.filter(u =>
+  const allClientes = users.filter(u =>
     u.email !== "mael.ld@hotmail.fr" &&
     (u.user_metadata?.role ?? "cliente") === "cliente"
   );
 
-  const ids = clientes.map(u => u.id);
+  const ids = allClientes.map(u => u.id);
   if (!ids.length) return NextResponse.json({ clientes: [] });
 
   const { data: profiles } = await admin
     .from("user_profiles")
-    .select("user_id, prenom, nom, statut, date_demarrage")
+    .select("user_id, prenom, nom, statut, date_demarrage, coach_id")
     .in("user_id", ids);
+
+  // Filtrer uniquement les clientes assignées à ce coach
+  const assignedIds = new Set(
+    (profiles ?? []).filter(p => p.coach_id === user.id).map(p => p.user_id)
+  );
+  const clientes = allClientes.filter(u => assignedIds.has(u.id));
 
   const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.user_id, p]));
 
