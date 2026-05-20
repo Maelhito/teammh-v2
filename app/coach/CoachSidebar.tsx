@@ -54,23 +54,6 @@ export default function CoachSidebar() {
       position: "sticky", top: 0, height: "100vh",
       flexShrink: 0,
     }}>
-      {/* Bouton Vision cliente — toujours visible */}
-      <Link href="/dashboard" target="_blank" style={{
-        display: "flex", alignItems: "center", gap: 8,
-        padding: "11px 16px",
-        border: "2px solid #ef4444",
-        borderLeft: "none", borderRight: "none",
-        color: "#ef4444", textDecoration: "none",
-        fontSize: 12, fontWeight: 800, fontFamily: "system-ui",
-        letterSpacing: "0.04em",
-        transition: "background 0.15s",
-      }}
-        onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(239,68,68,0.12)"}
-        onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"}
-      >
-        <span style={{ fontSize: 14 }}>👁</span> Vision cliente
-      </Link>
-
       {/* Bouton retour admin — visible uniquement si admin + hors localhost */}
       {showAdminBtn && (
         <Link href="/admin" style={{
@@ -119,6 +102,20 @@ export default function CoachSidebar() {
 
       {/* Footer */}
       <div style={{ padding: "16px 12px", borderTop: "1px solid #1e1e1e" }}>
+        <Link href="/dashboard" target="_blank" style={{
+          display: "block", textAlign: "center",
+          padding: "10px 14px", marginBottom: 8,
+          border: "2px solid #ef4444", borderRadius: 10,
+          color: "#ef4444", textDecoration: "none",
+          fontSize: 12, fontWeight: 800, fontFamily: "system-ui",
+          letterSpacing: "0.05em", textTransform: "uppercase",
+          transition: "background 0.15s",
+        }}
+          onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(239,68,68,0.1)"}
+          onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"}
+        >
+          App cliente
+        </Link>
         <button onClick={handleLogout} style={{
           width: "100%", padding: "10px 12px", borderRadius: 8,
           border: "none", backgroundColor: "transparent",
