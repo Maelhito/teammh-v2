@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
 export async function POST(req: NextRequest) {
-  const { prenom, nom, email, password } = await req.json();
+  const { prenom, nom, email, password, role = "cliente" } = await req.json();
+  const safeRole = ["cliente", "coach"].includes(role) ? role : "cliente";
 
   if (!prenom || !email || !password) {
     return NextResponse.json({ error: "Prénom, email et mot de passe requis." }, { status: 400 });
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
     email,
     password,
     email_confirm: true,
-    user_metadata: { prenom, nom: nom ?? "" },
+    user_metadata: { prenom, nom: nom ?? "", role: safeRole },
   });
 
   if (error) {
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
     statut: "active",
     acces_app: true,
     date_demarrage: new Date().toISOString().slice(0, 10),
+    role: safeRole,
   }, { onConflict: "user_id" });
 
   return NextResponse.json({ success: true }, { status: 201 });

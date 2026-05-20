@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 type State = "idle" | "loading" | "success";
 
 export default function InscriptionPage() {
+  const searchParams = useSearchParams();
+  const isCoach = searchParams.get("role") === "coach";
+
   const [prenom, setPrenom] = useState("");
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
@@ -52,7 +56,7 @@ export default function InscriptionPage() {
       const res = await fetch("/api/inscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prenom, nom, email, password }),
+        body: JSON.stringify({ prenom, nom, email, password, role: isCoach ? "coach" : "cliente" }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -71,15 +75,17 @@ export default function InscriptionPage() {
     return (
       <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
         <div style={{ width: "100%", maxWidth: 380, textAlign: "center" }}>
-          <div style={{ backgroundColor: "#1A1A1A", border: "1px solid rgba(178,34,34,0.3)", borderRadius: 16, padding: "40px 32px" }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>💪</div>
+          <div style={{ backgroundColor: "#1A1A1A", border: `1px solid ${isCoach ? "rgba(249,115,22,0.3)" : "rgba(178,34,34,0.3)"}`, borderRadius: 16, padding: "40px 32px" }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>{isCoach ? "🏋️" : "💪"}</div>
             <h2 style={{ color: "#FFFFFF", fontSize: "1.5rem", fontWeight: 700, letterSpacing: "0.06em", margin: "0 0 12px" }}>
               COMPTE CRÉÉ !
             </h2>
             <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, lineHeight: 1.6, margin: "0 0 24px" }}>
-              Ton compte est prêt. Connecte-toi dès maintenant avec ton email et ton mot de passe.
+              {isCoach
+                ? "Ton compte coach est prêt. Connecte-toi pour accéder au portail coach."
+                : "Ton compte est prêt. Connecte-toi dès maintenant avec ton email et ton mot de passe."}
             </p>
-            <Link href="/login" style={{ display: "block", backgroundColor: "#B22222", color: "#FFFFFF", borderRadius: 12, padding: "14px", fontSize: 14, fontWeight: 700, letterSpacing: "0.05em", textDecoration: "none" }}>
+            <Link href="/login" style={{ display: "block", backgroundColor: isCoach ? "#F97316" : "#B22222", color: "#FFFFFF", borderRadius: 12, padding: "14px", fontSize: 14, fontWeight: 700, letterSpacing: "0.05em", textDecoration: "none" }}>
               SE CONNECTER →
             </Link>
           </div>
@@ -96,8 +102,8 @@ export default function InscriptionPage() {
           <h1 style={{ color: "#FFFFFF", fontSize: "2rem", fontWeight: 700, letterSpacing: "0.08em", margin: 0 }}>
             TIME TO MOVE
           </h1>
-          <p style={{ color: "rgba(255,255,255,0.4)", marginTop: 8, fontSize: 14 }}>
-            Créer ton compte
+          <p style={{ color: isCoach ? "#F97316" : "rgba(255,255,255,0.4)", marginTop: 8, fontSize: 14, fontWeight: isCoach ? 700 : 400 }}>
+            {isCoach ? "Inscription Coach" : "Créer ton compte"}
           </p>
         </div>
 

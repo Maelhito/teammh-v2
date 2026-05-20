@@ -69,13 +69,14 @@ export default async function AdminDashboardPage() {
     { href: "/admin/calendrier",    icon: "📅", label: "Calendrier",             desc: "Événements et séances" },
     { href: "/admin/equipe",        icon: "🤝", label: "Mon équipe",             desc: "Coachs et nutritionnistes" },
     { href: "/admin/notifications", icon: "🔔", label: "Notifications",          desc: "Envoyer des push" },
-    { href: "/admin/acces",         icon: "🔑", label: "Accès & Rôles",          desc: "Rôles et permissions" },
+    { href: "/admin/equipe",        icon: "🔑", label: "Équipe & Accès",          desc: "Rôles et permissions" },
   ];
 
   const appLinks = [
-    { href: "/inscription", label: "Lien inscription", desc: "À partager aux clientes", color: "#B22222" },
-    { href: "/admin",       label: "Lien admin",       desc: "Espace administrateur",  color: "#3B82F6" },
-    { href: "/coach",       label: "Lien coach",       desc: "Portail coach",           color: "#10B981" },
+    { href: "/inscription",             label: "Inscription cliente", desc: "À partager aux clientes",          color: "#B22222" },
+    { href: "/inscription?role=coach",  label: "Inscription coach",   desc: "Lien pour un nouveau coach",       color: "#F97316" },
+    { href: "/admin",                   label: "Lien admin",          desc: "Espace administrateur",            color: "#3B82F6" },
+    { href: "/coach",                   label: "App coach",           desc: "Portail coach (déjà inscrit)",     color: "#10B981" },
   ];
 
   return (
