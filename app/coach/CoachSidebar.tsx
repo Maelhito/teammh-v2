@@ -102,7 +102,7 @@ export default function CoachSidebar() {
 
       {/* Footer */}
       <div style={{ padding: "16px 12px", borderTop: "1px solid #1e1e1e" }}>
-        <Link href="/dashboard" target="_blank" style={{
+        <Link href="/dashboard?preview=1" target="_blank" style={{
           display: "block", textAlign: "center",
           padding: "10px 14px", marginBottom: 8,
           border: "2px solid #ef4444", borderRadius: 10,
