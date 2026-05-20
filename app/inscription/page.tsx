@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 type State = "idle" | "loading" | "success";
 
 export default function InscriptionPage() {
-  const searchParams = useSearchParams();
-  const isCoach = searchParams.get("role") === "coach";
+  const [isCoach, setIsCoach] = useState(false);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setIsCoach(params.get("role") === "coach");
+  }, []);
 
   const [prenom, setPrenom] = useState("");
   const [nom, setNom] = useState("");
@@ -157,3 +159,4 @@ export default function InscriptionPage() {
     </div>
   );
 }
+
