@@ -14,9 +14,12 @@ const ROLE_LABELS: Record<string, string> = {
   cliente: "Cliente",
   coach: "Coach",
   admin: "Admin",
+  nutrition: "Nutrition",
 };
 
-export default function RolesTable() {
+const TEAM_ROLES = new Set(["coach", "admin", "nutrition"]);
+
+export default function RolesTable({ teamOnly = false }: { teamOnly?: boolean }) {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -24,9 +27,13 @@ export default function RolesTable() {
   useEffect(() => {
     fetch("/api/admin/roles")
       .then((r) => r.json())
-      .then((d) => { setUsers(d.users ?? []); setLoading(false); })
+      .then((d) => {
+        const all: UserRow[] = d.users ?? [];
+        setUsers(teamOnly ? all.filter(u => TEAM_ROLES.has(u.role)) : all);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
-  }, []);
+  }, [teamOnly]);
 
   async function handleRoleChange(userId: string, role: string) {
     setSaving(userId);
@@ -44,7 +51,7 @@ export default function RolesTable() {
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
         <span style={{ width: 3, height: 18, backgroundColor: "#B22222", borderRadius: 2, display: "inline-block", flexShrink: 0 }} />
         <h2 style={{ fontSize: "1rem", fontWeight: 700, letterSpacing: "0.05em", margin: 0, color: "#F5F5F0" }}>
-          👥 GESTION DES ACCÈS
+          🔑 RÔLES & ACCÈS
         </h2>
       </div>
 

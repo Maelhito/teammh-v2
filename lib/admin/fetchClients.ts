@@ -33,21 +33,28 @@ export async function fetchClients(): Promise<{ clients: ClientData[]; error: st
     return { clients: [], error: String(err) };
   }
 
-  const clients = authUsers.filter((u) => u.email !== ADMIN_EMAIL);
-  if (!clients.length) return { clients: [], error: null };
+  const allUsers = authUsers.filter((u) => u.email !== ADMIN_EMAIL);
+  if (!allUsers.length) return { clients: [], error: null };
 
-  const clientIds = clients.map((u) => u.id);
+  const allIds = allUsers.map((u) => u.id);
   const totalModules = getModules().length;
   const admin = createSupabaseAdminClient();
 
   const [{ data: profiles }, { data: completions }] = await Promise.all([
     admin.from("user_profiles")
-      .select("user_id, prenom, nom, statut, date_demarrage, acces_app, programme_type, programme_duree, coach_id, nutrition_id")
-      .in("user_id", clientIds),
-    admin.from("module_completions").select("user_id").in("user_id", clientIds),
+      .select("user_id, prenom, nom, statut, date_demarrage, acces_app, programme_type, programme_duree, coach_id, nutrition_id, role")
+      .in("user_id", allIds),
+    admin.from("module_completions").select("user_id").in("user_id", allIds),
   ]);
 
   const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.user_id, p]));
+
+  // Exclure les membres de l'équipe — seules les clientes apparaissent ici
+  const TEAM_ROLES = new Set(["coach", "admin", "nutrition"]);
+  const clients = allUsers.filter((u) => {
+    const role = profileMap[u.id]?.role ?? (u as { user_metadata?: { role?: string } }).user_metadata?.role ?? "cliente";
+    return !TEAM_ROLES.has(role);
+  });
   const completionCount: Record<string, number> = {};
   for (const c of completions ?? []) {
     completionCount[c.user_id] = (completionCount[c.user_id] ?? 0) + 1;

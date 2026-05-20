@@ -10,9 +10,8 @@ const NAV = [
   { href: "/admin/clientes",     icon: "👥", label: "Clientes" },
   { href: "/admin/modules",      icon: "📚", label: "Modules" },
   { href: "/admin/calendrier",   icon: "📅", label: "Calendrier" },
-  { href: "/admin/equipe",       icon: "🤝", label: "Équipe" },
+  { href: "/admin/equipe",       icon: "🤝", label: "Équipe & Accès" },
   { href: "/admin/notifications",icon: "🔔", label: "Notifications" },
-  { href: "/admin/acces",        icon: "🔑", label: "Accès & Rôles" },
 ];
 
 export default function AdminSidebar() {

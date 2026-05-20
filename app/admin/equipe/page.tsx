@@ -1,4 +1,5 @@
 import TeamAdmin from "../TeamAdmin";
+import RolesTable from "../RolesTable";
 
 export const dynamic = "force-dynamic";
 
@@ -10,10 +11,11 @@ export default function AdminEquipePage() {
           Organisation
         </p>
         <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#F5F5F0", margin: 0, fontFamily: "system-ui" }}>
-          🤝 Mon équipe
+          🤝 Équipe & Accès
         </h1>
       </div>
       <TeamAdmin />
+      <RolesTable teamOnly />
     </div>
   );
 }
