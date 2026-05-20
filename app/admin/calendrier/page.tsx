@@ -22,7 +22,7 @@ export default async function AdminCalendrierPage() {
         </h1>
       </div>
       <CalendrierAdmin
-        clients={clients.map(c => ({ id: c.id, email: c.email, prenom: c.prenom, nom: c.nom }))}
+        clients={clients.map(c => ({ id: c.id, email: c.email, prenom: c.prenom, nom: c.nom, coach_id: c.coach_id, nutrition_id: c.nutrition_id }))}
         teamMembers={(teamMembers ?? []) as { id: string; nom: string; titre: string; role: "coach" | "nutrition"; lien_zoom: string | null }[]}
       />
     </div>

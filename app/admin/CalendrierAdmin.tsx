@@ -7,6 +7,8 @@ interface Client {
   email: string;
   prenom: string | null;
   nom: string | null;
+  coach_id: string | null;
+  nutrition_id: string | null;
 }
 
 interface TeamMember {
@@ -130,13 +132,34 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
     setShowModal(true);
   }
 
-  // Auto-fill Zoom link when event_type changes
-  function handleTypeChange(type: string) {
-    const member = teamMembers.find(m =>
+  // Trouve le membre attitré à une cliente selon le type
+  function getMemberForType(type: string, clientId: string): TeamMember | undefined {
+    const client = clientMap[clientId];
+    if (client) {
+      if (type === "coach" && client.coach_id)
+        return teamMembers.find(m => m.id === client.coach_id);
+      if (type === "nutrition" && client.nutrition_id)
+        return teamMembers.find(m => m.id === client.nutrition_id);
+    }
+    // Fallback : premier membre du bon rôle
+    return teamMembers.find(m =>
       (type === "coach" && m.role === "coach") ||
       (type === "nutrition" && m.role === "nutrition")
     );
-    setForm(f => ({ ...f, event_type: type, lien: member?.lien_zoom ?? f.lien }));
+  }
+
+  function handleTypeChange(type: string) {
+    const member = (targetMode === "specific" && selectedClientId)
+      ? getMemberForType(type, selectedClientId)
+      : teamMembers.find(m => (type === "coach" && m.role === "coach") || (type === "nutrition" && m.role === "nutrition"));
+    setForm(f => ({ ...f, event_type: type, lien: member?.lien_zoom ?? "" }));
+  }
+
+  // Quand on sélectionne une cliente, on met à jour le lien selon le type déjà choisi
+  function handleSelectClient(clientId: string) {
+    setSelectedClientId(clientId);
+    const member = getMemberForType(form.event_type, clientId);
+    if (member?.lien_zoom) setForm(f => ({ ...f, lien: member.lien_zoom ?? f.lien }));
   }
 
   const filteredClients = useMemo(() =>
@@ -343,7 +366,7 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
                       <p style={{ padding: "12px 14px", color: "#555", fontSize: 12, fontFamily: "system-ui", margin: 0 }}>Aucune cliente trouvée</p>
                     )}
                     {filteredClients.map(c => (
-                      <div key={c.id} onClick={() => setSelectedClientId(c.id)}
+                      <div key={c.id} onClick={() => handleSelectClient(c.id)}
                         style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid #1a1a1a", backgroundColor: selectedClientId === c.id ? "rgba(178,34,34,0.12)" : "transparent", display: "flex", alignItems: "center", gap: 10 }}
                       >
                         <div style={{ width: 28, height: 28, borderRadius: "50%", backgroundColor: selectedClientId === c.id ? "#B22222" : "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -393,19 +416,27 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
               <div style={{ marginBottom: 14 }}>
                 <label style={lbl}>Type</label>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {[
-                    { type: "coach",           label: "Coach",             color: "#B22222", info: teamMembers.find(m => m.role === "coach")?.nom ?? "Aucun coach configuré" },
-                    { type: "nutrition",       label: "Nutrition",          color: "#22C55E", info: teamMembers.find(m => m.role === "nutrition")?.nom ?? "Aucun coach nutrition" },
-                    { type: "coaching_groupe", label: "Coaching de groupe", color: "#3B82F6", info: "Lien à renseigner manuellement" },
-                  ].map(({ type, label, color, info }) => {
+                  {(["coach", "nutrition", "coaching_groupe"] as const).map(type => {
                     const active = form.event_type === type;
+                    const color = type === "coach" ? "#B22222" : type === "nutrition" ? "#22C55E" : "#3B82F6";
+                    const label = type === "coach" ? "Coach" : type === "nutrition" ? "Nutrition" : "Coaching de groupe";
+                    const member = (type !== "coaching_groupe")
+                      ? getMemberForType(type, targetMode === "specific" ? selectedClientId : "")
+                      : undefined;
+                    const info = type === "coaching_groupe"
+                      ? "Lien à renseigner manuellement"
+                      : member
+                        ? `${member.nom}${member.lien_zoom ? " · 🔗 Zoom prêt" : " · ⚠️ Pas de Zoom"}`
+                        : (targetMode === "specific" && selectedClientId)
+                          ? "Aucun attitré pour cette cliente"
+                          : "Aucun configuré";
                     return (
                       <button key={type} type="button" onClick={() => handleTypeChange(type)}
                         style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: `2px solid ${active ? color : "#222"}`, backgroundColor: active ? `${color}10` : "#0D0D0D", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: color, flexShrink: 0 }} />
                         <div>
                           <p style={{ fontSize: 13, fontWeight: 700, color: active ? color : "#888", margin: 0, fontFamily: "system-ui" }}>{label}</p>
-                          <p style={{ fontSize: 10, color: "#444", margin: 0, fontFamily: "system-ui" }}>{info}{teamMembers.find(m => (type === "coach" && m.role === "coach") || (type === "nutrition" && m.role === "nutrition"))?.lien_zoom ? " · 🔗 Zoom prêt" : ""}</p>
+                          <p style={{ fontSize: 10, color: "#444", margin: 0, fontFamily: "system-ui" }}>{info}</p>
                         </div>
                       </button>
                     );
