@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("calendar_events")
-    .select("id, titre, date, heure, recurrence, rappel, target_user_id")
-    .eq("created_by", "admin")
+    .select("id, titre, date, heure, recurrence, rappel, target_user_id, event_type, lien, message, created_by")
+    .neq("event_type", "seance")
     .order("date", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
