@@ -229,20 +229,19 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
         </div>
       </div>
 
-      {/* Grille jours */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
-        {JOURS_COURT.map(j => (
-          <div key={j} style={{ textAlign: "center", padding: "6px 0" }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: "#444", textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: "system-ui" }}>{j}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Grille calendrier */}
+      {/* Grille unifiée : headers + cellules dans un seul grid pour alignement parfait */}
       {loading ? (
         <div style={{ textAlign: "center", padding: 60, color: "#555", fontFamily: "system-ui", fontSize: 13 }}>Chargement…</div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+          {/* Ligne headers jours */}
+          {JOURS_COURT.map(j => (
+            <div key={j} style={{ textAlign: "center", padding: "8px 4px", backgroundColor: "#0D0D0D", borderRadius: 6 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#444", textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: "system-ui" }}>{j}</span>
+            </div>
+          ))}
+
+          {/* Cellules */}
           {cells.map((day, i) => {
             const isCurrentMonth = day.getMonth() === base.getMonth();
             const isToday = day.toDateString() === today.toDateString();
@@ -253,45 +252,48 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
               <div key={i}
                 onClick={() => openModal(dateStr)}
                 style={{
-                  minHeight: 88, padding: "6px 5px", borderRadius: 8, cursor: "pointer",
+                  height: 100, padding: "5px 5px", borderRadius: 7, cursor: "pointer",
                   border: isToday ? "1.5px solid #B22222" : "1px solid #1a1a1a",
                   backgroundColor: isToday ? "rgba(178,34,34,0.05)" : isCurrentMonth ? "#111" : "#0a0a0a",
-                  opacity: isCurrentMonth ? 1 : 0.4,
+                  opacity: isCurrentMonth ? 1 : 0.35,
+                  overflow: "hidden",
                   transition: "background 0.1s",
+                  boxSizing: "border-box",
                 }}
                 onMouseEnter={e => { if (!isToday) (e.currentTarget as HTMLDivElement).style.backgroundColor = "#161616"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.backgroundColor = isToday ? "rgba(178,34,34,0.05)" : isCurrentMonth ? "#111" : "#0a0a0a"; }}
               >
-                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 3 }}>
                   <span style={{
-                    width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                    width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
                     backgroundColor: isToday ? "#B22222" : "transparent",
                     fontSize: 11, fontWeight: isToday ? 800 : 500,
                     color: isToday ? "#fff" : isCurrentMonth ? "#F5F5F0" : "#444",
-                    fontFamily: "system-ui",
+                    fontFamily: "system-ui", flexShrink: 0,
                   }}>
                     {day.getDate()}
                   </span>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  {dayEvents.slice(0, 3).map(ev => (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, overflow: "hidden" }}>
+                  {dayEvents.slice(0, 2).map(ev => (
                     <div key={ev.id}
                       onClick={e => { e.stopPropagation(); setDetail(ev); }}
                       style={{
-                        padding: "2px 6px", borderRadius: 4,
+                        padding: "2px 5px", borderRadius: 3,
                         backgroundColor: `${evColor(ev)}18`,
                         borderLeft: `2px solid ${evColor(ev)}`,
-                        cursor: "pointer",
+                        cursor: "pointer", overflow: "hidden",
                       }}
                     >
                       <p style={{ fontSize: 9, fontWeight: 700, color: evColor(ev), margin: 0, fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {ev.target_user_id ? clientMap[ev.target_user_id] ? clientLabel(clientMap[ev.target_user_id]) : "Cliente" : "Toutes"}
-                        {" · "}{ev.titre}
+                        {ev.target_user_id
+                          ? (clientMap[ev.target_user_id] ? clientLabel(clientMap[ev.target_user_id]).split(" ")[0] : "Cliente")
+                          : "Toutes"} · {ev.titre}
                       </p>
                     </div>
                   ))}
-                  {dayEvents.length > 3 && (
-                    <span style={{ fontSize: 9, color: "#555", fontFamily: "system-ui", paddingLeft: 4 }}>+{dayEvents.length - 3} autres</span>
+                  {dayEvents.length > 2 && (
+                    <span style={{ fontSize: 9, color: "#555", fontFamily: "system-ui", paddingLeft: 4 }}>+{dayEvents.length - 2}</span>
                   )}
                 </div>
               </div>
