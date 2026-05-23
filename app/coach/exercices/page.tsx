@@ -438,7 +438,7 @@ export default function CoachExercicesPage() {
     if (filterGroupe !== "tous" && !parseGroupes(ex.groupe_musculaire).includes(filterGroupe)) return false;
     if (filterMateriel !== "tous" && ex.materiel !== filterMateriel) return false;
     return true;
-  });
+  }).sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
 
   const sel: React.CSSProperties = {
     padding: "7px 10px", borderRadius: 7, border: "1px solid #e8e8e8",

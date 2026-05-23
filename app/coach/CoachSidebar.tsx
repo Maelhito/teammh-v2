@@ -151,8 +151,8 @@ export default function CoachSidebar() {
       {/* Mobile overlay */}
       {open && (
         <div style={{ position: "fixed", inset: 0, zIndex: 99, display: "flex" }}>
-          <div onClick={() => setOpen(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)" }} />
           {sidebar}
+          <div onClick={() => setOpen(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)" }} />
         </div>
       )}
 
