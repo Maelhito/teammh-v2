@@ -139,10 +139,10 @@ export default function CoachSidebar() {
         alignItems: "center", justifyContent: "space-between",
         borderBottom: "1px solid #1e1e1e",
       }} className="coach-mobile-bar">
-        <span style={{ color: "#F5F5F0", fontWeight: 700, fontSize: 14, fontFamily: "system-ui" }}>PORTAIL COACH</span>
         <button onClick={() => setOpen(!open)} style={{ background: "none", border: "none", color: "#F5F5F0", fontSize: 22, cursor: "pointer" }}>
           {open ? "✕" : "☰"}
         </button>
+        <span style={{ color: "#F5F5F0", fontWeight: 700, fontSize: 14, fontFamily: "system-ui" }}>PORTAIL COACH</span>
       </div>
 
       {/* Desktop sidebar */}

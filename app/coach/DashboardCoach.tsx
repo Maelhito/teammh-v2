@@ -152,44 +152,8 @@ export default function DashboardCoach({
         </div>
       </div>
 
-      {/* ── Corps : clientes + calendrier ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16, alignItems: "start" }}>
-
-        {/* Colonne gauche : liste clientes */}
-        <div style={{ backgroundColor: "#fff", borderRadius: 14, border: "1px solid #e8e8e8", overflow: "hidden" }}>
-          <div style={{ padding: "14px 16px", borderBottom: "1px solid #f0f0f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2 style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: "system-ui" }}>
-              Mes clientes
-            </h2>
-            <Link href="/coach/clientes" style={{ fontSize: 11, color: "#B22222", textDecoration: "none", fontFamily: "system-ui" }}>Voir tout →</Link>
-          </div>
-          <div style={{ maxHeight: 480, overflowY: "auto" }}>
-            {activeClients.length === 0 ? (
-              <p style={{ fontSize: 12, color: "#ccc", padding: "20px 16px", margin: 0, fontFamily: "system-ui" }}>Aucune cliente active</p>
-            ) : activeClients.map(c => (
-              <Link key={c.id} href={`/coach/clientes/${c.id}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid #f8f8f8", textDecoration: "none", transition: "background 0.1s" }}
-                onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#fafafa"}
-                onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", backgroundColor: "#B22222", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", fontFamily: "system-ui", flexShrink: 0 }}>
-                  {initials(c)}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a", margin: 0, fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {c.prenom} {c.nom}
-                  </p>
-                  <p style={{ fontSize: 11, color: "#aaa", margin: 0, fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {c.email}
-                  </p>
-                </div>
-                <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 99, backgroundColor: "#D1FAE5", color: "#065F46", fontFamily: "system-ui", flexShrink: 0 }}>
-                  active
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Colonne droite : calendrier semaine */}
+      {/* ── Calendrier semaine — pleine largeur ── */}
+      <div>
         <div style={{ backgroundColor: "#fff", borderRadius: 14, border: "1px solid #e8e8e8", overflow: "hidden" }}>
           <div style={{ padding: "14px 18px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <div>
@@ -275,24 +239,32 @@ export default function DashboardCoach({
         </div>
       </div>
 
-      {/* ── Accès rapides ── */}
-      <div style={{ backgroundColor: "#fff", borderRadius: 14, border: "1px solid #e8e8e8", padding: "18px 20px", marginTop: 16 }}>
-        <h2 style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a", margin: "0 0 14px", letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: "system-ui" }}>
-          Accès rapides
-        </h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
-          {[
-            { href: "/coach/clientes",   label: "Mes clientes",  icon: "👥" },
-            { href: "/coach/seances",    label: "Séances",       icon: "📋" },
-            { href: "/coach/programmes", label: "Programmes",    icon: "📅" },
-            { href: "/coach/exercices",  label: "Exercices",     icon: "🏋️" },
-          ].map(({ href, label, icon }) => (
-            <a key={href} href={href} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "16px 10px", borderRadius: 10, border: "1px solid #f0f0f0", backgroundColor: "#fafafa", textDecoration: "none", color: "#1a1a1a", fontSize: 12, fontWeight: 600, fontFamily: "system-ui", textAlign: "center", transition: "border-color 0.15s" }}>
-              <span style={{ fontSize: 20 }}>{icon}</span>
-              {label}
-            </a>
-          ))}
+      {/* ── Mes clientes — bande compacte ── */}
+      <div style={{ backgroundColor: "#fff", borderRadius: 14, border: "1px solid #e8e8e8", padding: "12px 16px", marginTop: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <h2 style={{ fontSize: 11, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: "system-ui" }}>
+            Mes clientes
+          </h2>
+          <Link href="/coach/clientes" style={{ fontSize: 11, color: "#B22222", textDecoration: "none", fontFamily: "system-ui" }}>Voir tout →</Link>
         </div>
+        {activeClients.length === 0 ? (
+          <p style={{ fontSize: 12, color: "#ccc", margin: 0, fontFamily: "system-ui" }}>Aucune cliente active</p>
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {activeClients.map(c => (
+              <Link key={c.id} href={`/coach/clientes/${c.id}`} style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 10px", borderRadius: 99, border: "1px solid #f0f0f0", backgroundColor: "#fafafa", textDecoration: "none", transition: "background 0.1s" }}
+                onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#f0f0f0"}
+                onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#fafafa"}>
+                <div style={{ width: 24, height: 24, borderRadius: "50%", backgroundColor: "#B22222", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", fontFamily: "system-ui", flexShrink: 0 }}>
+                  {initials(c)}
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#1a1a1a", fontFamily: "system-ui", whiteSpace: "nowrap" }}>
+                  {c.prenom} {c.nom}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
