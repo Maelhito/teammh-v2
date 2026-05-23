@@ -484,6 +484,7 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
         </button>
       </div>
 
+      <div className="coach-month-scroll"><div className="coach-month-inner">
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, marginBottom: 3 }}>
         {JOURS_COURT.slice(1).concat(JOURS_COURT[0]).map(j => (
           <div key={j} style={{ textAlign: "center", padding: "4px 0" }}>
@@ -492,7 +493,7 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(44px, 1fr))", gap: 3 }}>
         {cells.map((day, i) => {
           const isCurrentMonth = day.getMonth() === month;
           const isToday = isSameDay(day, today);
@@ -556,6 +557,7 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
           );
         })}
       </div>
+      </div></div>{/* /coach-month-inner /coach-month-scroll */}
     </div>
   );
 }
@@ -845,11 +847,11 @@ export default function ClienteFichePage() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22, flexWrap: "wrap" }}>
-        <button onClick={() => router.push("/coach/clientes")} style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: 7, padding: "6px 12px", fontSize: 12, color: "#888", cursor: "pointer", fontFamily: "system-ui" }}>← Retour</button>
+      <div className="coach-cliente-header">
+        <button onClick={() => router.push("/coach/clientes")} style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: 7, padding: "8px 14px", fontSize: 12, color: "#888", cursor: "pointer", fontFamily: "system-ui", flexShrink: 0 }}>← Retour</button>
         {cliente && (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: "50%", backgroundColor: "#B22222", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", backgroundColor: "#B22222", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", fontFamily: "system-ui" }}>{((cliente.prenom?.[0] ?? "") + (cliente.nom?.[0] ?? "")).toUpperCase() || cliente.email[0].toUpperCase()}</span>
             </div>
             <div>
@@ -858,7 +860,7 @@ export default function ClienteFichePage() {
             </div>
           </div>
         )}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="coach-cliente-actions">
           {cliente?.date_demarrage && (
             <div style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #e8e8e8", backgroundColor: "#fafafa", textAlign: "center" }}>
               <p style={{ fontSize: 9, fontWeight: 700, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 2px", fontFamily: "system-ui" }}>Démarrage</p>

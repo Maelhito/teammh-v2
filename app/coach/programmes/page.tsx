@@ -167,7 +167,8 @@ export default function CoachProgrammesPage() {
           )}
         </div>
       ) : (
-        <div style={{ backgroundColor: "#fff", border: "1px solid #efefef", borderRadius: 12, overflow: "hidden" }}>
+        <div className="coach-table-scroll">
+        <div className="coach-table-inner" style={{ backgroundColor: "#fff", border: "1px solid #efefef", borderRadius: 12, overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 80px 80px 80px 180px", gap: 0, backgroundColor: "#fafafa", borderBottom: "1px solid #f0f0f0", padding: "8px 16px" }}>
             {["NOM", "CATÉGORIE", "NIVEAU", "DURÉE", "SEMAINES", "SÉANCES", "ACTIONS"].map(h => (
               <p key={h} style={{ fontSize: 10, fontWeight: 700, color: "#bbb", margin: 0, letterSpacing: "0.07em", fontFamily: "system-ui" }}>{h}</p>
@@ -203,6 +204,7 @@ export default function CoachProgrammesPage() {
             );
           })}
         </div>
+        </div>{/* /coach-table-scroll */}
       )}
 
       {filtered.length > 0 && (

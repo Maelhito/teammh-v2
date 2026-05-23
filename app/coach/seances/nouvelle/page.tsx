@@ -90,7 +90,7 @@ export default function NouvelleSeancePage() {
       </div>
 
       {/* ── Info section ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 14, marginBottom: 20 }}>
+      <div className="coach-meta-2col">
 
         {/* Left: metadata */}
         <div style={{ backgroundColor: "#111", borderRadius: 12, border: "1px solid #1a1a1a", padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -118,7 +118,7 @@ export default function NouvelleSeancePage() {
           </div>
 
           {/* Row: Récurrence · Durée · Catégorie · Niveau */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
+          <div className="coach-meta-4col">
             <div>
               <label style={lbl}>Récurrence</label>
               <select style={{ ...inp, cursor: "pointer" }} value={recurrence} onChange={e => setRecurrence(e.target.value)}>

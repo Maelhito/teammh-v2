@@ -59,6 +59,56 @@ body {
 .image-block-caption { font-size: 0.78rem; color: rgba(245,245,240,0.4); text-align: center; margin-top: 6px; }
 .image-block--placeholder .video-placeholder-box { margin-top: 0; }
 
+/* ── Coach portail — responsive mobile ── */
+
+/* Layout principal */
+.coach-layout-main { padding: 32px 24px; }
+
+/* Dashboard h1 et stats */
+.coach-dash-h1 { font-size: 2rem; font-weight: 800; color: #1a1a1a; margin: 0 0 2px; font-family: system-ui; letter-spacing: -0.02em; }
+.coach-stat-num { font-size: 36px; font-weight: 800; margin: 0 0 4px; font-family: system-ui; line-height: 1; }
+.coach-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 28px; }
+
+/* Calendrier semaine — scrollable */
+.coach-week-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.coach-week-inner { min-width: 560px; }
+
+/* Tableaux — scroll horizontal */
+.coach-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; }
+.coach-table-inner { min-width: 680px; }
+
+/* Nouvelle séance */
+.coach-meta-2col { display: grid; grid-template-columns: 1fr 260px; gap: 14px; margin-bottom: 20px; }
+.coach-meta-4col { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+
+/* Profil */
+.coach-name-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+/* Fiche cliente — calendrier mensuel */
+.coach-month-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.coach-month-inner { min-width: 340px; }
+
+/* Header coach — fiche cliente */
+.coach-cliente-header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+.coach-cliente-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+@media (max-width: 768px) {
+  .coach-layout-main { padding: 64px 12px 16px; }
+  .coach-dash-h1 { font-size: 1.4rem; }
+  .coach-stat-num { font-size: 26px; }
+  .coach-stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .coach-meta-2col { grid-template-columns: 1fr; }
+  .coach-meta-4col { grid-template-columns: 1fr 1fr; }
+  .coach-name-grid { grid-template-columns: 1fr; }
+  .coach-cliente-actions { margin-left: 0; width: 100%; }
+}
+
+@media (max-width: 480px) {
+  .coach-layout-main { padding: 60px 10px 16px; }
+  .coach-stats-grid { grid-template-columns: 1fr 1fr; }
+  .coach-meta-4col { grid-template-columns: 1fr 1fr; }
+}
+
 /* PDF */
 .pdf-block { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; margin: 1rem 0; text-decoration: none; }
 .pdf-block--active { background: #1a1a1a; border: 1px solid #B22222; cursor: pointer; }

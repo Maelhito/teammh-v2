@@ -85,7 +85,7 @@ export default function ProfilCoachClient({ prenom: initPrenom, nom: initNom, em
       {/* Formulaire */}
       <div style={{ backgroundColor: "#fff", borderRadius: 14, border: "1px solid #e8e8e8", padding: "24px", display: "flex", flexDirection: "column", gap: 18 }}>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div className="coach-name-grid">
           <div>
             <label style={lbl}>Prénom</label>
             <input style={inp} value={prenom} onChange={e => setPrenom(e.target.value)} placeholder="Ton prénom" />

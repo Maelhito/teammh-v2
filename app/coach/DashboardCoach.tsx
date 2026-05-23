@@ -128,7 +128,7 @@ export default function DashboardCoach({
         <p style={{ fontSize: 13, color: "#999", margin: "0 0 2px", fontFamily: "system-ui" }}>
           {fullDate}
         </p>
-        <h1 style={{ fontSize: "2rem", fontWeight: 800, color: "#1a1a1a", margin: "0 0 2px", fontFamily: "system-ui", letterSpacing: "-0.02em" }}>
+        <h1 className="coach-dash-h1" style={{ margin: "0 0 2px" }}>
           Bonjour, {prenom} 👋
         </h1>
         <p style={{ fontSize: 14, color: "#aaa", margin: 0, fontFamily: "system-ui" }}>
@@ -137,15 +137,15 @@ export default function DashboardCoach({
       </div>
 
       {/* ── Stats ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginBottom: 28 }}>
+      <div className="coach-stats-grid">
         <div style={{ backgroundColor: "#fff", borderRadius: 14, padding: "20px 24px", border: "1px solid #e8e8e8", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-          <p style={{ fontSize: 36, fontWeight: 800, color: "#B22222", margin: "0 0 4px", fontFamily: "system-ui", lineHeight: 1 }}>
+          <p className="coach-stat-num" style={{ color: "#B22222" }}>
             {activeClients.length}
           </p>
           <p style={{ fontSize: 12, color: "#999", margin: 0, fontFamily: "system-ui", letterSpacing: "0.02em" }}>Clientes actives</p>
         </div>
         <div style={{ backgroundColor: "#fff", borderRadius: 14, padding: "20px 24px", border: "1px solid #e8e8e8", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-          <p style={{ fontSize: 36, fontWeight: 800, color: "#3B82F6", margin: "0 0 4px", fontFamily: "system-ui", lineHeight: 1 }}>
+          <p className="coach-stat-num" style={{ color: "#3B82F6" }}>
             {seancesCount}
           </p>
           <p style={{ fontSize: 12, color: "#999", margin: 0, fontFamily: "system-ui", letterSpacing: "0.02em" }}>Séances clientes effectuées cette semaine</p>
@@ -179,7 +179,9 @@ export default function DashboardCoach({
             </div>
           </div>
 
-          {/* Grille 7 jours */}
+          {/* Grille 7 jours — scrollable sur mobile */}
+          <div className="coach-week-scroll">
+            <div className="coach-week-inner">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "1px solid #f0f0f0" }}>
             {weekDays.map(d => (
               <div key={d.iso} style={{ padding: "10px 8px", textAlign: "center", borderRight: "1px solid #f5f5f5", backgroundColor: d.isToday ? "#FFF5F5" : "transparent" }}>
@@ -195,7 +197,7 @@ export default function DashboardCoach({
           </div>
 
           {/* Événements par jour */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", minHeight: 200, padding: "8px 0" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", minHeight: 160, padding: "8px 0" }}>
             {weekDays.map(d => {
               const evs = eventsByDay[d.iso] ?? [];
               return (
@@ -236,6 +238,8 @@ export default function DashboardCoach({
               Aucun événement cette semaine
             </p>
           )}
+            </div>{/* /coach-week-inner */}
+          </div>{/* /coach-week-scroll */}
         </div>
       </div>
 

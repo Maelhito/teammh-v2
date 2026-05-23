@@ -153,7 +153,8 @@ export default function CoachSeancesPage() {
           )}
         </div>
       ) : (
-        <div style={{ backgroundColor: "#fff", border: "1px solid #efefef", borderRadius: 12, overflow: "hidden" }}>
+        <div className="coach-table-scroll">
+        <div className="coach-table-inner" style={{ backgroundColor: "#fff", border: "1px solid #efefef", borderRadius: 12, overflow: "hidden" }}>
           {/* En-tête tableau */}
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 80px 70px 110px", gap: 0, backgroundColor: "#fafafa", borderBottom: "1px solid #f0f0f0", padding: "8px 16px" }}>
             {["NOM", "CATÉGORIE", "NIVEAU", "EXERCICES", "DURÉE", "ACTIONS"].map(h => (
@@ -227,6 +228,7 @@ export default function CoachSeancesPage() {
             );
           })}
         </div>
+        </div>{/* /coach-table-scroll */}
       )}
 
       {/* Compteur */}
