@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 
 const VIDEO_URL = "/bienvenue.mp4";
-const DURATION_S = 40; // 40 secondes
+const DURATION_S = 10;
 
-export default function WelcomeVideoPopup({ userId }: { userId: string }) {
-  const storageKey = `ttm_welcome_v1_${userId}`;
+export default function WelcomeVideoPopup({ userId: _userId }: { userId: string }) {
+  const flagKey = "ttm_show_welcome_new";
   const [visible, setVisible] = useState(false);
   const [remaining, setRemaining] = useState(DURATION_S);
   const [canClose, setCanClose] = useState(false);
@@ -14,9 +14,12 @@ export default function WelcomeVideoPopup({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const seen = localStorage.getItem(storageKey);
-    if (!seen) setVisible(true);
-  }, [storageKey]);
+    const shouldShow = localStorage.getItem(flagKey);
+    if (shouldShow) {
+      localStorage.removeItem(flagKey);
+      setVisible(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (!visible) return;
@@ -37,7 +40,6 @@ export default function WelcomeVideoPopup({ userId }: { userId: string }) {
 
   function handleClose() {
     if (!canClose) return;
-    localStorage.setItem(storageKey, "1");
     setVisible(false);
   }
 
