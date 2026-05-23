@@ -204,7 +204,7 @@ export default function CoachProgrammesPage() {
             );
           })}
         </div>
-        </div>{/* /coach-table-scroll */}
+        </div>
       )}
 
       {filtered.length > 0 && (

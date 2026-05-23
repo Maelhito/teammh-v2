@@ -228,7 +228,7 @@ export default function CoachSeancesPage() {
             );
           })}
         </div>
-        </div>{/* /coach-table-scroll */}
+        </div>
       )}
 
       {/* Compteur */}
