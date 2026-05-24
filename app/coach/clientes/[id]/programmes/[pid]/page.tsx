@@ -12,26 +12,35 @@ export default function EditAssignmentPage() {
   const [nomCliente, setNomCliente] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   const load = useCallback(async () => {
-    const [assignRes, clientesRes] = await Promise.all([
-      fetch(`/api/coach/clientes/${clienteId}/programmes/${pid}`),
-      fetch("/api/coach/clientes"),
-    ]);
-    const { assignment } = await assignRes.json();
-    const { clientes } = await clientesRes.json();
+    try {
+      const [assignRes, clientesRes] = await Promise.all([
+        fetch(`/api/coach/clientes/${clienteId}/programmes/${pid}`),
+        fetch("/api/coach/clientes"),
+      ]);
 
-    if (assignment) {
-      // Utiliser grid_data si présent, sinon fallback sur la description du programme template
+      if (!assignRes.ok) {
+        const d = await assignRes.json().catch(() => ({}));
+        setLoadError(d.error ?? `Erreur ${assignRes.status}`);
+        return;
+      }
+
+      const { assignment } = await assignRes.json();
+      const { clientes } = await clientesRes.json().catch(() => ({ clientes: [] }));
+
+      if (!assignment) { setLoadError("Assignation introuvable"); return; }
+
       const src = assignment.grid_data?.startsWith("{")
         ? { ...assignment.programme, description: assignment.grid_data }
         : assignment.programme;
       setData(decodeProgData(src));
-    }
 
-    const cliente = (clientes ?? []).find((c: { id: string; prenom: string | null; nom: string | null; email: string }) => c.id === clienteId);
-    if (cliente) {
-      setNomCliente([cliente.prenom, cliente.nom].filter(Boolean).join(" ") || cliente.email);
+      const cliente = (clientes ?? []).find((c: { id: string; prenom: string | null; nom: string | null; email: string }) => c.id === clienteId);
+      if (cliente) setNomCliente([cliente.prenom, cliente.nom].filter(Boolean).join(" ") || cliente.email);
+    } catch (e) {
+      setLoadError(String(e));
     }
   }, [clienteId, pid]);
 
@@ -57,6 +66,12 @@ export default function EditAssignmentPage() {
   const inp: React.CSSProperties = { width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #2a2a2a", backgroundColor: "#161616", fontSize: 13, color: "#F5F5F0", fontFamily: "system-ui", outline: "none", boxSizing: "border-box" };
   const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#666", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, fontFamily: "system-ui" };
 
+  if (loadError) return (
+    <div style={{ padding: 24 }}>
+      <p style={{ fontSize: 13, color: "#EF4444", fontFamily: "system-ui", marginBottom: 12 }}>❌ {loadError}</p>
+      <button onClick={() => router.push(`/coach/clientes/${clienteId}`)} style={{ padding: "8px 14px", borderRadius: 7, border: "1px solid #222", background: "none", color: "#888", fontSize: 12, cursor: "pointer", fontFamily: "system-ui" }}>← Retour</button>
+    </div>
+  );
   if (!data) return <p style={{ fontSize: 13, color: "#555", fontFamily: "system-ui", padding: 20 }}>Chargement…</p>;
 
   const totalItems = Object.values(data.grid).reduce((a, items) => a + items.length, 0);
