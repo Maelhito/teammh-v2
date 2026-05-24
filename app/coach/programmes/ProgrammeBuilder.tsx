@@ -919,7 +919,7 @@ export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderPro
 
   return (
     <>
-      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", minHeight: 500, border: "1px solid #1a1a1a", borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", height: "calc(100vh - 220px)", minHeight: 500, border: "1px solid #1a1a1a", borderRadius: 12, overflow: "hidden" }}>
         <SeancesPanel seances={seances} onRefresh={loadSeances} />
         <div style={{ backgroundColor: "#f9f9f9", padding: "14px", overflowY: "auto" }}>
           <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
