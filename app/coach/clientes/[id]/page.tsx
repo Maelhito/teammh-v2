@@ -720,7 +720,7 @@ function SeanceListPanel({ grid, dureeSemaines, onEditItem, onClose }: {
 
 // ─── Modal assignation ─────────────────────────────────────────────────────────
 function AssignModal({ clienteId, onAssigned, onPersonnaliser, onClose }: {
-  clienteId: string; onAssigned: () => void; onPersonnaliser: () => void; onClose: () => void;
+  clienteId: string; onAssigned: () => void; onPersonnaliser: (assignId: string) => void; onClose: () => void;
 }) {
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [selected, setSelected] = useState("");
@@ -729,7 +729,7 @@ function AssignModal({ clienteId, onAssigned, onPersonnaliser, onClose }: {
   const [joursDansProg, setJoursDansProg] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState("");
 
   useEffect(() => {
     fetch("/api/coach/programmes").then(r => r.json()).then(d => setProgrammes(d.programmes ?? []));
@@ -761,8 +761,12 @@ function AssignModal({ clienteId, onAssigned, onPersonnaliser, onClose }: {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ programme_id: selected, date_debut: dateDebut, jours_selectionnes: joursSelectionnes }),
     });
-    if (res.ok) { onAssigned(); setDone(true); setSaving(false); }
-    else { const d = await res.json(); setError(d.error ?? "Erreur"); setSaving(false); }
+    if (res.ok) {
+      const { assignment } = await res.json();
+      onAssigned();
+      setDone(assignment?.id ?? "");
+      setSaving(false);
+    } else { const d = await res.json(); setError(d.error ?? "Erreur"); setSaving(false); }
   }
 
   const inp: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #ddd", fontSize: 13, fontFamily: "system-ui", outline: "none", boxSizing: "border-box", color: "#1a1a1a", backgroundColor: "#fff" };
@@ -770,7 +774,7 @@ function AssignModal({ clienteId, onAssigned, onPersonnaliser, onClose }: {
   const JOURS_LABELS = ["—","Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
 
   return (
-    <div onClick={done ? undefined : onClose} style={{ position: "fixed", inset: 0, zIndex: 200, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+    <div onClick={done ? undefined : onClose} style={{ position: "fixed", inset: 0, zIndex: 200, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} >
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, backgroundColor: "#fff", borderRadius: 14, padding: "24px", boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
 
         {/* ── Écran de succès ── */}
@@ -783,7 +787,7 @@ function AssignModal({ clienteId, onAssigned, onPersonnaliser, onClose }: {
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button
-                onClick={() => { onPersonnaliser(); onClose(); }}
+                onClick={() => { onPersonnaliser(done); onClose(); }}
                 style={{ width: "100%", padding: "13px", borderRadius: 10, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>
                 ✏️ Personnaliser les séances
               </button>
@@ -850,6 +854,10 @@ export default function ClienteFichePage() {
   const [showAddEv, setShowAddEv] = useState(false);
   const [addEvDate, setAddEvDate] = useState(toLocalDate(new Date()));
   const [showSeanceList, setShowSeanceList] = useState(false);
+
+  function goToEditor(assignId: string) {
+    router.push(`/coach/clientes/${id}/programmes/${assignId}`);
+  }
 
   const loadAssignments = useCallback(async () => {
     const res = await fetch(`/api/coach/clientes/${id}/programmes`);
@@ -1026,7 +1034,7 @@ export default function ClienteFichePage() {
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-              <button onClick={() => setShowSeanceList(true)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✏️ Modifier les séances</button>
+              <button onClick={() => enCours && goToEditor(enCours.id)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✏️ Modifier les séances</button>
               <button onClick={() => handleSeanceFaite(enCours.id, enCours.seances_effectuees)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#10B981", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✓ Séance faite</button>
               <button onClick={() => handleTerminer(enCours.id)} style={{ padding: "7px 14px", borderRadius: 7, border: "1px solid #e0e0e0", background: "#fafafa", color: "#888", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>Marquer terminé</button>
             </div>
@@ -1052,7 +1060,7 @@ export default function ClienteFichePage() {
         />
       )}
 
-      {showModal && <AssignModal clienteId={id} onAssigned={loadAssignments} onPersonnaliser={() => setShowSeanceList(true)} onClose={() => setShowModal(false)} />}
+      {showModal && <AssignModal clienteId={id} onAssigned={loadAssignments} onPersonnaliser={goToEditor} onClose={() => setShowModal(false)} />}
 
       {showSeanceList && enCours && (
         <SeanceListPanel
