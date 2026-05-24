@@ -722,7 +722,7 @@ function SeancesPanel({ seances, onRefresh }: { seances: SeanceRef[]; onRefresh:
   const [search, setSearch] = useState("");
   const filtered = seances.filter(s => !search || s.nom.toLowerCase().includes(search.toLowerCase()));
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#0D0D0D", borderRight: "1px solid #1a1a1a" }}>
+    <div style={{ display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "calc(100vh - 80px)", backgroundColor: "#0D0D0D", borderRight: "1px solid #1a1a1a" }}>
       <div style={{ padding: "12px 14px", borderBottom: "1px solid #1a1a1a", flexShrink: 0 }}>
         <p style={{ fontSize: 9, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 8px", fontFamily: "system-ui" }}>Séances existantes</p>
         <div style={{ display: "flex", gap: 6 }}>
@@ -919,10 +919,8 @@ export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderPro
 
   return (
     <>
-      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", border: "1px solid #1a1a1a", borderRadius: 12, overflow: "hidden", alignItems: "start" }}>
-        <div style={{ position: "sticky", top: 0, height: "calc(100vh - 80px)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <SeancesPanel seances={seances} onRefresh={loadSeances} />
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", border: "1px solid #1a1a1a", borderRadius: 12, alignItems: "start" }}>
+        <SeancesPanel seances={seances} onRefresh={loadSeances} />
         <div style={{ backgroundColor: "#f9f9f9", padding: "14px" }}>
           <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
             <div>
