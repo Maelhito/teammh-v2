@@ -628,9 +628,99 @@ function HistoriqueAccordion({ assignments, clienteId, onDeleted }: {
   );
 }
 
+// ─── Panel liste des séances (édition mobile-friendly) ────────────────────────
+function SeanceListPanel({ grid, dureeSemaines, onEditItem, onClose }: {
+  grid: Grid; dureeSemaines: number;
+  onEditItem: (cellKey: string, item: CellItem) => void;
+  onClose: () => void;
+}) {
+  // Construire une liste triée semaine → jour → items
+  const entries: { cellKey: string; semaine: number; jour: number; items: CellItem[] }[] = [];
+  for (const [cellKey, items] of Object.entries(grid)) {
+    const m = cellKey.match(/^S(\d+)_J(\d+)$/);
+    if (!m || !items.length) continue;
+    entries.push({ cellKey, semaine: parseInt(m[1]), jour: parseInt(m[2]), items });
+  }
+  entries.sort((a, b) => a.semaine !== b.semaine ? a.semaine - b.semaine : a.jour - b.jour);
+
+  // Grouper par semaine
+  const bySemaine: Record<number, typeof entries> = {};
+  for (const e of entries) {
+    (bySemaine[e.semaine] ??= []).push(e);
+  }
+
+  const totalSeances = entries.reduce((a, e) => a + e.items.length, 0);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 400, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "stretch", justifyContent: "flex-end" }}>
+      <div style={{ width: "min(520px, 100vw)", backgroundColor: "#fff", display: "flex", flexDirection: "column", boxShadow: "-4px 0 32px rgba(0,0,0,0.15)" }}>
+        {/* Header */}
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div>
+            <p style={{ fontSize: 10, color: "#B22222", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 2px", fontFamily: "system-ui", fontWeight: 700 }}>
+              Séances du programme
+            </p>
+            <p style={{ fontSize: 14, fontWeight: 800, color: "#1a1a1a", margin: 0, fontFamily: "system-ui" }}>
+              {totalSeances} séance{totalSeances > 1 ? "s" : ""} sur {dureeSemaines} semaine{dureeSemaines > 1 ? "s" : ""}
+            </p>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(0,0,0,0.06)", border: "none", borderRadius: 8, color: "#555", fontSize: 18, cursor: "pointer", padding: "6px 12px", fontFamily: "system-ui" }}>✕</button>
+        </div>
+
+        {/* Liste */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+          {totalSeances === 0 ? (
+            <p style={{ textAlign: "center", color: "#bbb", fontSize: 13, marginTop: 40, fontFamily: "system-ui" }}>Aucune séance dans ce programme</p>
+          ) : (
+            Object.entries(bySemaine).map(([semStr, dayEntries]) => (
+              <div key={semStr} style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 8px", fontFamily: "system-ui" }}>
+                  Semaine {semStr}
+                </p>
+                {dayEntries.map(({ cellKey, jour, items }) => (
+                  <div key={cellKey} style={{ marginBottom: 6 }}>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: "#888", margin: "0 0 4px", fontFamily: "system-ui" }}>
+                      {JOURS_LONG[jour]}
+                    </p>
+                    {items.map(item => {
+                      const label = item.type === "seance" ? item.seanceName : item.type === "seance_locale" ? item.nom : `🎬 ${item.titre}`;
+                      const duree = item.type !== "video" ? item.duree : null;
+                      return (
+                        <button
+                          key={item._key}
+                          onClick={() => onEditItem(cellKey, item)}
+                          style={{
+                            width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                            padding: "13px 16px", borderRadius: 10, border: "1px solid #f0f0f0",
+                            backgroundColor: "#fafafa", cursor: "pointer", textAlign: "left",
+                            marginBottom: 6, fontFamily: "system-ui",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: item.type === "video" ? "#8B5CF6" : "#B22222", flexShrink: 0 }} />
+                            <span style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                            {duree && <span style={{ fontSize: 11, color: "#aaa", fontFamily: "system-ui" }}>{duree} min</span>}
+                            <span style={{ fontSize: 13, color: "#ccc" }}>›</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Modal assignation ─────────────────────────────────────────────────────────
-function AssignModal({ clienteId, onAssigned, onClose }: {
-  clienteId: string; onAssigned: () => void; onClose: () => void;
+function AssignModal({ clienteId, onAssigned, onPersonnaliser, onClose }: {
+  clienteId: string; onAssigned: () => void; onPersonnaliser: () => void; onClose: () => void;
 }) {
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [selected, setSelected] = useState("");
@@ -639,6 +729,7 @@ function AssignModal({ clienteId, onAssigned, onClose }: {
   const [joursDansProg, setJoursDansProg] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
     fetch("/api/coach/programmes").then(r => r.json()).then(d => setProgrammes(d.programmes ?? []));
@@ -670,7 +761,7 @@ function AssignModal({ clienteId, onAssigned, onClose }: {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ programme_id: selected, date_debut: dateDebut, jours_selectionnes: joursSelectionnes }),
     });
-    if (res.ok) { onAssigned(); onClose(); }
+    if (res.ok) { onAssigned(); setDone(true); setSaving(false); }
     else { const d = await res.json(); setError(d.error ?? "Erreur"); setSaving(false); }
   }
 
@@ -679,41 +770,67 @@ function AssignModal({ clienteId, onAssigned, onClose }: {
   const JOURS_LABELS = ["—","Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 200, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+    <div onClick={done ? undefined : onClose} style={{ position: "fixed", inset: 0, zIndex: 200, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, backgroundColor: "#fff", borderRadius: 14, padding: "24px", boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
-        <h3 style={{ fontSize: "1rem", fontWeight: 800, margin: "0 0 20px", color: "#1a1a1a", fontFamily: "system-ui" }}>📅 Assigner un programme</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <label style={lbl}>Programme</label>
-            <select style={{ ...inp, cursor: "pointer" }} value={selected} onChange={e => handleSelectProg(e.target.value)}>
-              <option value="">— Choisir un programme —</option>
-              {programmes.map(p => <option key={p.id} value={p.id}>{p.nom} ({p.duree_semaines} sem.)</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={lbl}>Date de début</label>
-            <input type="date" style={inp} value={dateDebut} onChange={e => setDateDebut(e.target.value)} />
-          </div>
-          {selected && joursDansProg.length > 0 && (
-            <div>
-              <label style={lbl}>Jours d'entraînement <span style={{ color: "#B22222", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>— {joursDansProg.length} jour{joursDansProg.length > 1 ? "s" : ""}</span></label>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {[1,2,3,4,5,6,7].map(j => {
-                  const isOn = joursSelectionnes.includes(j);
-                  return <button key={j} onClick={() => toggleJour(j)} style={{ padding: "7px 11px", borderRadius: 8, border: isOn ? "2px solid #B22222" : "1px solid #ddd", backgroundColor: isOn ? "rgba(178,34,34,0.06)" : "#fafafa", color: isOn ? "#B22222" : "#555", fontSize: 12, fontWeight: isOn ? 700 : 400, cursor: "pointer", fontFamily: "system-ui" }}>{JOURS_LABELS[j]}</button>;
-                })}
-              </div>
-              <p style={{ fontSize: 10, color: "#aaa", margin: "6px 0 0", fontFamily: "system-ui" }}>{joursSelectionnes.length}/{joursDansProg.length} sélectionné{joursSelectionnes.length > 1 ? "s" : ""}</p>
+
+        {/* ── Écran de succès ── */}
+        {done ? (
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+            <h3 style={{ fontSize: "1rem", fontWeight: 800, margin: "0 0 6px", color: "#1a1a1a", fontFamily: "system-ui" }}>Programme assigné !</h3>
+            <p style={{ fontSize: 13, color: "#888", margin: "0 0 24px", fontFamily: "system-ui" }}>
+              Tu peux maintenant personnaliser les séances pour l'adapter à cette cliente.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button
+                onClick={() => { onPersonnaliser(); onClose(); }}
+                style={{ width: "100%", padding: "13px", borderRadius: 10, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>
+                ✏️ Personnaliser les séances
+              </button>
+              <button
+                onClick={onClose}
+                style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid #eee", background: "#fafafa", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "system-ui" }}>
+                Plus tard
+              </button>
             </div>
-          )}
-          {error && <p style={{ fontSize: 12, color: "#EF4444", margin: 0, fontFamily: "system-ui" }}>{error}</p>}
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={onClose} style={{ flex: 1, padding: "11px", borderRadius: 8, border: "1px solid #eee", background: "#fafafa", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "system-ui" }}>Annuler</button>
-            <button onClick={handleSave} disabled={saving || !selected} style={{ flex: 2, padding: "11px", borderRadius: 8, border: "none", backgroundColor: saving || !selected ? "#eee" : "#B22222", color: saving || !selected ? "#aaa" : "#fff", fontSize: 13, fontWeight: 700, cursor: saving || !selected ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
-              {saving ? "Assignation…" : "✅ Assigner"}
-            </button>
           </div>
-        </div>
+        ) : (
+          <>
+            <h3 style={{ fontSize: "1rem", fontWeight: 800, margin: "0 0 20px", color: "#1a1a1a", fontFamily: "system-ui" }}>📅 Assigner un programme</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label style={lbl}>Programme</label>
+                <select style={{ ...inp, cursor: "pointer" }} value={selected} onChange={e => handleSelectProg(e.target.value)}>
+                  <option value="">— Choisir un programme —</option>
+                  {programmes.map(p => <option key={p.id} value={p.id}>{p.nom} ({p.duree_semaines} sem.)</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Date de début</label>
+                <input type="date" style={inp} value={dateDebut} onChange={e => setDateDebut(e.target.value)} />
+              </div>
+              {selected && joursDansProg.length > 0 && (
+                <div>
+                  <label style={lbl}>Jours d'entraînement <span style={{ color: "#B22222", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>— {joursDansProg.length} jour{joursDansProg.length > 1 ? "s" : ""}</span></label>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {[1,2,3,4,5,6,7].map(j => {
+                      const isOn = joursSelectionnes.includes(j);
+                      return <button key={j} onClick={() => toggleJour(j)} style={{ padding: "7px 11px", borderRadius: 8, border: isOn ? "2px solid #B22222" : "1px solid #ddd", backgroundColor: isOn ? "rgba(178,34,34,0.06)" : "#fafafa", color: isOn ? "#B22222" : "#555", fontSize: 12, fontWeight: isOn ? 700 : 400, cursor: "pointer", fontFamily: "system-ui" }}>{JOURS_LABELS[j]}</button>;
+                    })}
+                  </div>
+                  <p style={{ fontSize: 10, color: "#aaa", margin: "6px 0 0", fontFamily: "system-ui" }}>{joursSelectionnes.length}/{joursDansProg.length} sélectionné{joursSelectionnes.length > 1 ? "s" : ""}</p>
+                </div>
+              )}
+              {error && <p style={{ fontSize: 12, color: "#EF4444", margin: 0, fontFamily: "system-ui" }}>{error}</p>}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={onClose} style={{ flex: 1, padding: "11px", borderRadius: 8, border: "1px solid #eee", background: "#fafafa", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "system-ui" }}>Annuler</button>
+                <button onClick={handleSave} disabled={saving || !selected} style={{ flex: 2, padding: "11px", borderRadius: 8, border: "none", backgroundColor: saving || !selected ? "#eee" : "#B22222", color: saving || !selected ? "#aaa" : "#fff", fontSize: 13, fontWeight: 700, cursor: saving || !selected ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
+                  {saving ? "Assignation…" : "✅ Assigner"}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -732,6 +849,7 @@ export default function ClienteFichePage() {
   const [calEvents, setCalEvents] = useState<CalendarEvent[]>([]);
   const [showAddEv, setShowAddEv] = useState(false);
   const [addEvDate, setAddEvDate] = useState(toLocalDate(new Date()));
+  const [showSeanceList, setShowSeanceList] = useState(false);
 
   const loadAssignments = useCallback(async () => {
     const res = await fetch(`/api/coach/clientes/${id}/programmes`);
@@ -908,6 +1026,7 @@ export default function ClienteFichePage() {
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+              <button onClick={() => setShowSeanceList(true)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✏️ Modifier les séances</button>
               <button onClick={() => handleSeanceFaite(enCours.id, enCours.seances_effectuees)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#10B981", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✓ Séance faite</button>
               <button onClick={() => handleTerminer(enCours.id)} style={{ padding: "7px 14px", borderRadius: 7, border: "1px solid #e0e0e0", background: "#fafafa", color: "#888", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>Marquer terminé</button>
             </div>
@@ -933,7 +1052,16 @@ export default function ClienteFichePage() {
         />
       )}
 
-      {showModal && <AssignModal clienteId={id} onAssigned={loadAssignments} onClose={() => setShowModal(false)} />}
+      {showModal && <AssignModal clienteId={id} onAssigned={loadAssignments} onPersonnaliser={() => setShowSeanceList(true)} onClose={() => setShowModal(false)} />}
+
+      {showSeanceList && enCours && (
+        <SeanceListPanel
+          grid={gridData}
+          dureeSemaines={dureeSemaines}
+          onEditItem={(cellKey, item) => { setEditTarget({ cellKey, item }); setShowSeanceList(false); }}
+          onClose={() => setShowSeanceList(false)}
+        />
+      )}
 
       {showAddEv && (
         <AddEvenementModal
