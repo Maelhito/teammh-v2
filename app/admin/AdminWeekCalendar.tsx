@@ -86,7 +86,7 @@ export default function AdminWeekCalendar({ events, inscriptions, teamMembers, w
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <p style={{ fontSize: 11, color: "#444", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0, fontFamily: "system-ui" }}>
+        <p style={{ fontSize: 11, color: "var(--admin-text-muted)", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0, fontFamily: "system-ui" }}>
           Semaine en cours
         </p>
         {/* Légende */}
@@ -96,13 +96,13 @@ export default function AdminWeekCalendar({ events, inscriptions, teamMembers, w
             { color: "#F97316", label: "Inscription coach" },
             { color: "#60A5FA", label: "Visio groupe" },
           ].map(l => (
-            <span key={l.label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#555", fontFamily: "system-ui" }}>
+            <span key={l.label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--admin-text-muted)", fontFamily: "system-ui" }}>
               <span style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: l.color, display: "inline-block" }} />
               {l.label}
             </span>
           ))}
           {teamMembers.filter(m => COACH_COLORS[m.id]).map(m => (
-            <span key={m.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#555", fontFamily: "system-ui" }}>
+            <span key={m.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--admin-text-muted)", fontFamily: "system-ui" }}>
               <span style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: COACH_COLORS[m.id], display: "inline-block" }} />
               {m.nom.trim()}
             </span>
@@ -118,24 +118,24 @@ export default function AdminWeekCalendar({ events, inscriptions, teamMembers, w
 
           return (
             <div key={date} style={{
-              backgroundColor: "#fff",
-              border: `1.5px solid ${today ? "#B22222" : "#e5e7eb"}`,
+              backgroundColor: today ? "var(--admin-cal-today-bg)" : "var(--admin-cal-cell)",
+              border: `1.5px solid ${today ? "#B22222" : "var(--admin-cal-border)"}`,
               borderRadius: 10, padding: "12px 10px", minHeight: 220,
               display: "flex", flexDirection: "column", gap: 5,
               boxShadow: today ? "0 0 0 1px rgba(178,34,34,0.15)" : "0 1px 3px rgba(0,0,0,0.04)",
             }}>
               {/* Header jour */}
-              <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${today ? "rgba(178,34,34,0.15)" : "#f0f0f0"}` }}>
-                <p style={{ fontSize: 10, color: today ? "#B22222" : "#9ca3af", fontWeight: 700, margin: 0, fontFamily: "system-ui", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+              <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${today ? "rgba(178,34,34,0.15)" : "var(--admin-cal-border)"}` }}>
+                <p style={{ fontSize: 10, color: today ? "#B22222" : "var(--admin-text-dim)", fontWeight: 700, margin: 0, fontFamily: "system-ui", letterSpacing: "0.1em", textTransform: "uppercase" }}>
                   {JOURS[i]}
                 </p>
-                <p style={{ fontSize: 15, color: today ? "#B22222" : "#374151", fontWeight: today ? 800 : 500, margin: "1px 0 0", fontFamily: "system-ui" }}>
+                <p style={{ fontSize: 15, color: today ? "#B22222" : "var(--admin-cal-text)", fontWeight: today ? 800 : 500, margin: "1px 0 0", fontFamily: "system-ui" }}>
                   {formatDay(date)}
                 </p>
               </div>
 
               {total === 0 && (
-                <p style={{ fontSize: 11, color: "#d1d5db", margin: 0, fontFamily: "system-ui", fontStyle: "italic" }}>Rien ce jour</p>
+                <p style={{ fontSize: 11, color: "var(--admin-border)", margin: 0, fontFamily: "system-ui", fontStyle: "italic" }}>Rien ce jour</p>
               )}
 
               {/* Inscriptions */}

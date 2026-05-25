@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { useAdminTheme } from "./ThemeProvider";
 
 const NAV = [
   { href: "/admin",              icon: "🏠", label: "Tableau de bord" },
@@ -25,6 +26,7 @@ const COACH_NAV = [
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const { theme, toggle } = useAdminTheme();
   const [open, setOpen] = useState(false);
   const [coachOpen, setCoachOpen] = useState(() => {
     const isOnCoach = pathname.startsWith("/admin/coach");
@@ -48,28 +50,45 @@ export default function AdminSidebar() {
 
   const sidebar = (
     <nav style={{
-      width: 230, minHeight: "100vh", backgroundColor: "#0D0D0D",
-      borderRight: "1px solid #1a1a1a",
+      width: 230, minHeight: "100vh", backgroundColor: "var(--admin-sidebar)",
+      borderRight: "1px solid var(--admin-sidebar-border)",
       display: "flex", flexDirection: "column",
       position: "sticky", top: 0, height: "100vh", flexShrink: 0,
       overflowY: "auto",
     }}>
-      {/* Logo */}
-      <div style={{ padding: "24px 18px 20px", borderBottom: "1px solid #1a1a1a" }}>
-        <p style={{ fontSize: 9, color: "#444", letterSpacing: "0.16em", textTransform: "uppercase", margin: "0 0 3px", fontFamily: "system-ui" }}>
-          Time to Move
-        </p>
-        <h1 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#F5F5F0", letterSpacing: "0.06em", margin: "0 0 6px", fontFamily: "system-ui" }}>
-          ESPACE ADMIN
-        </h1>
-        <span style={{ display: "inline-block", padding: "2px 8px", backgroundColor: "rgba(178,34,34,0.15)", border: "1px solid rgba(178,34,34,0.3)", borderRadius: 4, fontSize: 10, color: "#B22222", fontFamily: "system-ui", fontWeight: 700, letterSpacing: "0.06em" }}>
-          ADMIN
-        </span>
+      {/* Logo + toggle */}
+      <div style={{ padding: "24px 18px 20px", borderBottom: "1px solid var(--admin-separator)" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <div>
+            <p style={{ fontSize: 9, color: "var(--admin-text-dim)", letterSpacing: "0.16em", textTransform: "uppercase", margin: "0 0 3px", fontFamily: "system-ui" }}>
+              Time to Move
+            </p>
+            <h1 style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--admin-text)", letterSpacing: "0.06em", margin: "0 0 6px", fontFamily: "system-ui" }}>
+              ESPACE ADMIN
+            </h1>
+            <span style={{ display: "inline-block", padding: "2px 8px", backgroundColor: "rgba(178,34,34,0.15)", border: "1px solid rgba(178,34,34,0.3)", borderRadius: 4, fontSize: 10, color: "#B22222", fontFamily: "system-ui", fontWeight: 700, letterSpacing: "0.06em" }}>
+              ADMIN
+            </span>
+          </div>
+          {/* Theme toggle */}
+          <button
+            onClick={toggle}
+            title={theme === "dark" ? "Passer en mode jour" : "Passer en mode nuit"}
+            style={{
+              width: 32, height: 32, borderRadius: 8, border: "1px solid var(--admin-border)",
+              backgroundColor: "var(--admin-card)", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 15, flexShrink: 0, transition: "all 0.2s",
+            }}
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
+        </div>
       </div>
 
       {/* Section Admin */}
       <div style={{ padding: "16px 10px 8px" }}>
-        <p style={{ fontSize: 9, color: "#333", letterSpacing: "0.14em", textTransform: "uppercase", margin: "0 0 8px 10px", fontFamily: "system-ui" }}>
+        <p style={{ fontSize: 9, color: "var(--admin-section-label)", letterSpacing: "0.14em", textTransform: "uppercase", margin: "0 0 8px 10px", fontFamily: "system-ui" }}>
           Administration
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -80,7 +99,7 @@ export default function AdminSidebar() {
                 display: "flex", alignItems: "center", gap: 10,
                 padding: "9px 10px", borderRadius: 7, textDecoration: "none",
                 backgroundColor: active ? "rgba(178,34,34,0.12)" : "transparent",
-                color: active ? "#F5F5F0" : "#666",
+                color: active ? "var(--admin-text)" : "var(--admin-nav-inactive)",
                 fontSize: 13, fontWeight: active ? 700 : 400,
                 fontFamily: "system-ui", letterSpacing: "0.01em",
                 borderLeft: active ? "2px solid #B22222" : "2px solid transparent",
@@ -94,11 +113,11 @@ export default function AdminSidebar() {
         </div>
       </div>
 
-      {/* Séparateur + Section Coach */}
-      <div style={{ margin: "8px 14px", height: 1, backgroundColor: "#1a1a1a" }} />
+      {/* Séparateur */}
+      <div style={{ margin: "8px 14px", height: 1, backgroundColor: "var(--admin-separator)" }} />
 
+      {/* Section Coach */}
       <div style={{ padding: "8px 10px", flex: 1 }}>
-        {/* Header section coach cliquable */}
         <button
           onClick={() => {
             const next = !coachOpen;
@@ -114,7 +133,7 @@ export default function AdminSidebar() {
             width: "100%", padding: "8px 10px", borderRadius: 8, border: "none",
             background: coachOpen
               ? "linear-gradient(135deg, rgba(30,80,120,0.25), rgba(20,60,100,0.15))"
-              : "rgba(255,255,255,0.03)",
+              : theme === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
             cursor: "pointer", textAlign: "left", fontFamily: "system-ui",
             marginBottom: coachOpen ? 6 : 0,
             outline: "none",
@@ -139,7 +158,6 @@ export default function AdminSidebar() {
           <span style={{ fontSize: 9, color: "#2a5a80" }}>{coachOpen ? "▲" : "▼"}</span>
         </button>
 
-        {/* Items coach */}
         {coachOpen && (
           <div style={{
             display: "flex", flexDirection: "column", gap: 1,
@@ -153,7 +171,7 @@ export default function AdminSidebar() {
                   display: "flex", alignItems: "center", gap: 9,
                   padding: "8px 10px", borderRadius: 6, textDecoration: "none",
                   backgroundColor: active ? "rgba(30,80,120,0.25)" : "transparent",
-                  color: active ? "#fff" : "rgba(255,255,255,0.65)",
+                  color: active ? "#fff" : "rgba(100,150,200,0.85)",
                   fontSize: 12, fontWeight: active ? 700 : 400,
                   fontFamily: "system-ui",
                   borderLeft: active ? "2px solid #2d7ab5" : "2px solid transparent",
@@ -168,18 +186,18 @@ export default function AdminSidebar() {
         )}
       </div>
 
-      {/* Bas : vue cliente + déconnexion */}
-      <div style={{ padding: "8px 10px 14px", borderTop: "1px solid #1a1a1a", display: "flex", flexDirection: "column", gap: 2 }}>
+      {/* Bas : toggle + vue cliente + déconnexion */}
+      <div style={{ padding: "8px 10px 14px", borderTop: "1px solid var(--admin-separator)", display: "flex", flexDirection: "column", gap: 2 }}>
         <Link href="/dashboard?preview=1" style={{
           display: "flex", alignItems: "center", gap: 8, padding: "8px 10px",
-          borderRadius: 7, textDecoration: "none", color: "#444", fontSize: 12, fontFamily: "system-ui",
+          borderRadius: 7, textDecoration: "none", color: "var(--admin-bottom-action)", fontSize: 12, fontFamily: "system-ui",
         }}>
           <span>👁</span> Vue cliente
         </Link>
         <button onClick={handleLogout} style={{
           display: "flex", alignItems: "center", gap: 8, padding: "8px 10px",
           borderRadius: 7, border: "none", backgroundColor: "transparent",
-          color: "#444", fontSize: 12, cursor: "pointer", textAlign: "left",
+          color: "var(--admin-bottom-action)", fontSize: 12, cursor: "pointer", textAlign: "left",
           fontFamily: "system-ui", width: "100%",
         }}>
           <span>🚪</span> Déconnexion
@@ -193,14 +211,19 @@ export default function AdminSidebar() {
       {/* Mobile top bar */}
       <div style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-        backgroundColor: "#0D0D0D", padding: "14px 16px",
+        backgroundColor: "var(--admin-sidebar)", padding: "14px 16px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        borderBottom: "1px solid #1a1a1a",
+        borderBottom: "1px solid var(--admin-separator)",
       }} className="admin-mobile-bar">
-        <span style={{ color: "#F5F5F0", fontWeight: 700, fontSize: 13, fontFamily: "system-ui", letterSpacing: "0.06em" }}>ADMIN</span>
-        <button onClick={() => setOpen(!open)} style={{ background: "none", border: "none", color: "#F5F5F0", fontSize: 20, cursor: "pointer" }}>
-          {open ? "✕" : "☰"}
-        </button>
+        <span style={{ color: "var(--admin-text)", fontWeight: 700, fontSize: 13, fontFamily: "system-ui", letterSpacing: "0.06em" }}>ADMIN</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={toggle} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer" }}>
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
+          <button onClick={() => setOpen(!open)} style={{ background: "none", border: "none", color: "var(--admin-text)", fontSize: 20, cursor: "pointer" }}>
+            {open ? "✕" : "☰"}
+          </button>
+        </div>
       </div>
 
       <div className="admin-desktop-sidebar">{sidebar}</div>

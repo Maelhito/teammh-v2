@@ -25,11 +25,11 @@ export default function AdminAppLinks({ links }: { links: AppLink[] }) {
           {links.map(({ href, label, desc, color }) => (
             <Link key={href} href={href} style={{
               display: "block", padding: "14px 16px", borderRadius: 10, textDecoration: "none",
-              backgroundColor: "#111", border: `1px solid ${color}30`,
+              backgroundColor: "var(--admin-card2)", border: `1px solid ${color}30`,
             }}>
               <p style={{ fontSize: 13, fontWeight: 700, color, margin: "0 0 2px", fontFamily: "system-ui" }}>{label}</p>
               <p style={{ fontSize: 11, color: "#555", margin: "0 0 6px", fontFamily: "system-ui" }}>{desc}</p>
-              <code style={{ fontSize: 10, color: "#333", fontFamily: "monospace" }}>
+              <code style={{ fontSize: 10, color: "var(--admin-text-dim)", fontFamily: "monospace" }}>
                 teammj-v2.vercel.app{href}
               </code>
             </Link>

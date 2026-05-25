@@ -124,7 +124,7 @@ export default async function AdminDashboardPage() {
   const stats = data?.stats;
 
   const statCards = [
-    { label: "Clientes au total",      value: stats?.totalClients ?? "—",      color: "#F5F5F0", bg: "#161616", border: "#222" },
+    { label: "Clientes au total",      value: stats?.totalClients ?? "—",      color: "var(--admin-text)", bg: "var(--admin-card2)", border: "var(--admin-border)" },
     { label: "Actives avec accès",     value: stats?.actives ?? "—",           color: "#4ADE80", bg: "rgba(74,222,128,0.06)", border: "rgba(74,222,128,0.2)" },
     { label: "Sans accès app",         value: stats?.enAttente ?? "—",         color: "#F87171", bg: "rgba(248,113,113,0.06)", border: "rgba(248,113,113,0.2)" },
     { label: "Nouvelles cette semaine",value: stats?.newThisWeek ?? "—",       color: "#60A5FA", bg: "rgba(96,165,250,0.06)", border: "rgba(96,165,250,0.2)" },
@@ -142,10 +142,10 @@ export default async function AdminDashboardPage() {
     <div>
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
-        <p style={{ fontSize: 11, color: "#555", letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 6px", fontFamily: "system-ui" }}>
+        <p style={{ fontSize: 11, color: "var(--admin-text-muted)", letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 6px", fontFamily: "system-ui" }}>
           Bienvenue
         </p>
-        <h1 style={{ fontSize: "1.8rem", fontWeight: 800, color: "#F5F5F0", margin: 0, letterSpacing: "-0.01em", fontFamily: "system-ui" }}>
+        <h1 style={{ fontSize: "1.8rem", fontWeight: 800, color: "var(--admin-text)", margin: 0, letterSpacing: "-0.01em", fontFamily: "system-ui" }}>
           Tableau de bord
         </h1>
       </div>

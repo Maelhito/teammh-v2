@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { isAdminUser } from "@/lib/is-admin";
 import AdminSidebar from "./AdminSidebar";
+import { AdminThemeProvider } from "./ThemeProvider";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   if (process.env.NODE_ENV !== "development") {
@@ -12,19 +13,21 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#0D0D0D" }}>
-      <AdminSidebar />
-      <main
-        className="admin-main"
-        style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: "32px 28px", color: "#F5F5F0" }}
-      >
-        {children}
-      </main>
-      <style>{`
-        @media (max-width: 768px) {
-          .admin-main { padding: 80px 16px 40px !important; }
-        }
-      `}</style>
-    </div>
+    <AdminThemeProvider>
+      <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--admin-bg)" }}>
+        <AdminSidebar />
+        <main
+          className="admin-main"
+          style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: "32px 28px", color: "var(--admin-text)" }}
+        >
+          {children}
+        </main>
+        <style>{`
+          @media (max-width: 768px) {
+            .admin-main { padding: 80px 16px 40px !important; }
+          }
+        `}</style>
+      </div>
+    </AdminThemeProvider>
   );
 }
