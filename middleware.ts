@@ -12,6 +12,18 @@ const CLIENT_PROTECTED = ["/dashboard", "/profil", "/modules", "/calendrier"];
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Admin embed : /coach/* → /admin/coach/* si cookie admin_mode présent
+  // (fonctionne en dev et prod, sans appel Supabase)
+  if (
+    pathname.startsWith("/coach") &&
+    !pathname.startsWith("/coach/layout") &&
+    request.cookies.get("admin_mode")?.value === "1"
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin" + pathname;
+    return NextResponse.redirect(url);
+  }
+
   // En dev local, pas besoin de se connecter
   if (process.env.NODE_ENV === "development") {
     return NextResponse.next({ request });

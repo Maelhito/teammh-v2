@@ -5,9 +5,11 @@ import { isAdminUser } from "@/lib/is-admin";
 import AdminSidebar from "./AdminSidebar";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!isAdminUser(user)) redirect("/login");
+  if (process.env.NODE_ENV !== "development") {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!isAdminUser(user)) redirect("/login");
+  }
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#0D0D0D" }}>

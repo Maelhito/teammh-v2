@@ -1,7 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { fetchClients } from "@/lib/admin/fetchClients";
 import ClientsTable from "../ClientsTable";
-import InviteForm from "../InviteForm";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +21,6 @@ export default async function AdminClientesPage() {
           👥 Clientes
         </h1>
       </div>
-
-      <InviteForm />
 
       {error && (
         <div style={{ margin: "16px 0", padding: "10px 14px", backgroundColor: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 8, fontSize: 12, color: "#F87171" }}>
