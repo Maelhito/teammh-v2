@@ -40,7 +40,7 @@ async function getDashboardData() {
       .select("id, titre, date, heure, event_type, target_user_id, user_id")
       .gte("date", mondayStr)
       .lte("date", sundayStr)
-      .not("event_type", "in", '("seance","tache")')
+      .or('event_type.is.null,event_type.not.in.(seance,tache)')
       .order("heure", { nullsFirst: true }),
     admin.from("team_members").select("id, nom, role").order("created_at"),
   ]);
