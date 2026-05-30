@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getModules } from "@/lib/modules";
 import { getUserProfile, getModuleCompletionsWithDates } from "@/lib/user-profile";
 import { computeUnlockStatuses } from "@/lib/module-unlock";
@@ -7,6 +8,7 @@ import BottomNav from "@/components/BottomNav";
 import DashboardModules from "@/components/DashboardModules";
 import PushSubscriber from "@/components/PushSubscriber";
 import WelcomeVideoPopup from "@/components/WelcomeVideoPopup";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -28,10 +30,50 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const modules = getModules();
   const slugs = modules.map((m) => m.slug);
 
-  const [profile, completionsWithDates] = await Promise.all([
+  const admin = createSupabaseAdminClient();
+
+  const [profile, completionsWithDates, activeAssignment] = await Promise.all([
     userId ? getUserProfile(userId) : Promise.resolve(null),
     userId ? getModuleCompletionsWithDates(userId) : Promise.resolve([]),
+    userId
+      ? admin
+          .from("client_programmes")
+          .select("*, programme:programmes(nom)")
+          .eq("user_id", userId)
+          .eq("statut", "en_cours")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+          .then((r) => r.data)
+      : Promise.resolve(null),
   ]);
+
+  // Séance du jour depuis le programme actif
+  let seancesDuJour: { nom: string; duree: number | null }[] = [];
+  let nomProgramme = "";
+  if (activeAssignment) {
+    nomProgramme = activeAssignment.programme?.nom ?? "";
+    try {
+      const src = activeAssignment.grid_data ?? "";
+      if (src?.startsWith("{")) {
+        const parsed = JSON.parse(src);
+        const grid: Record<string, { type: string; seanceName?: string; nom?: string; titre?: string; duree?: number | null }[]> = parsed.grid ?? {};
+        const dateDebut = activeAssignment.date_debut ? new Date(activeAssignment.date_debut) : null;
+        if (dateDebut) {
+          const diffDays = Math.floor((Date.now() - dateDebut.getTime()) / (1000 * 60 * 60 * 24));
+          const semaine = Math.max(Math.floor(diffDays / 7) + 1, 1);
+          const dayOfWeek = new Date().getDay();
+          const jourIndex = dayOfWeek === 0 ? 7 : dayOfWeek;
+          const key = `S${semaine}_J${jourIndex}`;
+          const items = grid[key] ?? [];
+          seancesDuJour = items.map((item) => ({
+            nom: item.type === "seance" ? (item.seanceName ?? "") : item.type === "seance_locale" ? (item.nom ?? "") : (item.titre ?? ""),
+            duree: item.duree ?? null,
+          }));
+        }
+      }
+    } catch {}
+  }
 
   const completedSet = new Set(completionsWithDates.map((c) => c.module_slug));
   const completedCount = completedSet.size;
@@ -95,6 +137,32 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             <span style={{ color: "#F5F5F0", fontWeight: 700 }}>{firstName}</span>
           </p>
         </div>
+
+        {/* Séance du jour */}
+        {seancesDuJour.length > 0 && (
+          <div style={{ padding: "8px 16px 4px" }}>
+            <Link href="/entrainement" style={{ textDecoration: "none" }}>
+              <div style={{ background: "linear-gradient(135deg, #8B0000 0%, #B22222 100%)", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.3rem", flexShrink: 0 }}>
+                  💪
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", margin: "0 0 3px" }}>
+                    SÉANCE DU JOUR{nomProgramme ? ` · ${nomProgramme.toUpperCase()}` : ""}
+                  </p>
+                  {seancesDuJour.map((s, i) => (
+                    <p key={i} className="font-body" style={{ fontSize: "0.88rem", fontWeight: 700, color: "#FFFFFF", margin: i === 0 ? 0 : "2px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {s.nom}{s.duree ? ` · ${s.duree} min` : ""}
+                    </p>
+                  ))}
+                </div>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </div>
+            </Link>
+          </div>
+        )}
 
         {/* Barre de progression semaine */}
         {semaineLabel && (
