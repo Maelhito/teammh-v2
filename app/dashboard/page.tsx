@@ -9,6 +9,7 @@ import DashboardModules from "@/components/DashboardModules";
 import PushSubscriber from "@/components/PushSubscriber";
 import WelcomeVideoPopup from "@/components/WelcomeVideoPopup";
 import Link from "next/link";
+import TachesSection from "@/components/TachesSection";
 
 export const dynamic = "force-dynamic";
 
@@ -111,11 +112,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     };
   });
 
-  // Tâches de la semaine (events non-récurrents de cette semaine)
-  const tachesSet = allEventsRaw.filter((e) => {
-    if (e.recurrence !== "none") return false;
-    return e.date >= weekStart && e.date <= weekEndStr;
-  }).slice(0, 5);
+  void weekStart; void weekEndStr; // utilisés uniquement pour allEventsRaw
 
   // Séance du jour
   let seancesDuJour: { nom: string; duree: number | null }[] = [];
@@ -338,35 +335,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </div>
         </div>
 
-        {/* Tâches de la semaine */}
-        <div style={{ padding: "8px 16px 4px" }}>
-          <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "16px 18px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <span style={{ display: "inline-block", width: 3, height: 14, backgroundColor: "#B22222", borderRadius: 2, flexShrink: 0 }} />
-              <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#F5F5F0", letterSpacing: "0.06em" }}>
-                TÂCHES DE LA SEMAINE
-              </span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {[0, 1, 2, 3, 4].map((i) => {
-                const tache = tachesSet[i];
-                return (
-                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                    <div style={{ width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${tache ? "#B22222" : "#2a2a2a"}`, flexShrink: 0, marginTop: 1 }} />
-                    {tache ? (
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p className="font-body" style={{ fontSize: "0.82rem", fontWeight: 600, color: "#F5F5F0", margin: 0, lineHeight: 1.3 }}>{tache.titre}</p>
-                        {tache.message && <p className="font-body" style={{ fontSize: "0.72rem", color: "#555", margin: "2px 0 0", lineHeight: 1.4 }}>{tache.message}</p>}
-                      </div>
-                    ) : (
-                      <div style={{ flex: 1, height: 1, backgroundColor: "#1a1a1a", marginTop: 9 }} />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        {/* Tâches de la semaine — composant client avec checkboxes */}
+        <TachesSection />
 
         {/* Modules */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 16px 12px" }}>
