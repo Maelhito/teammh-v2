@@ -12,18 +12,30 @@ export default async function EntrainementPage() {
   const userId = session?.user.id ?? "";
 
   let programme = null;
+  let calendarEvents: object[] = [];
 
   if (userId) {
     const admin = createSupabaseAdminClient();
-    const { data: assignment } = await admin
-      .from("client_programmes")
-      .select("*, programme:programmes(id, nom, niveau, duree_semaines)")
-      .eq("user_id", userId)
-      .eq("statut", "en_cours")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
 
+    const [assignmentResult, eventsResult] = await Promise.all([
+      admin
+        .from("client_programmes")
+        .select("*, programme:programmes(id, nom, niveau, duree_semaines)")
+        .eq("user_id", userId)
+        .eq("statut", "en_cours")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin
+        .from("calendar_events")
+        .select("*")
+        .or(`target_user_id.is.null,target_user_id.eq.${userId},user_id.eq.${userId}`)
+        .order("date", { ascending: true }),
+    ]);
+
+    calendarEvents = eventsResult.data ?? [];
+
+    const assignment = assignmentResult.data;
     if (assignment) {
       let grid: Record<string, unknown[]> = {};
       let duree_semaines: number = assignment.programme?.duree_semaines ?? 4;
@@ -70,7 +82,8 @@ export default async function EntrainementPage() {
           </h1>
         </div>
       </div>
-      <EntrainementClient programme={programme} />
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      <EntrainementClient programme={programme} initialEvents={calendarEvents as any} />
       <BottomNav />
     </div>
   );

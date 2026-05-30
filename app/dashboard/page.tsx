@@ -12,9 +12,41 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
+interface CalendarEvent {
+  id: string;
+  titre: string;
+  date: string;
+  heure: string | null;
+  recurrence: "none" | "daily" | "weekly" | "monthly";
+  message: string | null;
+  event_type: "coach" | "nutrition" | "coaching_groupe" | null;
+  target_user_id: string | null;
+}
+
+function isEventOnDay(event: CalendarEvent, day: Date): boolean {
+  const eventDate = new Date(event.date + "T00:00:00");
+  eventDate.setHours(0, 0, 0, 0);
+  if (eventDate > day) return false;
+  switch (event.recurrence) {
+    case "none": return eventDate.toDateString() === day.toDateString();
+    case "daily": return true;
+    case "weekly": return eventDate.getDay() === day.getDay();
+    case "monthly": return eventDate.getDate() === day.getDate();
+    default: return false;
+  }
+}
+
+function eventDotColor(evt: CalendarEvent): string {
+  if (evt.event_type === "coaching_groupe") return "#3B82F6";
+  if (evt.event_type === "nutrition") return "#22C55E";
+  return "#B22222";
+}
+
 interface PageProps {
   searchParams: Promise<{ locked?: string }>;
 }
+
+const JOURS_COURTS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 export default async function DashboardPage({ searchParams }: PageProps) {
   const { locked } = await searchParams;
@@ -31,17 +63,19 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const slugs = modules.map((m) => m.slug);
   const admin = createSupabaseAdminClient();
 
-  // Dates pour les tâches de la semaine
   const now = new Date();
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-  startOfWeek.setHours(0, 0, 0, 0);
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6);
-  const weekStart = startOfWeek.toISOString().slice(0, 10);
-  const weekEnd = endOfWeek.toISOString().slice(0, 10);
+  now.setHours(0, 0, 0, 0);
 
-  const [profile, completionsWithDates, activeAssignment, tachesResult] = await Promise.all([
+  // Lundi de la semaine courante
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  const weekEnd = new Date(monday);
+  weekEnd.setDate(monday.getDate() + 6);
+
+  const weekStart = monday.toISOString().slice(0, 10);
+  const weekEndStr = weekEnd.toISOString().slice(0, 10);
+
+  const [profile, completionsWithDates, activeAssignment, allEventsRaw] = await Promise.all([
     userId ? getUserProfile(userId) : Promise.resolve(null),
     userId ? getModuleCompletionsWithDates(userId) : Promise.resolve([]),
     userId
@@ -58,19 +92,32 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     userId
       ? admin
           .from("calendar_events")
-          .select("id, titre, message, heure, event_type")
-          .or(`target_user_id.eq.${userId},target_user_id.is.null`)
-          .gte("date", weekStart)
-          .lte("date", weekEnd)
+          .select("id, titre, date, heure, recurrence, message, event_type, target_user_id")
+          .or(`target_user_id.is.null,target_user_id.eq.${userId},user_id.eq.${userId}`)
+          .lte("date", weekEndStr)
           .order("date", { ascending: true })
-          .limit(5)
-          .then((r) => r.data ?? [])
-      : Promise.resolve([]),
+          .then((r) => (r.data ?? []) as CalendarEvent[])
+      : Promise.resolve([] as CalendarEvent[]),
   ]);
 
-  const taches = tachesResult as { id: string; titre: string; message: string | null; heure: string | null; event_type: string | null }[];
+  // Événements de la semaine (un-time + récurrents)
+  const weekDays: { date: Date; dayIndex: number; events: CalendarEvent[] }[] = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return {
+      date: d,
+      dayIndex: i,
+      events: allEventsRaw.filter((e) => isEventOnDay(e, d)),
+    };
+  });
 
-  // Séance du jour depuis le programme actif
+  // Tâches de la semaine (events non-récurrents de cette semaine)
+  const tachesSet = allEventsRaw.filter((e) => {
+    if (e.recurrence !== "none") return false;
+    return e.date >= weekStart && e.date <= weekEndStr;
+  }).slice(0, 5);
+
+  // Séance du jour
   let seancesDuJour: { nom: string; duree: number | null }[] = [];
   let nomProgramme = "";
   let isJourDeSeance = false;
@@ -81,13 +128,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       const src = activeAssignment.grid_data ?? "";
       if (src?.startsWith("{")) {
         const parsed = JSON.parse(src);
-        const grid: Record<string, { type: string; seanceName?: string; nom?: string; titre?: string; duree?: number | null }[]> = parsed.grid ?? {};
+        const grid: Record<string, { type: string; seanceName?: string; nom?: string; duree?: number | null }[]> = parsed.grid ?? {};
         const dateDebut = activeAssignment.date_debut ? new Date(activeAssignment.date_debut) : null;
         if (dateDebut) {
-          const diffDays = Math.floor((Date.now() - dateDebut.getTime()) / (1000 * 60 * 60 * 24));
+          const diffDays = Math.floor((now.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24));
           const semaine = Math.max(Math.floor(diffDays / 7) + 1, 1);
-          const dayOfWeek = now.getDay();
-          const jourIndex = dayOfWeek === 0 ? 7 : dayOfWeek;
+          const jourIndex = now.getDay() === 0 ? 7 : now.getDay();
           const key = `S${semaine}_J${jourIndex}`;
           const items = grid[key] ?? [];
           seancesDuJour = items
@@ -137,6 +183,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     index: i + 1,
   }));
 
+  const todayStr = now.toDateString();
+
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 90 }}>
       <WelcomeVideoPopup userId={userId} />
@@ -180,7 +228,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        {/* Encart Jour de séance / Jour de repos */}
+        {/* Encart Jour de séance / Repos */}
         {activeAssignment && (
           <div style={{ padding: "8px 16px" }}>
             <Link href="/entrainement" style={{ textDecoration: "none" }}>
@@ -197,56 +245,21 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   gap: 14,
                 }}
               >
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 12,
-                    backgroundColor: isJourDeSeance ? "rgba(0,0,0,0.25)" : "#1a1a1a",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "1.4rem",
-                    flexShrink: 0,
-                  }}
-                >
+                <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: isJourDeSeance ? "rgba(0,0,0,0.25)" : "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.4rem", flexShrink: 0 }}>
                   {isJourDeSeance ? "💪" : "😴"}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p
-                    className="font-body"
-                    style={{
-                      fontSize: "0.65rem",
-                      fontWeight: 700,
-                      color: isJourDeSeance ? "rgba(255,255,255,0.6)" : "#555",
-                      letterSpacing: "0.08em",
-                      margin: "0 0 3px",
-                    }}
-                  >
+                  <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: isJourDeSeance ? "rgba(255,255,255,0.6)" : "#555", letterSpacing: "0.08em", margin: "0 0 3px" }}>
                     {isJourDeSeance ? `SÉANCE DU JOUR · ${nomProgramme.toUpperCase()}` : "PROGRAMME"}
                   </p>
                   {isJourDeSeance ? (
                     seancesDuJour.map((s, i) => (
-                      <p
-                        key={i}
-                        className="font-body"
-                        style={{
-                          fontSize: "0.9rem",
-                          fontWeight: 700,
-                          color: "#FFFFFF",
-                          margin: i === 0 ? 0 : "2px 0 0",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
+                      <p key={i} className="font-body" style={{ fontSize: "0.9rem", fontWeight: 700, color: "#FFFFFF", margin: i === 0 ? 0 : "2px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {s.nom}{s.duree ? ` · ${s.duree} min` : ""}
                       </p>
                     ))
                   ) : (
-                    <p className="font-body" style={{ fontSize: "0.9rem", fontWeight: 700, color: "#F5F5F0", margin: 0 }}>
-                      Jour de repos
-                    </p>
+                    <p className="font-body" style={{ fontSize: "0.9rem", fontWeight: 700, color: "#F5F5F0", margin: 0 }}>Jour de repos</p>
                   )}
                 </div>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isJourDeSeance ? "rgba(255,255,255,0.5)" : "#333"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -257,8 +270,76 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        {/* Encart tâches de la semaine */}
+        {/* Calendrier de la semaine */}
         <div style={{ padding: "0 16px 4px" }}>
+          <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "16px 16px 14px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <span style={{ display: "inline-block", width: 3, height: 14, backgroundColor: "#B22222", borderRadius: 2, flexShrink: 0 }} />
+              <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#F5F5F0", letterSpacing: "0.06em" }}>
+                CETTE SEMAINE
+              </span>
+            </div>
+
+            {/* 7 colonnes jours */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+              {weekDays.map(({ date, events: dayEvts }) => {
+                const isToday = date.toDateString() === todayStr;
+                const isPast = date < now;
+                const hasEvts = dayEvts.length > 0;
+
+                return (
+                  <Link key={date.toISOString()} href="/entrainement" style={{ textDecoration: "none" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 5,
+                        padding: "8px 4px",
+                        borderRadius: 10,
+                        backgroundColor: isToday ? "rgba(178,34,34,0.15)" : "transparent",
+                        border: isToday ? "1px solid rgba(178,34,34,0.35)" : "1px solid transparent",
+                      }}
+                    >
+                      <span className="font-body" style={{ fontSize: "0.6rem", fontWeight: 700, color: isToday ? "#B22222" : "#444", letterSpacing: "0.04em" }}>
+                        {JOURS_COURTS[date.getDay() === 0 ? 6 : date.getDay() - 1]}
+                      </span>
+                      <span className="font-body" style={{ fontSize: "0.95rem", fontWeight: isToday ? 700 : 400, color: isToday ? "#B22222" : isPast ? "#444" : "#F5F5F0", lineHeight: 1 }}>
+                        {date.getDate()}
+                      </span>
+                      {/* Dots événements */}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 2, justifyContent: "center", minHeight: 8 }}>
+                        {hasEvts && dayEvts.slice(0, 3).map((evt) => (
+                          <span key={evt.id} style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: eventDotColor(evt), display: "block" }} />
+                        ))}
+                        {dayEvts.length > 3 && (
+                          <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#555", display: "block" }} />
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Événements du jour courant sous le calendrier */}
+            {weekDays[now.getDay() === 0 ? 6 : now.getDay() - 1]?.events.length > 0 && (
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+                {weekDays[now.getDay() === 0 ? 6 : now.getDay() - 1].events.slice(0, 3).map((evt) => (
+                  <div key={evt.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", backgroundColor: "#0D0D0D", borderRadius: 8, borderLeft: `3px solid ${eventDotColor(evt)}` }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p className="font-body" style={{ fontSize: "0.8rem", fontWeight: 600, color: "#F5F5F0", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{evt.titre}</p>
+                    </div>
+                    {evt.heure && <span className="font-body" style={{ fontSize: "0.7rem", color: eventDotColor(evt), fontWeight: 700, flexShrink: 0 }}>{evt.heure.slice(0, 5)}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Tâches de la semaine */}
+        <div style={{ padding: "8px 16px 4px" }}>
           <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "16px 18px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
               <span style={{ display: "inline-block", width: 3, height: 14, backgroundColor: "#B22222", borderRadius: 2, flexShrink: 0 }} />
@@ -268,29 +349,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[0, 1, 2, 3, 4].map((i) => {
-                const tache = taches[i];
+                const tache = tachesSet[i];
                 return (
                   <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                    <div
-                      style={{
-                        width: 18,
-                        height: 18,
-                        borderRadius: 5,
-                        border: `1.5px solid ${tache ? "#B22222" : "#2a2a2a"}`,
-                        flexShrink: 0,
-                        marginTop: 1,
-                      }}
-                    />
+                    <div style={{ width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${tache ? "#B22222" : "#2a2a2a"}`, flexShrink: 0, marginTop: 1 }} />
                     {tache ? (
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p className="font-body" style={{ fontSize: "0.82rem", fontWeight: 600, color: "#F5F5F0", margin: 0, lineHeight: 1.3 }}>
-                          {tache.titre}
-                        </p>
-                        {tache.message && (
-                          <p className="font-body" style={{ fontSize: "0.72rem", color: "#555", margin: "2px 0 0", lineHeight: 1.4 }}>
-                            {tache.message}
-                          </p>
-                        )}
+                        <p className="font-body" style={{ fontSize: "0.82rem", fontWeight: 600, color: "#F5F5F0", margin: 0, lineHeight: 1.3 }}>{tache.titre}</p>
+                        {tache.message && <p className="font-body" style={{ fontSize: "0.72rem", color: "#555", margin: "2px 0 0", lineHeight: 1.4 }}>{tache.message}</p>}
                       </div>
                     ) : (
                       <div style={{ flex: 1, height: 1, backgroundColor: "#1a1a1a", marginTop: 9 }} />
@@ -302,7 +368,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </div>
         </div>
 
-        {/* Section modules */}
+        {/* Modules */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 16px 12px" }}>
           <span style={{ display: "inline-block", width: 3, height: 18, backgroundColor: "#B22222", borderRadius: 2, flexShrink: 0 }} />
           <h2 className="font-title" style={{ fontSize: "1.45rem", color: "#F5F5F0", lineHeight: 1, letterSpacing: "0.04em" }}>
