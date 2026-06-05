@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 interface RichExercise {
@@ -14,7 +14,7 @@ interface RichExercise {
 }
 interface TabataItem {
   _key: string; exercise_id: string;
-  exercise: { nom: string; video_url: string | null } | null;
+  exercise: { nom: string; video_url: string | null; miniature_url?: string | null } | null;
   series: string; tabata_work: string; tabata_rest: string;
 }
 interface Bloc {
@@ -31,206 +31,339 @@ interface SeanceData {
   blocs: Bloc[];
 }
 
-const FORMAT_LABELS: Record<string, string> = {
-  classique: "Classique", tabata: "Tabata", emom: "EMOM",
-  amrap: "AMRAP", for_time: "For Time",
-};
+/* Retourne les exercices d'un bloc quel que soit son format */
+function getBlocExs(bloc: Bloc): RichExercise[] {
+  if (bloc.format === "tabata") {
+    return bloc.tabata_exercices.map(ti => ({
+      _key: ti._key,
+      exercise: ti.exercise
+        ? { id: "", nom: ti.exercise.nom, groupe_musculaire: "", materiel: "", video_url: ti.exercise.video_url, miniature_url: ti.exercise.miniature_url ?? null }
+        : null,
+      series: ti.series || null,
+    }));
+  }
+  return bloc.rich_exercices;
+}
+
 const BLOC_COLORS: Record<string, string> = {
   echauffement: "#F97316", corps: "#B22222", finisher: "#8B5CF6",
 };
 const BLOC_LABELS: Record<string, string> = {
-  echauffement: "Échauffement", corps: "Corps", finisher: "Finisher",
+  echauffement: "ÉCHAUFFEMENT", corps: "CORPS DE SÉANCE", finisher: "FINISHER",
+};
+const BLOC_EMOJIS: Record<string, string> = {
+  echauffement: "🔥", corps: "💪", finisher: "⚡",
 };
 
-function TimerDisplay({ seconds, label }: { seconds: number; label: string }) {
-  const [remaining, setRemaining] = useState(seconds);
-  const [running, setRunning] = useState(false);
+function formatTime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
 
-  useEffect(() => {
-    if (!running || remaining <= 0) return;
-    const id = setInterval(() => setRemaining((r) => Math.max(0, r - 1)), 1000);
-    return () => clearInterval(id);
-  }, [running, remaining]);
+/* ---- Web Audio bip (fonctionne sur iOS/Android après geste utilisateur) ---- */
+let audioCtx: AudioContext | null = null;
+function playBeep(freq = 880, duration = 0.12, volume = 0.6) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.frequency.value = freq;
+    osc.type = "sine";
+    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + duration);
+  } catch {}
+}
+function initAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch {}
+}
 
-  const m = Math.floor(remaining / 60);
-  const s = remaining % 60;
+function getYoutubeId(url: string): string | null {
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/]+)/);
+  return m ? m[1] : null;
+}
 
+/* ---- Popup vidéo ---- */
+function VideoModal({ url, onClose }: { url: string; onClose: () => void }) {
+  const ytId = getYoutubeId(url);
   return (
-    <div style={{ textAlign: "center", padding: "14px 0" }}>
-      <p className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: "#555", letterSpacing: "0.1em", margin: "0 0 8px" }}>{label}</p>
-      <p className="font-title" style={{ fontSize: "3.5rem", color: remaining === 0 ? "#4ADE80" : "#F5F5F0", lineHeight: 1, margin: "0 0 12px", letterSpacing: "0.02em" }}>
-        {String(m).padStart(2, "0")}:{String(s).padStart(2, "0")}
-      </p>
-      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-        <button
-          onClick={() => setRunning((r) => !r)}
-          style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: running ? "#333" : "#B22222", color: "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: "pointer" }}
-        >
-          {remaining === 0 ? "✓ Terminé" : running ? "⏸ Pause" : remaining === seconds ? "▶ Démarrer" : "▶ Reprendre"}
-        </button>
-        <button
-          onClick={() => { setRemaining(seconds); setRunning(false); }}
-          style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#555", fontSize: "0.88rem", cursor: "pointer" }}
-        >
-          ↺
-        </button>
+    <div
+      style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{ width: "100%", maxWidth: 480, backgroundColor: "#111", borderRadius: 16, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #1a1a1a" }}>
+          <p className="font-body" style={{ fontSize: "0.8rem", color: "#888", margin: 0 }}>Vidéo exercice</p>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#555", fontSize: "1.3rem", cursor: "pointer", lineHeight: 1 }}>✕</button>
+        </div>
+        {ytId ? (
+          <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
+            <iframe
+              src={`https://www.youtube.com/embed/${ytId}?autoplay=1`}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }}
+              allow="autoplay; fullscreen"
+            />
+          </div>
+        ) : (
+          <video src={url} controls autoPlay style={{ width: "100%", display: "block", maxHeight: "60vh" }} />
+        )}
       </div>
     </div>
   );
 }
 
-function ExerciceCard({ ex, done, onToggle }: { ex: RichExercise; done: boolean; onToggle: () => void }) {
+/* ---- Carte exercice ---- */
+function ExerciceCard({ ex, done, onToggle, onVideoClick }: {
+  ex: RichExercise; done: boolean; onToggle?: () => void; onVideoClick?: () => void;
+}) {
   const nom = ex.exercise?.nom ?? "Exercice";
   const details: string[] = [];
   if (ex.series) details.push(`${ex.series} séries`);
   if (ex.repetitions) details.push(`${ex.repetitions} reps`);
   if (ex.duree_secondes) details.push(`${ex.duree_secondes}s`);
   if (ex.temps_repos) details.push(`Repos: ${ex.temps_repos}s`);
+  const hasVideo = !!ex.exercise?.video_url;
 
   return (
-    <button
-      onClick={onToggle}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "12px 14px",
-        backgroundColor: done ? "rgba(74,222,128,0.05)" : "#0D0D0D",
-        border: `1px solid ${done ? "rgba(74,222,128,0.2)" : "#1a1a1a"}`,
-        borderRadius: 12,
-        cursor: "pointer",
-        textAlign: "left",
-        width: "100%",
-      }}
-    >
-      {/* Miniature ou placeholder */}
-      <div style={{ width: 44, height: 44, borderRadius: 9, overflow: "hidden", flexShrink: 0, backgroundColor: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", backgroundColor: done ? "rgba(74,222,128,0.05)" : "#0D0D0D", border: `1px solid ${done ? "rgba(74,222,128,0.2)" : "#1a1a1a"}`, borderRadius: 14 }}>
+      {/* Miniature cliquable si vidéo */}
+      <button
+        onClick={hasVideo ? onVideoClick : undefined}
+        style={{ width: 52, height: 52, borderRadius: 10, overflow: "hidden", flexShrink: 0, backgroundColor: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", border: "none", cursor: hasVideo ? "pointer" : "default", padding: 0, position: "relative" }}
+      >
         {ex.exercise?.miniature_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={ex.exercise.miniature_url} alt={nom} style={{ width: "100%", height: "100%", objectFit: "cover", opacity: done ? 0.4 : 1 }} />
         ) : (
-          <span style={{ fontSize: "1.2rem", opacity: done ? 0.4 : 1 }}>💪</span>
+          <span style={{ fontSize: "1.4rem", opacity: done ? 0.4 : 1 }}>💪</span>
         )}
-      </div>
+        {hasVideo && (
+          <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: "1rem" }}>▶</span>
+          </div>
+        )}
+      </button>
+
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p className="font-body" style={{ fontWeight: 700, fontSize: "0.88rem", color: done ? "#555" : "#F5F5F0", margin: 0, textDecoration: done ? "line-through" : "none" }}>{nom}</p>
+        <p className="font-body" style={{ fontWeight: 700, fontSize: "0.9rem", color: done ? "#555" : "#F5F5F0", margin: 0, textDecoration: done ? "line-through" : "none" }}>{nom}</p>
         {details.length > 0 && (
-          <p className="font-body" style={{ fontSize: "0.72rem", color: "#555", margin: "3px 0 0" }}>{details.join(" · ")}</p>
+          <p className="font-body" style={{ fontSize: "0.72rem", color: "#666", margin: "3px 0 0" }}>{details.join(" · ")}</p>
         )}
         {ex.notes && <p className="font-body" style={{ fontSize: "0.7rem", color: "#444", margin: "2px 0 0", fontStyle: "italic" }}>{ex.notes}</p>}
       </div>
-      <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${done ? "#4ADE80" : "#2a2a2a"}`, backgroundColor: done ? "rgba(74,222,128,0.15)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        {done && <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#4ADE80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2 6 5 9 10 3" /></svg>}
-      </div>
-    </button>
-  );
-}
 
-function BlocCard({ bloc, blocIndex, totalBlocs, doneExercices, onToggleEx }: {
-  bloc: Bloc; blocIndex: number; totalBlocs: number;
-  doneExercices: Set<string>; onToggleEx: (key: string) => void;
-}) {
-  const [open, setOpen] = useState(blocIndex === 0);
-  const color = BLOC_COLORS[bloc.type] ?? "#B22222";
-  const totalEx = bloc.rich_exercices.length;
-  const doneEx = bloc.rich_exercices.filter((e) => doneExercices.has(e._key)).length;
-  const allDone = totalEx > 0 && doneEx === totalEx;
+      {/* Bouton vidéo si pas de miniature */}
+      {hasVideo && !ex.exercise?.miniature_url && (
+        <button
+          onClick={onVideoClick}
+          style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: "#1a1a1a", border: "1px solid #2a2a2a", color: "#F5F5F0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: "0.85rem" }}
+        >
+          ▶
+        </button>
+      )}
 
-  // Timer secondes selon format
-  let timerSeconds = 0;
-  let timerLabel = "";
-  if (bloc.format === "amrap") {
-    timerSeconds = parseInt(bloc.amrap_duree || "10") * 60;
-    timerLabel = `AMRAP ${bloc.amrap_duree || 10} min`;
-  } else if (bloc.format === "for_time") {
-    timerSeconds = parseInt(bloc.for_time_limit || "20") * 60;
-    timerLabel = `For Time — limite ${bloc.for_time_limit || 20} min`;
-  }
-
-  return (
-    <div style={{ backgroundColor: "#111111", border: `1px solid ${allDone ? "rgba(74,222,128,0.2)" : "#1a1a1a"}`, borderRadius: 16, overflow: "hidden", marginBottom: 12 }}>
-      {/* Header bloc */}
-      <button
-        onClick={() => setOpen((o) => !o)}
-        style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "16px 18px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
-      >
-        <div style={{ width: 32, height: 32, borderRadius: 9, backgroundColor: allDone ? "rgba(74,222,128,0.12)" : `${color}20`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <span style={{ fontSize: "0.9rem" }}>{allDone ? "✓" : bloc.type === "echauffement" ? "🔥" : bloc.type === "finisher" ? "⚡" : "💪"}</span>
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: allDone ? "#4ADE80" : color, letterSpacing: "0.08em", margin: "0 0 2px" }}>
-            {BLOC_LABELS[bloc.type] ?? bloc.type} {blocIndex + 1}/{totalBlocs}
-            {bloc.format !== "classique" && ` · ${FORMAT_LABELS[bloc.format] ?? bloc.format}`}
-          </p>
-          <p className="font-body" style={{ fontSize: "0.9rem", fontWeight: 700, color: allDone ? "#555" : "#F5F5F0", margin: 0 }}>{bloc.nom}</p>
-        </div>
-        {totalEx > 0 && (
-          <span className="font-body" style={{ fontSize: "0.68rem", color: allDone ? "#4ADE80" : "#555", fontWeight: 700, flexShrink: 0 }}>{doneEx}/{totalEx}</span>
-        )}
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }}>
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
-
-      {open && (
-        <div style={{ padding: "0 18px 18px" }}>
-          {/* Instructions */}
-          {bloc.instructions && (
-            <div
-              className="font-body"
-              style={{ fontSize: "0.82rem", color: "#888", lineHeight: 1.6, marginBottom: 14, padding: "12px 14px", backgroundColor: "#0D0D0D", borderRadius: 10 }}
-              dangerouslySetInnerHTML={{ __html: bloc.instructions }}
-            />
-          )}
-
-          {/* Timer pour AMRAP / For Time */}
-          {timerSeconds > 0 && (
-            <div style={{ backgroundColor: "#0D0D0D", borderRadius: 12, marginBottom: 14, border: "1px solid #1a1a1a" }}>
-              <TimerDisplay seconds={timerSeconds} label={timerLabel} />
-            </div>
-          )}
-
-          {/* Timer Tabata */}
-          {bloc.format === "tabata" && (
-            <div style={{ backgroundColor: "#0D0D0D", borderRadius: 12, marginBottom: 14, border: "1px solid #1a1a1a" }}>
-              <TimerDisplay seconds={parseInt(bloc.tabata_work || "20")} label={`WORK — ${bloc.tabata_work}s × ${bloc.tabata_tours} tours`} />
-            </div>
-          )}
-
-          {/* Timer EMOM */}
-          {bloc.format === "emom" && (
-            <div style={{ backgroundColor: "#0D0D0D", borderRadius: 12, marginBottom: 14, border: "1px solid #1a1a1a" }}>
-              <TimerDisplay
-                seconds={parseInt(bloc.emom_interval_min || "1") * 60 + parseInt(bloc.emom_interval_sec || "0")}
-                label={`EMOM — ${bloc.emom_rounds} rounds`}
-              />
-            </div>
-          )}
-
-          {/* Note de bloc */}
-          {bloc.note_bloc && (
-            <p className="font-body" style={{ fontSize: "0.78rem", color: "#666", fontStyle: "italic", margin: "0 0 12px" }}>{bloc.note_bloc}</p>
-          )}
-
-          {/* Exercices */}
-          {bloc.rich_exercices.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {bloc.rich_exercices.map((ex) => (
-                <ExerciceCard
-                  key={ex._key}
-                  ex={ex}
-                  done={doneExercices.has(ex._key)}
-                  onToggle={() => onToggleEx(ex._key)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+      {/* Checkbox si onToggle fourni */}
+      {onToggle && (
+        <button
+          onClick={onToggle}
+          style={{ width: 24, height: 24, borderRadius: 7, border: `2px solid ${done ? "#4ADE80" : "#2a2a2a"}`, backgroundColor: done ? "rgba(74,222,128,0.15)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
+        >
+          {done && <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#4ADE80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2 6 5 9 10 3" /></svg>}
+        </button>
       )}
     </div>
   );
 }
 
+/* ---- Stopwatch (compte en montant, auto-start) ---- */
+function Stopwatch({ style }: { style?: React.CSSProperties }) {
+  const [elapsed, setElapsed] = useState(0);
+  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    ref.current = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => { if (ref.current) clearInterval(ref.current); };
+  }, []);
+  return <span style={style}>{formatTime(elapsed)}</span>;
+}
+
+/* ---- Compte à rebours avec auto-start + bips ---- */
+function Countdown({ totalSeconds, label }: { totalSeconds: number; label: string }) {
+  const [remaining, setRemaining] = useState(totalSeconds);
+  const [running, setRunning] = useState(false); // démarrage manuel
+  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
+  const prevRemaining = useRef(totalSeconds);
+
+  useEffect(() => {
+    if (running && remaining > 0) {
+      ref.current = setInterval(() => {
+        setRemaining((r) => {
+          const next = Math.max(0, r - 1);
+          if (next <= 3 && next > 0) playBeep(next === 1 ? 1200 : 880);
+          if (next === 0) playBeep(660, 0.4);
+          prevRemaining.current = next;
+          return next;
+        });
+      }, 1000);
+    } else { if (ref.current) clearInterval(ref.current); }
+    return () => { if (ref.current) clearInterval(ref.current); };
+  }, [running, remaining]);
+
+  const finished = remaining === 0;
+  const isAlert = remaining <= 3 && remaining > 0;
+
+  return (
+    <div style={{ textAlign: "center", padding: "16px 0" }}>
+      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.1em", margin: "0 0 8px" }}>{label}</p>
+      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: finished ? "#4ADE80" : isAlert ? "#EF4444" : "#F5F5F0", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
+        {formatTime(remaining)}
+      </p>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+        <button onClick={() => setRunning((r) => !r)} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: running ? "#333" : "#B22222", color: "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: "pointer" }}>
+          {finished ? "✓ Terminé" : running ? "⏸ Pause" : remaining === totalSeconds ? "▶ Démarrer" : "▶ Reprendre"}
+        </button>
+        <button onClick={() => { setRemaining(totalSeconds); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#555", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---- Timer EMOM avec auto-start + bips ---- */
+function EmomTimer({ intervalSec, rounds }: { intervalSec: number; rounds: number }) {
+  const [currentRound, setCurrentRound] = useState(1);
+  const [remaining, setRemaining] = useState(intervalSec);
+  const [running, setRunning] = useState(false); // démarrage manuel
+  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (running) {
+      ref.current = setInterval(() => {
+        setRemaining((r) => {
+          const next = r - 1;
+          if (next <= 3 && next > 0) playBeep(next === 1 ? 1200 : 880);
+          if (next <= 0) {
+            playBeep(660, 0.4);
+            setCurrentRound((cr) => {
+              if (cr >= rounds) { setRunning(false); return cr; }
+              return cr + 1;
+            });
+            return intervalSec;
+          }
+          return next;
+        });
+      }, 1000);
+    } else { if (ref.current) clearInterval(ref.current); }
+    return () => { if (ref.current) clearInterval(ref.current); };
+  }, [running, intervalSec, rounds]);
+
+  const finished = currentRound >= rounds && remaining <= 1;
+  const isAlert = remaining <= 3 && remaining > 0;
+
+  return (
+    <div style={{ textAlign: "center", padding: "16px 0" }}>
+      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.1em", margin: "0 0 4px" }}>EMOM — ROUND {currentRound}/{rounds}</p>
+      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: finished ? "#4ADE80" : isAlert ? "#EF4444" : "#F5F5F0", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
+        {formatTime(remaining)}
+      </p>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+        <button onClick={() => setRunning((r) => !r)} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: running ? "#333" : "#B22222", color: "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: "pointer" }}>
+          {finished ? "✓ Terminé" : running ? "⏸ Pause" : currentRound === 1 && remaining === intervalSec ? "▶ Démarrer" : "▶ Reprendre"}
+        </button>
+        <button onClick={() => { setCurrentRound(1); setRemaining(intervalSec); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#555", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---- Timer Tabata avec auto-start + bips ---- */
+function TabataTimer({ workSec, restSec, tours }: { workSec: number; restSec: number; tours: number }) {
+  const [phase, setPhase] = useState<"work" | "rest">("work");
+  const [currentTour, setCurrentTour] = useState(1);
+  const [remaining, setRemaining] = useState(workSec);
+  const [running, setRunning] = useState(false); // démarrage manuel
+  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (running) {
+      ref.current = setInterval(() => {
+        setRemaining((r) => {
+          const next = r - 1;
+          if (next <= 3 && next > 0) playBeep(next === 1 ? 1200 : 880);
+          if (next <= 0) {
+            playBeep(660, 0.4);
+            if (phase === "work") { setPhase("rest"); return restSec; }
+            else {
+              setCurrentTour((t) => {
+                if (t >= tours) { setRunning(false); return t; }
+                return t + 1;
+              });
+              setPhase("work");
+              return workSec;
+            }
+          }
+          return next;
+        });
+      }, 1000);
+    } else { if (ref.current) clearInterval(ref.current); }
+    return () => { if (ref.current) clearInterval(ref.current); };
+  }, [running, phase, workSec, restSec, tours]);
+
+  const finished = currentTour >= tours && phase === "rest" && remaining <= 1;
+  const phaseColor = phase === "work" ? "#B22222" : "#3B82F6";
+  const isAlert = remaining <= 3 && remaining > 0;
+
+  return (
+    <div style={{ textAlign: "center", padding: "16px 0" }}>
+      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: phaseColor, letterSpacing: "0.1em", margin: "0 0 4px" }}>
+        TABATA — {phase === "work" ? "TRAVAIL" : "REPOS"} · TOUR {currentTour}/{tours}
+      </p>
+      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: finished ? "#4ADE80" : isAlert ? "#EF4444" : "#F5F5F0", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
+        {formatTime(remaining)}
+      </p>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+        <button onClick={() => setRunning((r) => !r)} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: running ? "#333" : phaseColor, color: "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: "pointer" }}>
+          {finished ? "✓ Terminé" : running ? "⏸ Pause" : currentTour === 1 && phase === "work" && remaining === workSec ? "▶ Démarrer" : "▶ Reprendre"}
+        </button>
+        <button onClick={() => { setPhase("work"); setCurrentTour(1); setRemaining(workSec); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#555", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---- Timer du bloc selon format ---- */
+function BlocTimer({ bloc }: { bloc: Bloc }) {
+  if (bloc.format === "classique" || !bloc.format) return null;
+  if (bloc.format === "amrap") {
+    const sec = parseInt(bloc.amrap_duree || "10") * 60;
+    return <Countdown totalSeconds={sec} label={`AMRAP · ${bloc.amrap_duree || 10} min`} />;
+  }
+  if (bloc.format === "for_time") {
+    const sec = parseInt(bloc.for_time_limit || "20") * 60;
+    return <Countdown totalSeconds={sec} label={`FOR TIME · limite ${bloc.for_time_limit || 20} min`} />;
+  }
+  if (bloc.format === "emom") {
+    const intervalSec = parseInt(bloc.emom_interval_min || "1") * 60 + parseInt(bloc.emom_interval_sec || "0");
+    const rounds = parseInt(bloc.emom_rounds || "8");
+    return <EmomTimer intervalSec={intervalSec} rounds={rounds} />;
+  }
+  if (bloc.format === "tabata") {
+    const workSec = parseInt(bloc.tabata_work || "20");
+    const restSec = parseInt(bloc.tabata_rest || "10");
+    const tours = parseInt(bloc.tabata_tours || "8");
+    return <TabataTimer workSec={workSec} restSec={restSec} tours={tours} />;
+  }
+  return null;
+}
+
+/* ================== COMPOSANT PRINCIPAL ================== */
 export default function SeanceViewer({
   assignmentId, gridKey, seanceData, seanceName, nomProgramme,
 }: {
@@ -238,21 +371,19 @@ export default function SeanceViewer({
   seanceData: SeanceData; seanceName: string; nomProgramme: string;
 }) {
   const router = useRouter();
-  const [doneExercices, setDoneExercices] = useState<Set<string>>(new Set());
+  const [started, setStarted] = useState(false);
+  const [currentBlocIndex, setCurrentBlocIndex] = useState(0);
+  const [openBlocs, setOpenBlocs] = useState<Set<number>>(new Set());
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [done, setDone] = useState(false);
 
   const allBlocs = seanceData.blocs ?? [];
-  const totalExercices = allBlocs.reduce((sum, b) => sum + b.rich_exercices.length, 0);
-  const doneCount = doneExercices.size;
+  const currentBloc = allBlocs[currentBlocIndex];
+  const isLastBloc = currentBlocIndex === allBlocs.length - 1;
 
-  const toggleEx = useCallback((key: string) => {
-    setDoneExercices((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  const toggleBloc = useCallback((i: number) => {
+    setOpenBlocs((prev) => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; });
   }, []);
 
   async function finirSeance() {
@@ -268,19 +399,15 @@ export default function SeanceViewer({
     setFinishing(false);
   }
 
+  /* ---- Écran terminé ---- */
   if (done) {
     return (
       <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <div style={{ textAlign: "center", maxWidth: 360 }}>
           <div style={{ fontSize: "4rem", marginBottom: 20 }}>🎉</div>
           <h1 className="font-title" style={{ fontSize: "2rem", color: "#F5F5F0", letterSpacing: "0.06em", margin: "0 0 12px" }}>SÉANCE TERMINÉE</h1>
-          <p className="font-body" style={{ fontSize: "0.88rem", color: "#555", margin: "0 0 32px", lineHeight: 1.6 }}>
-            Bravo ! Tu as complété {seanceName}.
-          </p>
-          <button
-            onClick={() => router.push("/entrainement")}
-            style={{ width: "100%", padding: "16px", backgroundColor: "#B22222", color: "#fff", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}
-          >
+          <p className="font-body" style={{ fontSize: "0.88rem", color: "#555", margin: "0 0 32px", lineHeight: 1.6 }}>Bravo ! Tu as complété {seanceName}.</p>
+          <button onClick={() => router.push("/entrainement")} style={{ width: "100%", padding: "16px", backgroundColor: "#B22222", color: "#fff", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}>
             RETOUR AUX SÉANCES
           </button>
         </div>
@@ -288,15 +415,113 @@ export default function SeanceViewer({
     );
   }
 
+  /* ---- Mode actif ---- */
+  if (started && currentBloc) {
+    const color = BLOC_COLORS[currentBloc.type] ?? "#B22222";
+    const label = BLOC_LABELS[currentBloc.type] ?? currentBloc.type.toUpperCase();
+    const emoji = BLOC_EMOJIS[currentBloc.type] ?? "💪";
+    const blocExs = getBlocExs(currentBloc);
+
+    return (
+      <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 100 }}>
+        {videoUrl && <VideoModal url={videoUrl} onClose={() => setVideoUrl(null)} />}
+
+        {/* Header + chrono global */}
+        <div style={{ position: "sticky", top: 0, zIndex: 50, backgroundColor: "#0D0D0D", borderBottom: "1px solid #1a1a1a" }}>
+          <div style={{ maxWidth: 480, margin: "0 auto", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={() => router.back()} style={{ background: "none", border: "1px solid #2a2a2a", borderRadius: 9, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#F5F5F0", flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+            </button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#B22222", letterSpacing: "0.08em", margin: "0 0 1px" }}>{nomProgramme.toUpperCase()}</p>
+              <p className="font-title" style={{ fontSize: "1.05rem", color: "#F5F5F0", letterSpacing: "0.04em", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {(seanceName || seanceData.nom).toUpperCase()}
+              </p>
+            </div>
+            <Stopwatch style={{ fontFamily: "monospace", fontSize: "1.1rem", fontWeight: 700, color: "#F5F5F0", flexShrink: 0, letterSpacing: "0.05em" }} />
+          </div>
+        </div>
+
+        <div style={{ maxWidth: 480, margin: "0 auto", padding: "28px 16px 0" }}>
+          {/* Titre du bloc */}
+          <div style={{ marginBottom: 20, textAlign: "center" }}>
+            <span style={{ fontSize: "2.8rem", display: "block", marginBottom: 8 }}>{emoji}</span>
+            <h2 className="font-title" style={{ fontSize: "2rem", color: color, letterSpacing: "0.08em", margin: "0 0 4px" }}>{label}</h2>
+            {currentBloc.nom && (
+              <p className="font-body" style={{ fontSize: "0.88rem", color: "#888", margin: 0 }}>{currentBloc.nom}</p>
+            )}
+            <p className="font-body" style={{ fontSize: "0.7rem", color: "#444", margin: "6px 0 0", letterSpacing: "0.05em" }}>
+              BLOC {currentBlocIndex + 1}/{allBlocs.length}
+            </p>
+          </div>
+
+          {/* Timer selon format */}
+          <div style={{ backgroundColor: "#111111", border: `1px solid ${color}30`, borderRadius: 16, padding: "4px 0 16px", marginBottom: 20 }}>
+            {currentBloc.format === "classique" || !currentBloc.format ? (
+              <div style={{ textAlign: "center", padding: "16px 0" }}>
+                <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.1em", margin: "0 0 8px" }}>DURÉE DU BLOC</p>
+                <Stopwatch style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: "#F5F5F0", letterSpacing: "0.04em", display: "block", textAlign: "center" }} />
+              </div>
+            ) : (
+              <BlocTimer bloc={currentBloc} />
+            )}
+          </div>
+
+          {/* Instructions */}
+          {currentBloc.instructions && (
+            <div className="font-body" style={{ fontSize: "0.82rem", color: "#888", lineHeight: 1.6, marginBottom: 16, padding: "12px 14px", backgroundColor: "#111", borderRadius: 10, border: "1px solid #1a1a1a" }}
+              dangerouslySetInnerHTML={{ __html: currentBloc.instructions }} />
+          )}
+
+          {/* Exercices */}
+          {blocExs.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.1em", margin: "0 0 10px" }}>
+                EXERCICES · {blocExs.length}
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {blocExs.map((ex) => (
+                  <ExerciceCard
+                    key={ex._key}
+                    ex={ex}
+                    done={false}
+                    onVideoClick={ex.exercise?.video_url ? () => setVideoUrl(ex.exercise!.video_url!) : undefined}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bouton bas */}
+        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, backgroundColor: "#0D0D0D", borderTop: "1px solid #1a1a1a", padding: "16px", paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))", zIndex: 50 }}>
+          <div style={{ maxWidth: 480, margin: "0 auto" }}>
+            {isLastBloc ? (
+              <button onClick={finirSeance} disabled={finishing} style={{ width: "100%", padding: "16px", backgroundColor: finishing ? "#333" : "#4ADE80", color: finishing ? "#666" : "#000", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: finishing ? "not-allowed" : "pointer", letterSpacing: "0.06em" }}>
+                {finishing ? "Enregistrement…" : "✓ TERMINER LA SÉANCE"}
+              </button>
+            ) : (
+              <button onClick={() => { initAudio(); setCurrentBlocIndex((i) => i + 1); }} style={{ width: "100%", padding: "16px", backgroundColor: "#B22222", color: "#fff", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}>
+                BLOC SUIVANT →
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---- Vue overview (avant démarrage) ---- */
+  const totalExercices = allBlocs.reduce((sum, b) => sum + getBlocExs(b).length, 0);
+
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 100 }}>
-      {/* Header fixe */}
+      {videoUrl && <VideoModal url={videoUrl} onClose={() => setVideoUrl(null)} />}
+
+      {/* Header */}
       <div style={{ position: "sticky", top: 0, zIndex: 50, backgroundColor: "#0D0D0D", borderBottom: "1px solid #1a1a1a" }}>
         <div style={{ maxWidth: 480, margin: "0 auto", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-          <button
-            onClick={() => router.back()}
-            style={{ background: "none", border: "1px solid #2a2a2a", borderRadius: 9, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#F5F5F0", flexShrink: 0 }}
-          >
+          <button onClick={() => router.back()} style={{ background: "none", border: "1px solid #2a2a2a", borderRadius: 9, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#F5F5F0", flexShrink: 0 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -305,78 +530,99 @@ export default function SeanceViewer({
               {(seanceName || seanceData.nom).toUpperCase()}
             </p>
           </div>
-          {totalExercices > 0 && (
-            <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: doneCount === totalExercices ? "#4ADE80" : "#555", flexShrink: 0 }}>
-              {doneCount}/{totalExercices}
-            </span>
-          )}
         </div>
-        {/* Barre progression globale */}
-        {totalExercices > 0 && (
-          <div style={{ height: 3, backgroundColor: "#1a1a1a" }}>
-            <div style={{ height: "100%", width: `${(doneCount / totalExercices) * 100}%`, backgroundColor: "#B22222", transition: "width 0.3s" }} />
-          </div>
-        )}
       </div>
 
-      <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 16px 0" }}>
+      <div style={{ maxWidth: 480, margin: "0 auto", padding: "24px 16px 0" }}>
+
         {/* Infos séance */}
         <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
           {seanceData.duree_estimee && (
-            <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#555", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "4px 10px", borderRadius: 8 }}>
-              ⏱ {seanceData.duree_estimee} min
-            </span>
+            <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#555", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "5px 12px", borderRadius: 8 }}>⏱ {seanceData.duree_estimee} min</span>
           )}
           {seanceData.categorie && (
-            <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#555", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "4px 10px", borderRadius: 8 }}>
-              {seanceData.categorie}
-            </span>
+            <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#555", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "5px 12px", borderRadius: 8 }}>{seanceData.categorie}</span>
           )}
-          <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#555", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "4px 10px", borderRadius: 8 }}>
-            {allBlocs.length} bloc{allBlocs.length > 1 ? "s" : ""}
-          </span>
+          {totalExercices > 0 && (
+            <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#555", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "5px 12px", borderRadius: 8 }}>{totalExercices} exercice{totalExercices > 1 ? "s" : ""}</span>
+          )}
+          <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#555", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "5px 12px", borderRadius: 8 }}>{allBlocs.length} bloc{allBlocs.length > 1 ? "s" : ""}</span>
         </div>
 
         {/* Note de séance */}
         {seanceData.note && (
-          <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 12, padding: "12px 16px", marginBottom: 16 }}>
+          <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 12, padding: "12px 16px", marginBottom: 20 }}>
             <p className="font-body" style={{ fontSize: "0.82rem", color: "#888", lineHeight: 1.6, margin: 0 }}>{seanceData.note}</p>
           </div>
         )}
 
-        {/* Blocs */}
-        {allBlocs.map((bloc, i) => (
-          <BlocCard
-            key={bloc._key}
-            bloc={bloc}
-            blocIndex={i}
-            totalBlocs={allBlocs.length}
-            doneExercices={doneExercices}
-            onToggleEx={toggleEx}
-          />
-        ))}
+        {/* Blocs dépliables */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {allBlocs.map((bloc, i) => {
+            const color = BLOC_COLORS[bloc.type] ?? "#B22222";
+            const label = BLOC_LABELS[bloc.type] ?? bloc.type.toUpperCase();
+            const emoji = BLOC_EMOJIS[bloc.type] ?? "💪";
+            const isOpen = openBlocs.has(i);
+
+            return (
+              <div key={bloc._key} style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, overflow: "hidden" }}>
+                {/* Header accordion */}
+                <button
+                  onClick={() => toggleBloc(i)}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+                >
+                  <div style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: `${color}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>
+                    {emoji}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: color, letterSpacing: "0.08em", margin: "0 0 2px" }}>
+                      {label} · {i + 1}/{allBlocs.length}
+                    </p>
+                    <p className="font-body" style={{ fontSize: "0.9rem", fontWeight: 700, color: "#F5F5F0", margin: 0 }}>{bloc.nom || label}</p>
+                    {getBlocExs(bloc).length > 0 && (
+                      <p className="font-body" style={{ fontSize: "0.7rem", color: "#555", margin: "2px 0 0" }}>{getBlocExs(bloc).length} exercice{getBlocExs(bloc).length > 1 ? "s" : ""}</p>
+                    )}
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+
+                {/* Contenu déplié */}
+                {isOpen && (
+                  <div style={{ padding: "0 16px 16px" }}>
+                    {bloc.instructions && (
+                      <div className="font-body" style={{ fontSize: "0.82rem", color: "#888", lineHeight: 1.6, marginBottom: 12, padding: "10px 12px", backgroundColor: "#0D0D0D", borderRadius: 10 }}
+                        dangerouslySetInnerHTML={{ __html: bloc.instructions }} />
+                    )}
+                    {getBlocExs(bloc).length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {getBlocExs(bloc).map((ex) => (
+                          <ExerciceCard
+                            key={ex._key}
+                            ex={ex}
+                            done={false}
+                            onVideoClick={ex.exercise?.video_url ? () => setVideoUrl(ex.exercise!.video_url!) : undefined}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Bouton terminer fixe en bas */}
+      {/* Bouton démarrer */}
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, backgroundColor: "#0D0D0D", borderTop: "1px solid #1a1a1a", padding: "16px", paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))", zIndex: 50 }}>
         <div style={{ maxWidth: 480, margin: "0 auto" }}>
           <button
-            onClick={finirSeance}
-            disabled={finishing}
-            style={{
-              width: "100%",
-              padding: "16px",
-              backgroundColor: finishing ? "#333" : "#B22222",
-              color: finishing ? "#666" : "#fff",
-              border: "none",
-              borderRadius: 14,
-              fontSize: "1rem",
-              fontWeight: 700,
-              cursor: finishing ? "not-allowed" : "pointer",
-              letterSpacing: "0.06em",
-            }}
+            onClick={() => { initAudio(); setCurrentBlocIndex(0); setStarted(true); }}
+            style={{ width: "100%", padding: "16px", backgroundColor: "#B22222", color: "#fff", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}
           >
-            {finishing ? "Enregistrement…" : "✓ TERMINER LA SÉANCE"}
+            ▶ DÉMARRER LA SÉANCE
           </button>
         </div>
       </div>
