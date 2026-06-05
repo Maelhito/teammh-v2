@@ -344,11 +344,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
           if (e.dataTransfer.getData("source") !== "bank") return;
           try {
             const ex = JSON.parse(e.dataTransfer.getData("exerciseData")) as Exercise;
-            if (onExerciseDrop) {
-              onExerciseDrop(ex); // tabata : ajoute dans Mouvements sans toucher à la description
-            } else {
-              insertExerciseAtDrop(e, ex);
-            }
+            insertExerciseAtDrop(e, ex); // toujours insérer en rouge dans la description
+            onExerciseDrop?.(ex);        // tabata : ajoute aussi dans Mouvements
           } catch {}
         }}
         onClick={e => {
