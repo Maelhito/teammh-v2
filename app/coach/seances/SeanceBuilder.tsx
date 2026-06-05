@@ -270,7 +270,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
   onHtmlChange: (html: string) => void;
   onVideoClick: (url: string, nom: string) => void;
   placeholder?: string;
-}>(function RichTextEditor({ initialHtml, onHtmlChange, onVideoClick, placeholder }, ref) {
+  onExerciseDrop?: (ex: Exercise) => void;
+}>(function RichTextEditor({ initialHtml, onHtmlChange, onVideoClick, placeholder, onExerciseDrop }, ref) {
   const divRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -341,7 +342,14 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
         onDrop={e => {
           e.preventDefault(); e.stopPropagation();
           if (e.dataTransfer.getData("source") !== "bank") return;
-          try { insertExerciseAtDrop(e, JSON.parse(e.dataTransfer.getData("exerciseData"))); } catch {}
+          try {
+            const ex = JSON.parse(e.dataTransfer.getData("exerciseData")) as Exercise;
+            if (onExerciseDrop) {
+              onExerciseDrop(ex); // tabata : ajoute dans Mouvements sans toucher à la description
+            } else {
+              insertExerciseAtDrop(e, ex);
+            }
+          } catch {}
         }}
         onClick={e => {
           const t = e.target as HTMLElement;
@@ -794,6 +802,12 @@ function BlocCard({
             onHtmlChange={handleDescriptionChange}
             onVideoClick={(url, nom) => setVideoUrl({ url, nom })}
             placeholder="Redigez la description… Glisse un exercice pour l’insérer en rouge et dans Mouvements."
+            onExerciseDrop={bloc.format === "tabata"
+              ? (ex) => {
+                  const item: TabataItem = { _key: newKey(), exercise_id: ex.id, exercise: ex, series: "", tabata_work: bloc.tabata_work, tabata_rest: bloc.tabata_rest, notes: "" };
+                  onBlocChange(bloc._key, { tabata_exercices: [...bloc.tabata_exercices, item] });
+                }
+              : undefined}
           />
         </div>
 
