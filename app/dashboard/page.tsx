@@ -225,41 +225,25 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        {/* Encart Jour de séance / Repos */}
-        {activeAssignment && (
+        {/* Encart Jour de séance — uniquement si séance prévue aujourd'hui */}
+        {activeAssignment && isJourDeSeance && (
           <div style={{ padding: "8px 16px" }}>
             <Link href="/entrainement" style={{ textDecoration: "none" }}>
-              <div
-                style={{
-                  background: isJourDeSeance
-                    ? "linear-gradient(135deg, #8B0000 0%, #B22222 100%)"
-                    : "#111111",
-                  border: isJourDeSeance ? "none" : "1px solid #1a1a1a",
-                  borderRadius: 14,
-                  padding: "16px 18px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                }}
-              >
-                <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: isJourDeSeance ? "rgba(0,0,0,0.25)" : "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.4rem", flexShrink: 0 }}>
-                  {isJourDeSeance ? "💪" : "😴"}
+              <div style={{ background: "linear-gradient(135deg, #8B0000 0%, #B22222 100%)", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.4rem", flexShrink: 0 }}>
+                  💪
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: isJourDeSeance ? "rgba(255,255,255,0.6)" : "#555", letterSpacing: "0.08em", margin: "0 0 3px" }}>
-                    {isJourDeSeance ? `SÉANCE DU JOUR · ${nomProgramme.toUpperCase()}` : "PROGRAMME"}
+                  <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", margin: "0 0 3px" }}>
+                    SÉANCE DU JOUR · {nomProgramme.toUpperCase()}
                   </p>
-                  {isJourDeSeance ? (
-                    seancesDuJour.map((s, i) => (
-                      <p key={i} className="font-body" style={{ fontSize: "0.9rem", fontWeight: 700, color: "#FFFFFF", margin: i === 0 ? 0 : "2px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {s.nom}{s.duree ? ` · ${s.duree} min` : ""}
-                      </p>
-                    ))
-                  ) : (
-                    <p className="font-body" style={{ fontSize: "0.9rem", fontWeight: 700, color: "#F5F5F0", margin: 0 }}>Jour de repos</p>
-                  )}
+                  {seancesDuJour.map((s, i) => (
+                    <p key={i} className="font-body" style={{ fontSize: "0.9rem", fontWeight: 700, color: "#FFFFFF", margin: i === 0 ? 0 : "2px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {s.nom}{s.duree ? ` · ${s.duree} min` : ""}
+                    </p>
+                  ))}
                 </div>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isJourDeSeance ? "rgba(255,255,255,0.5)" : "#333"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                   <polyline points="9 18 15 12 9 6" />
                 </svg>
               </div>

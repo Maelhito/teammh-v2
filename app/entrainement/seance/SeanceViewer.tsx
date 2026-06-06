@@ -63,28 +63,83 @@ function formatTime(seconds: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-/* ---- Web Audio bip (fonctionne sur iOS/Android après geste utilisateur) ---- */
+/* ---- Web Audio — iOS/Android compatible ---- */
 let audioCtx: AudioContext | null = null;
-function playBeep(freq = 880, duration = 0.12, volume = 0.6) {
+
+function getAudioCtx(): AudioContext | null {
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
+    if (!audioCtx) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const AC = window.AudioContext ?? (window as any).webkitAudioContext;
+      audioCtx = new AC();
+    }
+    return audioCtx;
+  } catch { return null; }
+}
+
+function _playOneBip(ctx: AudioContext, freq: number, duration: number, volume: number, startAt: number) {
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
     osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(ctx.destination);
     osc.frequency.value = freq;
-    osc.type = "sine";
-    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-    osc.start(audioCtx.currentTime);
-    osc.stop(audioCtx.currentTime + duration);
+    osc.type = "square"; // plus percutant que "sine"
+    gain.gain.setValueAtTime(volume, startAt);
+    gain.gain.exponentialRampToValueAtTime(0.001, startAt + duration);
+    osc.start(startAt);
+    osc.stop(startAt + duration);
   } catch {}
 }
+
+// Bip simple (compte à rebours 3/2/1)
+function playBeep(freq = 880, duration = 0.18, volume = 2.0) {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const doPlay = () => _playOneBip(ctx, freq, duration, volume, ctx.currentTime);
+  if (ctx.state === "suspended") { ctx.resume().then(doPlay).catch(() => {}); }
+  else { doPlay(); }
+}
+
+// Triple bip fort pour transition de bloc / passage de minute
+function playTransitionBeep() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const doPlay = () => {
+    const now = ctx.currentTime;
+    _playOneBip(ctx, 1047, 0.15, 2.5, now);          // do
+    _playOneBip(ctx, 1175, 0.15, 2.5, now + 0.20);   // ré
+    _playOneBip(ctx, 1319, 0.30, 2.5, now + 0.40);   // mi long
+  };
+  if (ctx.state === "suspended") { ctx.resume().then(doPlay).catch(() => {}); }
+  else { doPlay(); }
+}
+
 function initAudio() {
+  const ctx = getAudioCtx();
+  if (ctx?.state === "suspended") ctx.resume().catch(() => {});
+}
+
+/* ---- Wake Lock — empêche l'écran de s'éteindre ---- */
+let wakeLock: WakeLockSentinel | null = null;
+
+async function requestWakeLock() {
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    if (audioCtx.state === "suspended") audioCtx.resume();
+    if ("wakeLock" in navigator) {
+      wakeLock = await navigator.wakeLock.request("screen");
+      // iOS/Android re-release le lock quand l'app passe en arrière-plan — on le re-demande
+      document.addEventListener("visibilitychange", async () => {
+        if (document.visibilityState === "visible" && !wakeLock) {
+          try { wakeLock = await navigator.wakeLock.request("screen"); } catch {}
+        }
+      }, { once: false });
+    }
   } catch {}
+}
+
+function releaseWakeLock() {
+  wakeLock?.release().catch(() => {});
+  wakeLock = null;
 }
 
 function getYoutubeId(url: string): string | null {
@@ -184,8 +239,8 @@ function ExerciceCard({ ex, done, onToggle, onVideoClick }: {
   );
 }
 
-/* ---- Stopwatch (compte en montant, auto-start) ---- */
-function Stopwatch({ style }: { style?: React.CSSProperties }) {
+/* ---- Stopwatch header (compte en montant, tourne en continu) ---- */
+function StopwatchHeader({ style }: { style?: React.CSSProperties }) {
   const [elapsed, setElapsed] = useState(0);
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
@@ -193,6 +248,35 @@ function Stopwatch({ style }: { style?: React.CSSProperties }) {
     return () => { if (ref.current) clearInterval(ref.current); };
   }, []);
   return <span style={style}>{formatTime(elapsed)}</span>;
+}
+
+/* ---- Stopwatch bloc (démarrage manuel) ---- */
+function StopwatchBloc({ color }: { color: string }) {
+  const [elapsed, setElapsed] = useState(0);
+  const [running, setRunning] = useState(false);
+  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (running) { ref.current = setInterval(() => setElapsed((e) => e + 1), 1000); }
+    else { if (ref.current) clearInterval(ref.current); }
+    return () => { if (ref.current) clearInterval(ref.current); };
+  }, [running]);
+  return (
+    <div style={{ textAlign: "center", padding: "16px 0" }}>
+      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.1em", margin: "0 0 8px" }}>DURÉE DU BLOC</p>
+      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: "#F5F5F0", lineHeight: 1, margin: "0 0 16px" }}>
+        {formatTime(elapsed)}
+      </p>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+        <button
+          onClick={() => { initAudio(); setRunning((r) => !r); }}
+          style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: running ? "#333" : color, color: "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: "pointer" }}
+        >
+          {running ? "⏸ Pause" : elapsed === 0 ? "▶ Démarrer" : "▶ Reprendre"}
+        </button>
+        <button onClick={() => { setElapsed(0); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#555", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
+      </div>
+    </div>
+  );
 }
 
 /* ---- Compte à rebours avec auto-start + bips ---- */
@@ -207,8 +291,8 @@ function Countdown({ totalSeconds, label }: { totalSeconds: number; label: strin
       ref.current = setInterval(() => {
         setRemaining((r) => {
           const next = Math.max(0, r - 1);
-          if (next <= 3 && next > 0) playBeep(next === 1 ? 1200 : 880);
-          if (next === 0) playBeep(660, 0.4);
+          if (next <= 3 && next > 0) playBeep(next === 1 ? 1200 : 880, 0.18, 2.0);
+          if (next === 0) playTransitionBeep();
           prevRemaining.current = next;
           return next;
         });
@@ -248,9 +332,9 @@ function EmomTimer({ intervalSec, rounds }: { intervalSec: number; rounds: numbe
       ref.current = setInterval(() => {
         setRemaining((r) => {
           const next = r - 1;
-          if (next <= 3 && next > 0) playBeep(next === 1 ? 1200 : 880);
+          if (next <= 3 && next > 0) playBeep(next === 1 ? 1200 : 880, 0.18, 2.0);
           if (next <= 0) {
-            playBeep(660, 0.4);
+            playTransitionBeep();
             setCurrentRound((cr) => {
               if (cr >= rounds) { setRunning(false); return cr; }
               return cr + 1;
@@ -296,9 +380,9 @@ function TabataTimer({ workSec, restSec, tours }: { workSec: number; restSec: nu
       ref.current = setInterval(() => {
         setRemaining((r) => {
           const next = r - 1;
-          if (next <= 3 && next > 0) playBeep(next === 1 ? 1200 : 880);
+          if (next <= 3 && next > 0) playBeep(next === 1 ? 1200 : 880, 0.18, 2.0);
           if (next <= 0) {
-            playBeep(660, 0.4);
+            playTransitionBeep();
             if (phase === "work") { setPhase("rest"); return restSec; }
             else {
               setCurrentTour((t) => {
@@ -388,6 +472,8 @@ export default function SeanceViewer({
 
   async function finirSeance() {
     setFinishing(true);
+    releaseWakeLock();
+    playTransitionBeep();
     try {
       await fetch("/api/entrainement/terminer", {
         method: "POST",
@@ -438,7 +524,7 @@ export default function SeanceViewer({
                 {(seanceName || seanceData.nom).toUpperCase()}
               </p>
             </div>
-            <Stopwatch style={{ fontFamily: "monospace", fontSize: "1.1rem", fontWeight: 700, color: "#F5F5F0", flexShrink: 0, letterSpacing: "0.05em" }} />
+            <StopwatchHeader style={{ fontFamily: "monospace", fontSize: "1.1rem", fontWeight: 700, color: "#F5F5F0", flexShrink: 0, letterSpacing: "0.05em" }} />
           </div>
         </div>
 
@@ -458,10 +544,7 @@ export default function SeanceViewer({
           {/* Timer selon format */}
           <div style={{ backgroundColor: "#111111", border: `1px solid ${color}30`, borderRadius: 16, padding: "4px 0 16px", marginBottom: 20 }}>
             {currentBloc.format === "classique" || !currentBloc.format ? (
-              <div style={{ textAlign: "center", padding: "16px 0" }}>
-                <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.1em", margin: "0 0 8px" }}>DURÉE DU BLOC</p>
-                <Stopwatch style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: "#F5F5F0", letterSpacing: "0.04em", display: "block", textAlign: "center" }} />
-              </div>
+              <StopwatchBloc color={color} />
             ) : (
               <BlocTimer bloc={currentBloc} />
             )}
@@ -501,7 +584,7 @@ export default function SeanceViewer({
                 {finishing ? "Enregistrement…" : "✓ TERMINER LA SÉANCE"}
               </button>
             ) : (
-              <button onClick={() => { initAudio(); setCurrentBlocIndex((i) => i + 1); }} style={{ width: "100%", padding: "16px", backgroundColor: "#B22222", color: "#fff", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}>
+              <button onClick={() => { playTransitionBeep(); setCurrentBlocIndex((i) => i + 1); }} style={{ width: "100%", padding: "16px", backgroundColor: "#B22222", color: "#fff", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}>
                 BLOC SUIVANT →
               </button>
             )}
@@ -619,7 +702,7 @@ export default function SeanceViewer({
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, backgroundColor: "#0D0D0D", borderTop: "1px solid #1a1a1a", padding: "16px", paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))", zIndex: 50 }}>
         <div style={{ maxWidth: 480, margin: "0 auto" }}>
           <button
-            onClick={() => { initAudio(); setCurrentBlocIndex(0); setStarted(true); }}
+            onClick={() => { initAudio(); requestWakeLock(); setCurrentBlocIndex(0); setStarted(true); }}
             style={{ width: "100%", padding: "16px", backgroundColor: "#B22222", color: "#fff", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}
           >
             ▶ DÉMARRER LA SÉANCE

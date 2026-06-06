@@ -35,6 +35,7 @@ interface Programme {
   duree_semaines: number;
   note: string;
   grid: Record<string, unknown[]>;
+  seancesTerminees: string[];
 }
 
 function isEventOnDay(event: CalendarEvent, day: Date): boolean {
@@ -210,11 +211,14 @@ export default function EntrainementClient({
               </div>
             </div>
           ) : (
-            <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "14px 18px", display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: "1.3rem" }}>😴</span>
+            <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "20px 18px", display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.8rem", flexShrink: 0 }}>
+                📅
+              </div>
               <div>
-                <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.08em", margin: "0 0 2px" }}>{programme.nom.toUpperCase()}</p>
-                <p className="font-body" style={{ fontSize: "0.9rem", fontWeight: 700, color: "#F5F5F0", margin: 0 }}>Jour de repos</p>
+                <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.08em", margin: "0 0 4px" }}>{programme.nom.toUpperCase()}</p>
+                <p className="font-title" style={{ fontSize: "1.2rem", color: "#F5F5F0", margin: 0, letterSpacing: "0.04em" }}>REPOS</p>
+                <p className="font-body" style={{ fontSize: "0.72rem", color: "#444", margin: "3px 0 0" }}>Récupération active</p>
               </div>
             </div>
           )}
@@ -274,6 +278,8 @@ export default function EntrainementClient({
           const hasSeance = dayItems.length > 0;
           const hasEvent = dayEvts.length > 0;
           const isPast = dayDate < today && !isToday;
+          const dayKey = dateDebut ? dateToGridKey(dayDate, dateDebut) : null;
+          const isTerminee = dayKey ? (programme?.seancesTerminees ?? []).includes(dayKey) : false;
 
           const handleClick = () => {
             if (decalerMode) {
@@ -320,12 +326,14 @@ export default function EntrainementClient({
                 {day}
               </span>
               {/* Indicateurs */}
-              {(hasSeance || hasEvent) && (
+              {isTerminee ? (
+                <span style={{ fontSize: "0.6rem", color: "#4ADE80", lineHeight: 1 }}>✓</span>
+              ) : (hasSeance || hasEvent) ? (
                 <div style={{ display: "flex", gap: 2 }}>
                   {hasSeance && <span style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: "#B22222", display: "block" }} />}
                   {hasEvent && <span style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: "#3B82F6", display: "block" }} />}
                 </div>
-              )}
+              ) : null}
             </button>
           );
         })}
@@ -353,7 +361,16 @@ export default function EntrainementClient({
           {/* Séances du programme */}
           {selectedDayItems.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <p className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: "#B22222", letterSpacing: "0.08em", margin: "0 0 8px" }}>SÉANCES</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <p className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: "#B22222", letterSpacing: "0.08em", margin: 0 }}>SÉANCES</p>
+                {(() => {
+                  const dk = dateDebut ? dateToGridKey(selectedDay!, dateDebut) : null;
+                  const term = dk ? (programme?.seancesTerminees ?? []).includes(dk) : false;
+                  return term ? (
+                    <span className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: "#4ADE80", letterSpacing: "0.06em" }}>✓ TERMINÉE</span>
+                  ) : null;
+                })()}
+              </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {selectedDayItems.map((item, idx) => {
                   const dayKey = dateDebut ? dateToGridKey(selectedDay!, dateDebut) : null;
@@ -366,14 +383,17 @@ export default function EntrainementClient({
                         <p className="font-body" style={{ fontWeight: 700, fontSize: "0.86rem", color: "#F5F5F0", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{itemNom(item)}</p>
                         {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "#555", margin: "2px 0 0" }}>{itemDuree(item)} min</p>}
                       </div>
-                      {item.type !== "video" && dayKey && programme && (
-                        <Link
-                          href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${dayKey}&itemIndex=${idx}`}
-                          style={{ padding: "7px 12px", backgroundColor: "#B22222", borderRadius: 8, color: "#FFF", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
-                        >
-                          ▶
-                        </Link>
-                      )}
+                      {item.type !== "video" && dayKey && programme && (() => {
+                        const isTerm = (programme?.seancesTerminees ?? []).includes(dayKey);
+                        return (
+                          <Link
+                            href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${dayKey}&itemIndex=${idx}`}
+                            style={{ padding: "7px 12px", backgroundColor: isTerm ? "#166534" : "#B22222", borderRadius: 8, color: "#FFF", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                          >
+                            {isTerm ? "↺" : "▶"}
+                          </Link>
+                        );
+                      })()}
                     </div>
                   );
                 })}

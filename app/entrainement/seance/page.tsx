@@ -103,7 +103,7 @@ export default async function SeancePage({ searchParams }: { searchParams: Promi
       gridKey={gridKey}
       seanceData={seanceData}
       seanceName={seanceName}
-      nomProgramme={assignment.programme?.nom ?? ""}
+      nomProgramme={(assignment.programme as unknown as { nom: string } | null)?.nom ?? ""}
     />
   );
 }

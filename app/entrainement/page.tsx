@@ -41,6 +41,7 @@ export default async function EntrainementPage() {
       let duree_semaines: number = assignment.programme?.duree_semaines ?? 4;
       let note = "";
 
+      let seancesTerminees: string[] = [];
       try {
         const src = assignment.grid_data ?? assignment.programme?.description ?? "";
         if (src?.startsWith("{")) {
@@ -48,6 +49,17 @@ export default async function EntrainementPage() {
           grid = parsed.grid ?? {};
           duree_semaines = parsed.duree_semaines ?? duree_semaines;
           note = parsed.note ?? "";
+          seancesTerminees = Array.isArray(parsed.seances_terminees) ? parsed.seances_terminees : [];
+        }
+        // Si grid_data ne contient pas de grid, essayer programme.description séparément
+        if (Object.keys(grid).length === 0 && assignment.grid_data) {
+          const descSrc = assignment.programme?.description ?? "";
+          if (descSrc?.startsWith("{")) {
+            const parsed = JSON.parse(descSrc);
+            grid = parsed.grid ?? {};
+            duree_semaines = parsed.duree_semaines ?? duree_semaines;
+            note = parsed.note ?? note;
+          }
         }
       } catch {}
 
@@ -67,6 +79,7 @@ export default async function EntrainementPage() {
         duree_semaines,
         note,
         grid,
+        seancesTerminees,
       };
     }
   }
