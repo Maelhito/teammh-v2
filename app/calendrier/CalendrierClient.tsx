@@ -11,7 +11,7 @@ interface CalendarEvent {
   message: string | null;
   lien: string | null;
   created_by: "admin" | "cliente";
-  event_type: "coach" | "nutrition" | "coaching_groupe" | null;
+  event_type: "coach" | "nutrition" | "coaching_groupe" | "seance" | "tache" | null;
   user_id: string | null;
   target_user_id: string | null;
   team_member_id: string | null;
@@ -53,11 +53,12 @@ function toLocalDate(d: Date): string {
 }
 
 function eventColor(evt: CalendarEvent): string {
-  if (evt.event_type === "coaching_groupe") return "#3B82F6";
-  if (evt.event_type === "nutrition") return "#22C55E";
-  if (evt.event_type === "coach") return "#B22222";
-  // Événement client sans type défini → violet (legacy)
-  if (evt.created_by === "cliente") return "#7C3AED";
+  if (evt.event_type === "seance")          return "#F97316"; // 🟠 Séance de sport
+  if (evt.event_type === "coach")           return "#B22222"; // 🔴 Coach
+  if (evt.event_type === "nutrition")       return "#22C55E"; // 🟢 Nutrition
+  if (evt.event_type === "coaching_groupe") return "#3B82F6"; // 🔵 Coaching de groupe
+  if (evt.event_type === "tache")           return "#8B5CF6"; // 🟣 Tâche
+  if (evt.created_by === "cliente")         return "#7C3AED"; // violet legacy
   return "#B22222";
 }
 
@@ -246,10 +247,12 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
           const isToday = dayDate.toDateString() === todayRaw.toDateString();
           const isSelected = selectedDay?.toDateString() === dayDate.toDateString();
           const dayEvts = getDayEvents(dayDate);
-          const hasCoach = dayEvts.some((e) => e.event_type === "coach" || (e.created_by === "admin" && e.event_type !== "coaching_groupe" && e.event_type !== "nutrition"));
+          const hasSeance       = dayEvts.some((e) => e.event_type === "seance");
+          const hasCoach        = dayEvts.some((e) => e.event_type === "coach");
           const hasCoachingGroupe = dayEvts.some((e) => e.event_type === "coaching_groupe");
-          const hasNutritionClient = dayEvts.some((e) => e.created_by === "cliente" && e.event_type === "nutrition");
-          const hasPersonal = dayEvts.some((e) => e.created_by === "cliente" && !e.event_type);
+          const hasNutrition    = dayEvts.some((e) => e.event_type === "nutrition");
+          const hasTache        = dayEvts.some((e) => e.event_type === "tache");
+          const hasPersonal     = dayEvts.some((e) => e.created_by === "cliente" && !e.event_type);
 
           return (
             <button
@@ -279,12 +282,14 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
               }}>
                 {day}
               </span>
-              {(hasCoach || hasCoachingGroupe || hasNutritionClient || hasPersonal) && (
-                <div style={{ display: "flex", gap: 2, marginTop: 4 }}>
-                  {hasCoach && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#B22222" }} />}
+              {(hasSeance || hasCoach || hasCoachingGroupe || hasNutrition || hasTache || hasPersonal) && (
+                <div style={{ display: "flex", gap: 2, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }}>
+                  {hasSeance        && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#F97316" }} />}
+                  {hasCoach         && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#B22222" }} />}
                   {hasCoachingGroupe && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#3B82F6" }} />}
-                  {hasNutritionClient && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#22C55E" }} />}
-                  {hasPersonal && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#7C3AED" }} />}
+                  {hasNutrition     && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#22C55E" }} />}
+                  {hasTache         && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#8B5CF6" }} />}
+                  {hasPersonal      && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#7C3AED" }} />}
                 </div>
               )}
             </button>
@@ -293,19 +298,19 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
       </div>
 
       {/* Légende */}
-      <div style={{ display: "flex", gap: 14, marginTop: 16, paddingBottom: 4, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#B22222", display: "inline-block" }} />
-          <span style={{ fontSize: "0.72rem", color: "#555" }}>Coach</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#3B82F6", display: "inline-block" }} />
-          <span style={{ fontSize: "0.72rem", color: "#555" }}>Coaching de Groupe</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#22C55E", display: "inline-block" }} />
-          <span style={{ fontSize: "0.72rem", color: "#555" }}>Nutrition</span>
-        </div>
+      <div style={{ display: "flex", gap: 10, marginTop: 16, paddingBottom: 4, flexWrap: "wrap" }}>
+        {[
+          { color: "#F97316", label: "Séance" },
+          { color: "#B22222", label: "Coach" },
+          { color: "#3B82F6", label: "Coaching groupe" },
+          { color: "#22C55E", label: "Nutrition" },
+          { color: "#8B5CF6", label: "Tâche" },
+        ].map(({ color, label }) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: color, display: "inline-block", flexShrink: 0 }} />
+            <span style={{ fontSize: "0.72rem", color: "#555" }}>{label}</span>
+          </div>
+        ))}
       </div>
 
       {/* Selected day panel */}
@@ -350,8 +355,18 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                   <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.78rem", margin: "4px 0 0" }}>{evt.message}</p>
                 )}
                 {evt.lien && (
-                  <a href={evt.lien} target="_blank" rel="noopener noreferrer" style={{ color: "#B22222", fontSize: "0.78rem", marginTop: 4, display: "block" }}>
-                    → Voir le lien
+                  <a
+                    href={evt.lien}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      marginTop: 8, padding: "7px 14px", borderRadius: 8,
+                      backgroundColor: "#2563EB", color: "#fff",
+                      fontSize: "0.82rem", fontWeight: 700, textDecoration: "none",
+                    }}
+                  >
+                    📹 Rejoindre le Zoom
                   </a>
                 )}
                 {evt.team_member_id && (() => {
