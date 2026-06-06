@@ -461,6 +461,9 @@ export default function SeanceViewer({
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [done, setDone] = useState(false);
+  const [streakResult, setStreakResult] = useState<number | null>(null);
+  const startTimeRef = useRef<number>(Date.now());
+  const [elapsedMin, setElapsedMin] = useState(0);
 
   const allBlocs = seanceData.blocs ?? [];
   const currentBloc = allBlocs[currentBlocIndex];
@@ -474,12 +477,15 @@ export default function SeanceViewer({
     setFinishing(true);
     releaseWakeLock();
     playTransitionBeep();
+    setElapsedMin(Math.round((Date.now() - startTimeRef.current) / 60000));
     try {
-      await fetch("/api/entrainement/terminer", {
+      const res = await fetch("/api/entrainement/terminer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assignmentId, gridKey }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (typeof data.streak === "number") setStreakResult(data.streak);
     } catch {}
     setDone(true);
     setFinishing(false);
@@ -487,14 +493,89 @@ export default function SeanceViewer({
 
   /* ---- Écran terminé ---- */
   if (done) {
+    const totalExercices = (seanceData.blocs ?? []).reduce((acc, b) => {
+      const exs = getBlocExs(b);
+      return acc + exs.filter((e) => e.exercise !== null).length;
+    }, 0);
+    const messages = [
+      "Tu t'es surpassée aujourd'hui. 💪",
+      "Chaque séance te rapproche de ton objectif. 🎯",
+      "La régularité fait toute la différence. 🔥",
+      "Fierté garantie. Tu l'as mérité. ⚡",
+      "Corps et mental : tu progresses sur les deux. 🏆",
+    ];
+    const msg = messages[Math.floor(Math.random() * messages.length)];
+
+    const confettiColors = ["#B22222", "#FB923C", "#FBBF24", "#4ADE80", "#3B82F6", "#A78BFA"];
+    const confettiPieces = Array.from({ length: 30 }, (_, i) => ({
+      color: confettiColors[i % confettiColors.length],
+      left: `${Math.random() * 100}%`,
+      delay: `${Math.random() * 1.5}s`,
+      size: `${6 + Math.random() * 8}px`,
+    }));
+
     return (
-      <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-        <div style={{ textAlign: "center", maxWidth: 360 }}>
-          <div style={{ fontSize: "4rem", marginBottom: 20 }}>🎉</div>
-          <h1 className="font-title" style={{ fontSize: "2rem", color: "#F5F5F0", letterSpacing: "0.06em", margin: "0 0 12px" }}>SÉANCE TERMINÉE</h1>
-          <p className="font-body" style={{ fontSize: "0.88rem", color: "#555", margin: "0 0 32px", lineHeight: 1.6 }}>Bravo ! Tu as complété {seanceName}.</p>
-          <button onClick={() => router.push("/entrainement")} style={{ width: "100%", padding: "16px", backgroundColor: "#B22222", color: "#fff", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}>
-            RETOUR AUX SÉANCES
+      <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, overflow: "hidden", position: "relative" }}>
+        {/* Confettis CSS */}
+        <style>{`
+          @keyframes confettiFall {
+            0% { transform: translateY(-60px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+          }
+        `}</style>
+        {confettiPieces.map((p, i) => (
+          <div key={i} style={{
+            position: "fixed", top: 0, left: p.left,
+            width: p.size, height: p.size,
+            backgroundColor: p.color, borderRadius: "2px",
+            animation: `confettiFall 2.5s ${p.delay} ease-in forwards`,
+            pointerEvents: "none", zIndex: 0,
+          }} />
+        ))}
+
+        <div style={{ textAlign: "center", maxWidth: 360, position: "relative", zIndex: 1 }}>
+          {/* Trophée */}
+          <div style={{ fontSize: "4rem", marginBottom: 16 }}>🏆</div>
+
+          <h1 className="font-title" style={{ fontSize: "2rem", color: "#F5F5F0", letterSpacing: "0.06em", margin: "0 0 6px" }}>
+            SÉANCE TERMINÉE
+          </h1>
+          <p className="font-body" style={{ fontSize: "0.78rem", fontWeight: 700, color: "#B22222", letterSpacing: "0.08em", margin: "0 0 24px" }}>
+            {(seanceName || seanceData.nom).toUpperCase()}
+          </p>
+
+          {/* Stats */}
+          <div style={{ display: "flex", gap: 10, marginBottom: 20, justifyContent: "center" }}>
+            {elapsedMin > 0 && (
+              <div style={{ flex: 1, backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 12, padding: "14px 10px", textAlign: "center" }}>
+                <p className="font-title" style={{ fontSize: "1.5rem", color: "#F5F5F0", margin: 0, lineHeight: 1 }}>{elapsedMin}</p>
+                <p className="font-body" style={{ fontSize: "0.65rem", color: "#555", margin: "4px 0 0", letterSpacing: "0.06em" }}>MIN</p>
+              </div>
+            )}
+            {totalExercices > 0 && (
+              <div style={{ flex: 1, backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 12, padding: "14px 10px", textAlign: "center" }}>
+                <p className="font-title" style={{ fontSize: "1.5rem", color: "#F5F5F0", margin: 0, lineHeight: 1 }}>{totalExercices}</p>
+                <p className="font-body" style={{ fontSize: "0.65rem", color: "#555", margin: "4px 0 0", letterSpacing: "0.06em" }}>EXERCICES</p>
+              </div>
+            )}
+            {streakResult !== null && streakResult > 0 && (
+              <div style={{ flex: 1, backgroundColor: "#1a0a00", border: "1px solid rgba(251,146,60,0.3)", borderRadius: 12, padding: "14px 10px", textAlign: "center" }}>
+                <p className="font-title" style={{ fontSize: "1.5rem", color: "#FB923C", margin: 0, lineHeight: 1 }}>🔥{streakResult}</p>
+                <p className="font-body" style={{ fontSize: "0.65rem", color: "#FB923C", margin: "4px 0 0", letterSpacing: "0.06em", opacity: 0.7 }}>FLAMME</p>
+              </div>
+            )}
+          </div>
+
+          {/* Message motivant */}
+          <p className="font-body" style={{ fontSize: "0.88rem", color: "#777", margin: "0 0 32px", lineHeight: 1.6, fontStyle: "italic" }}>
+            {msg}
+          </p>
+
+          <button
+            onClick={() => router.push("/entrainement")}
+            style={{ width: "100%", padding: "16px", backgroundColor: "#B22222", color: "#fff", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}
+          >
+            CONTINUER →
           </button>
         </div>
       </div>

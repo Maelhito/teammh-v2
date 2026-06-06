@@ -30,7 +30,7 @@ export default function BottomNav() {
             <rect x="3" y="16" width="7" height="5" rx="1" />
           </svg>
           <span className="font-body font-semibold" style={{ fontSize: "0.62rem", color: isModules ? active : inactive, letterSpacing: "0.06em" }}>
-            MES PLANS
+            MES MODULES
           </span>
         </Link>
 

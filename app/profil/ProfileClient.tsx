@@ -285,16 +285,6 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
     }
   }
 
-  // Convertit une clé VAPID base64url → Uint8Array (ArrayBufferView requis par pushManager)
-  function urlBase64ToUint8Array(base64String: string): Uint8Array {
-    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-    const rawData = atob(base64);
-    const arr = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; i++) arr[i] = rawData.charCodeAt(i);
-    return arr; // Uint8Array, pas arr.buffer — requis par certains navigateurs/Safari
-  }
-
   const handleChooseTeamMember = useCallback(async (field: "coach_id" | "nutrition_id", id: string) => {
     setTeamMsg("");
     try {

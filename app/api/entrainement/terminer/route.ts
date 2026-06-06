@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { updateStreak } from "@/lib/streak";
 
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -45,5 +46,7 @@ export async function POST(req: NextRequest) {
     })
     .eq("id", assignmentId);
 
-  return NextResponse.json({ success: true });
+  const streak = await updateStreak(session.user.id);
+
+  return NextResponse.json({ success: true, streak });
 }

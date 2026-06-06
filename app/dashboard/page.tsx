@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getModules } from "@/lib/modules";
 import { getUserProfile, getModuleCompletionsWithDates } from "@/lib/user-profile";
 import { computeUnlockStatuses } from "@/lib/module-unlock";
+import { getStreak } from "@/lib/streak";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import DashboardModules from "@/components/DashboardModules";
@@ -76,7 +77,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const weekStart = monday.toISOString().slice(0, 10);
   const weekEndStr = weekEnd.toISOString().slice(0, 10);
 
-  const [profile, completionsWithDates, activeAssignment, allEventsRaw] = await Promise.all([
+  const [profile, completionsWithDates, activeAssignment, allEventsRaw, streakInfo] = await Promise.all([
     userId ? getUserProfile(userId) : Promise.resolve(null),
     userId ? getModuleCompletionsWithDates(userId) : Promise.resolve([]),
     userId
@@ -99,6 +100,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           .order("date", { ascending: true })
           .then((r) => (r.data ?? []) as CalendarEvent[])
       : Promise.resolve([] as CalendarEvent[]),
+    userId ? getStreak(userId) : Promise.resolve({ streak_current: 0, streak_last_activity: null }),
   ]);
 
   // Événements de la semaine (un-time + récurrents)
@@ -139,7 +141,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               nom: item.type === "seance" ? (item.seanceName ?? "") : (item.nom ?? ""),
               duree: item.duree ?? null,
             }));
-          isJourDeSeance = items.length > 0;
+          isJourDeSeance = items.some((item) => item.type !== "video");
         }
       }
     } catch {}
@@ -170,6 +172,34 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     semaineProgress = semaine / cfg.weeks;
   }
 
+  // Stat séances de la semaine courante
+  let seancesPreSemaine = 0;
+  let seancesTermineesSemaine = 0;
+  if (activeAssignment) {
+    try {
+      const src = activeAssignment.grid_data ?? "";
+      if (src?.startsWith("{")) {
+        const parsed = JSON.parse(src);
+        const grid: Record<string, { type: string }[]> = parsed.grid ?? {};
+        const terminees: string[] = Array.isArray(parsed.seances_terminees) ? parsed.seances_terminees : [];
+        const dateDebut = activeAssignment.date_debut ? new Date(activeAssignment.date_debut) : null;
+        if (dateDebut) {
+          const diffDays = Math.floor((now.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24));
+          const semaineCourante = Math.max(Math.floor(diffDays / 7) + 1, 1);
+          for (let j = 1; j <= 7; j++) {
+            const key = `S${semaineCourante}_J${j}`;
+            const items = grid[key] ?? [];
+            const hasSeance = items.some((i) => i.type !== "video");
+            if (hasSeance) {
+              seancesPreSemaine++;
+              if (terminees.includes(key)) seancesTermineesSemaine++;
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
   const moduleItems = modules.map((m, i) => ({
     slug: m.slug,
     title: m.title,
@@ -198,12 +228,25 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        {/* Greeting */}
-        <div style={{ padding: "20px 16px 8px" }}>
+        {/* Greeting + Flamme */}
+        <div style={{ padding: "20px 16px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <p className="font-body text-sm" style={{ color: "#555" }}>
             Bonjour,{" "}
             <span style={{ color: "#F5F5F0", fontWeight: 700 }}>{firstName}</span>
           </p>
+          {streakInfo.streak_current > 0 ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: "#1a0a00", border: "1px solid rgba(251,146,60,0.3)", borderRadius: 20, padding: "5px 12px" }}>
+              <span style={{ fontSize: "0.95rem" }}>🔥</span>
+              <span className="font-body" style={{ fontSize: "0.78rem", fontWeight: 700, color: "#FB923C" }}>
+                {streakInfo.streak_current} jour{streakInfo.streak_current > 1 ? "s" : ""} de flamme
+              </span>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 20, padding: "5px 12px" }}>
+              <span style={{ fontSize: "0.85rem" }}>🔥</span>
+              <span className="font-body" style={{ fontSize: "0.72rem", color: "#444" }}>Lance ta flamme !</span>
+            </div>
+          )}
         </div>
 
         {/* Barre de progression semaine */}
@@ -259,6 +302,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#F5F5F0", letterSpacing: "0.06em" }}>
                 CETTE SEMAINE
               </span>
+              {seancesPreSemaine > 0 && (
+                <span className="font-body" style={{ marginLeft: "auto", fontSize: "0.7rem", fontWeight: 700, color: seancesTermineesSemaine === seancesPreSemaine ? "#4ADE80" : "#FB923C" }}>
+                  {seancesTermineesSemaine}/{seancesPreSemaine} séances {seancesTermineesSemaine === seancesPreSemaine ? "✓" : "🔥"}
+                </span>
+              )}
             </div>
 
             {/* 7 colonnes jours */}
@@ -268,8 +316,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 const isPast = date < now;
                 const hasEvts = dayEvts.length > 0;
 
-                return (
-                  <Link key={date.toISOString()} href="/entrainement" style={{ textDecoration: "none" }}>
+                const inner = (
                     <div
                       style={{
                         display: "flex",
@@ -298,7 +345,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                         )}
                       </div>
                     </div>
-                  </Link>
+                  );
+                return (isToday || hasEvts) ? (
+                  <Link key={date.toISOString()} href="/entrainement" style={{ textDecoration: "none" }}>{inner}</Link>
+                ) : (
+                  <div key={date.toISOString()}>{inner}</div>
                 );
               })}
             </div>
