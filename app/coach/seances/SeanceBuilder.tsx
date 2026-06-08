@@ -399,7 +399,7 @@ function ExerciseBank({
   });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#fff", borderRight: "1px solid #e8e8e8", width: 260, flexShrink: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "calc(100vh - 64px)", alignSelf: "start", backgroundColor: "#fff", borderRight: "1px solid #e8e8e8", width: 260, flexShrink: 0 }}>
       <div style={{ padding: "10px 12px", borderBottom: "1px solid #f0f0f0", flexShrink: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <p style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.1em", margin: 0, fontFamily: "system-ui" }}>
