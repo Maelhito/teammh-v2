@@ -562,6 +562,87 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
   );
 }
 
+// ─── Journal séances (notes post-séance) ─────────────────────────────────────
+interface SeanceLog {
+  id: string; seance_nom: string | null; completed_at: string;
+  duration_min: number | null; note_etoiles: number | null; note_texte: string | null;
+}
+
+function JournalSeances({ clienteId }: { clienteId: string }) {
+  const [open, setOpen] = useState(false);
+  const [logs, setLogs] = useState<SeanceLog[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  async function load() {
+    if (loaded) return;
+    const res = await fetch(`/api/coach/clientes/${clienteId}/journal`);
+    const d = await res.json();
+    setLogs(d.logs ?? []);
+    setLoaded(true);
+  }
+
+  function handleToggle() {
+    setOpen(o => !o);
+    if (!loaded) load();
+  }
+
+  if (!open && !loaded) {
+    return (
+      <div style={{ marginTop: 8, borderRadius: 12, border: "1px solid #efefef", overflow: "hidden", backgroundColor: "#fff" }}>
+        <button onClick={handleToggle} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 18px", background: "none", border: "none", cursor: "pointer", fontFamily: "system-ui" }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: "#bbb", letterSpacing: "0.1em", textTransform: "uppercase" }}>Journal des séances</span>
+          <span style={{ fontSize: 12, color: "#ccc" }}>▼</span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 8, borderRadius: 12, border: "1px solid #efefef", overflow: "hidden", backgroundColor: "#fff" }}>
+      <button onClick={handleToggle} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 18px", background: "none", border: "none", cursor: "pointer", fontFamily: "system-ui" }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: "#bbb", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          Journal des séances {loaded && logs.length > 0 ? `(${logs.length})` : ""}
+        </span>
+        <span style={{ fontSize: 12, color: "#ccc", transition: "transform 0.2s", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+      </button>
+
+      {open && (
+        <div style={{ borderTop: "1px solid #f5f5f5", padding: "6px 12px 12px" }}>
+          {!loaded && <p style={{ fontSize: 12, color: "#bbb", padding: "12px 6px", fontFamily: "system-ui" }}>Chargement…</p>}
+          {loaded && logs.length === 0 && (
+            <p style={{ fontSize: 12, color: "#bbb", padding: "12px 6px", fontFamily: "system-ui" }}>Aucune séance notée pour l'instant.</p>
+          )}
+          {logs.map(log => (
+            <div key={log.id} style={{ padding: "12px 6px", borderBottom: "1px solid #f9f9f9" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: log.note_texte ? 6 : 0 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#333", margin: "0 0 2px", fontFamily: "system-ui", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {log.seance_nom ?? "Séance"}
+                  </p>
+                  <p style={{ fontSize: 10, color: "#bbb", margin: 0, fontFamily: "system-ui" }}>
+                    {new Date(log.completed_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+                    {log.duration_min ? ` · ${log.duration_min} min` : ""}
+                  </p>
+                </div>
+                {log.note_etoiles && (
+                  <span style={{ fontSize: 12, flexShrink: 0, letterSpacing: 1 }}>
+                    {"⭐".repeat(log.note_etoiles)}
+                  </span>
+                )}
+              </div>
+              {log.note_texte && (
+                <p style={{ fontSize: 11, color: "#666", margin: 0, fontFamily: "system-ui", lineHeight: 1.5, fontStyle: "italic", paddingLeft: 2 }}>
+                  "{log.note_texte}"
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Historique accordion ─────────────────────────────────────────────────────
 const STATUT_LABEL: Record<string, { label: string; color: string }> = {
   en_cours: { label: "En cours",  color: "#B22222" },
@@ -1044,6 +1125,9 @@ export default function ClienteFichePage() {
 
       {/* Historique / gestion des programmes assignés */}
       <HistoriqueAccordion assignments={assignments} clienteId={id} onDeleted={loadAssignments} />
+
+      {/* Journal des séances (notes post-séance) */}
+      <JournalSeances clienteId={id} />
 
       {/* Edit panel */}
       {editTarget && enCours && (
