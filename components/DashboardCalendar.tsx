@@ -131,12 +131,11 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 2, justifyContent: "center", minHeight: 8 }}>
                   {/* Séances */}
                   {day.seances.slice(0, 2).map((s, si) => (
-                    <span key={`s${si}`} style={{
-                      width: 5, height: 5, borderRadius: "50%",
-                      backgroundColor: "#FB923C",
-                      display: "block",
-                      opacity: s.validated ? 1 : 0.5,
-                    }} />
+                    s.validated ? (
+                      <span key={`s${si}`} style={{ fontSize: "0.55rem", color: "#FB923C", lineHeight: 1, display: "block" }}>✓</span>
+                    ) : (
+                      <span key={`s${si}`} style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#FB923C", display: "block", opacity: 0.5 }} />
+                    )
                   ))}
                   {/* Événements calendrier */}
                   {hasContent && day.events.slice(0, 2).map((e) => (
@@ -189,11 +188,11 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
                     padding: "9px 12px",
                     backgroundColor: "#0D0D0D",
                     borderRadius: 9,
-                    borderLeft: s.validated ? "3px solid #4ADE80" : "3px solid #333",
+                    borderLeft: s.validated ? "3px solid #FB923C" : "3px solid #333",
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p className="font-body" style={{ fontSize: "0.8rem", fontWeight: 600, color: s.validated ? "#4ADE80" : "#555", margin: 0 }}>
+                    <p className="font-body" style={{ fontSize: "0.8rem", fontWeight: 600, color: s.validated ? "#FB923C" : "#555", margin: 0 }}>
                       {s.validated ? "✓" : "💪"} {s.nom}
                     </p>
                     {s.duree && (
@@ -201,7 +200,7 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
                     )}
                   </div>
                   {s.validated && (
-                    <span style={{ fontSize: "0.65rem", color: "#4ADE80", fontWeight: 700 }}>Validée</span>
+                    <span style={{ fontSize: "0.65rem", color: "#FB923C", fontWeight: 700 }}>Validée</span>
                   )}
                 </div>
               )

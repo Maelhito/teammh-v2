@@ -192,22 +192,22 @@ export default function EntrainementClient({
             if (isTerminee) {
               // Séance terminée → carte noire + bordure verte
               return (
-                <div style={{ backgroundColor: "#0a0a0a", border: "1px solid rgba(74,222,128,0.35)", borderRadius: 14, padding: "16px 18px" }}>
-                  <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(74,222,128,0.5)", letterSpacing: "0.1em", margin: "0 0 8px" }}>
+                <div style={{ backgroundColor: "#0a0a0a", border: "1px solid rgba(251,146,60,0.35)", borderRadius: 14, padding: "16px 18px" }}>
+                  <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(251,146,60,0.6)", letterSpacing: "0.1em", margin: "0 0 8px" }}>
                     {programme.nom.toUpperCase()} · SÉANCE DU JOUR
                   </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {todayItems.filter((i) => i.type !== "video").map((item, idx) => (
                       <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontSize: "1rem" }}>✅</span>
+                        <span style={{ fontSize: "1rem", color: "#FB923C" }}>✓</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#4ADE80", margin: 0 }}>{itemNom(item)}</p>
-                          {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(74,222,128,0.45)", margin: "1px 0 0" }}>{itemDuree(item)} min</p>}
+                          <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#FB923C", margin: 0 }}>{itemNom(item)}</p>
+                          {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(251,146,60,0.45)", margin: "1px 0 0" }}>{itemDuree(item)} min</p>}
                         </div>
                         {todayKey && (
                           <Link
                             href={`/entrainement/seance?assignmentId=${programme!.id}&gridKey=${todayKey}&itemIndex=${idx}`}
-                            style={{ padding: "8px 14px", backgroundColor: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)", borderRadius: 9, color: "#4ADE80", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                            style={{ padding: "8px 14px", backgroundColor: "rgba(251,146,60,0.08)", border: "1px solid rgba(251,146,60,0.25)", borderRadius: 9, color: "#FB923C", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
                           >
                             ↺ Redémarrer
                           </Link>
@@ -215,7 +215,7 @@ export default function EntrainementClient({
                       </div>
                     ))}
                   </div>
-                  <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(74,222,128,0.5)", margin: "10px 0 0", textAlign: "center", letterSpacing: "0.04em" }}>
+                  <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(251,146,60,0.55)", margin: "10px 0 0", textAlign: "center", letterSpacing: "0.04em" }}>
                     ✓ Séance validée aujourd&apos;hui — bravo !
                   </p>
                 </div>
