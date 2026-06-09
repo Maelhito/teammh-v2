@@ -6,7 +6,14 @@ import EntrainementClient from "./EntrainementClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function EntrainementPage() {
+export default async function EntrainementPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ abandoned?: string }>;
+}) {
+  const params = searchParams ? await searchParams : {};
+  const abandonedKey = params?.abandoned ?? null;
+
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
   const userId = session?.user.id ?? "";
@@ -96,7 +103,7 @@ export default async function EntrainementPage() {
         </div>
       </div>
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <EntrainementClient programme={programme} initialEvents={calendarEvents as any} />
+      <EntrainementClient programme={programme} initialEvents={calendarEvents as any} abandonedKey={abandonedKey} />
       <BottomNav />
     </div>
   );

@@ -469,6 +469,7 @@ export default function SeanceViewer({
   const [noteTexte, setNoteTexte] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
   const [noteSaving, setNoteSaving] = useState(false);
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
 
   const allBlocs = seanceData.blocs ?? [];
   const currentBloc = allBlocs[currentBlocIndex];
@@ -652,10 +653,36 @@ export default function SeanceViewer({
       <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 100 }}>
         {videoUrl && <VideoModal url={videoUrl} onClose={() => setVideoUrl(null)} />}
 
+        {/* Modal abandon */}
+        {showAbandonModal && (
+          <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.85)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <div style={{ backgroundColor: "#111111", borderRadius: 18, padding: "28px 22px", width: "100%", maxWidth: 360, border: "1px solid #2a2a2a" }}>
+              <p className="font-title" style={{ fontSize: "1.1rem", color: "#F5F5F0", letterSpacing: "0.04em", margin: "0 0 8px", textAlign: "center" }}>QUITTER LA SÉANCE ?</p>
+              <p className="font-body" style={{ fontSize: "0.8rem", color: "#666", textAlign: "center", margin: "0 0 24px", lineHeight: 1.5 }}>
+                La séance ne sera pas validée si tu n&apos;arrives pas jusqu&apos;à la fin.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <button
+                  onClick={() => setShowAbandonModal(false)}
+                  style={{ width: "100%", padding: "14px", backgroundColor: "#B22222", color: "#fff", border: "none", borderRadius: 12, fontSize: "0.9rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.04em" }}
+                >
+                  ▶ Continuer la séance
+                </button>
+                <button
+                  onClick={() => router.push(`/entrainement?abandoned=${encodeURIComponent(gridKey)}`)}
+                  style={{ width: "100%", padding: "14px", backgroundColor: "transparent", color: "#555", border: "1px solid #2a2a2a", borderRadius: 12, fontSize: "0.85rem", fontWeight: 600, cursor: "pointer" }}
+                >
+                  ✕ Abandonner la séance
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header + chrono global */}
         <div style={{ position: "sticky", top: 0, zIndex: 50, backgroundColor: "#0D0D0D", borderBottom: "1px solid #1a1a1a" }}>
           <div style={{ maxWidth: 480, margin: "0 auto", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-            <button onClick={() => router.back()} style={{ background: "none", border: "1px solid #2a2a2a", borderRadius: 9, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#F5F5F0", flexShrink: 0 }}>
+            <button onClick={() => setShowAbandonModal(true)} style={{ background: "none", border: "1px solid #2a2a2a", borderRadius: 9, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#F5F5F0", flexShrink: 0 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
             </button>
             <div style={{ flex: 1, minWidth: 0 }}>

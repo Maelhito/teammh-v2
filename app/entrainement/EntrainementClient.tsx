@@ -81,9 +81,11 @@ function toLocalDate(d: Date): string {
 export default function EntrainementClient({
   programme,
   initialEvents,
+  abandonedKey,
 }: {
   programme: Programme | null;
   initialEvents: CalendarEvent[];
+  abandonedKey?: string | null;
 }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
   const [year, setYear] = useState(today.getFullYear());
@@ -182,15 +184,82 @@ export default function EntrainementClient({
       {/* Banner séance du jour / repos / pas de programme */}
       {programme ? (
         <div style={{ marginBottom: 16 }}>
-          {isJourDeSeance ? (
-            <div style={{ background: "linear-gradient(135deg, #8B0000 0%, #B22222 100%)", borderRadius: 14, padding: "16px 18px" }}>
-              <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.1em", margin: "0 0 8px" }}>
-                {programme.nom.toUpperCase()} · SÉANCE DU JOUR
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {todayItems.filter((i) => i.type !== "video").map((item, idx) => {
-                  const todayKey = dateDebut ? dateToGridKey(today, dateDebut) : null;
-                  return (
+          {isJourDeSeance ? (() => {
+            const todayKey = dateDebut ? dateToGridKey(today, dateDebut) : null;
+            const isTerminee = todayKey ? programme.seancesTerminees.includes(todayKey) : false;
+            const isAbandonnee = todayKey ? abandonedKey === todayKey : false;
+
+            if (isTerminee) {
+              // Séance terminée → carte noire + bordure verte
+              return (
+                <div style={{ backgroundColor: "#0a0a0a", border: "1px solid rgba(74,222,128,0.35)", borderRadius: 14, padding: "16px 18px" }}>
+                  <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(74,222,128,0.5)", letterSpacing: "0.1em", margin: "0 0 8px" }}>
+                    {programme.nom.toUpperCase()} · SÉANCE DU JOUR
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {todayItems.filter((i) => i.type !== "video").map((item, idx) => (
+                      <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: "1rem" }}>✅</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#4ADE80", margin: 0 }}>{itemNom(item)}</p>
+                          {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(74,222,128,0.45)", margin: "1px 0 0" }}>{itemDuree(item)} min</p>}
+                        </div>
+                        {todayKey && (
+                          <Link
+                            href={`/entrainement/seance?assignmentId=${programme!.id}&gridKey=${todayKey}&itemIndex=${idx}`}
+                            style={{ padding: "8px 14px", backgroundColor: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)", borderRadius: 9, color: "#4ADE80", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                          >
+                            ↺ Redémarrer
+                          </Link>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(74,222,128,0.5)", margin: "10px 0 0", textAlign: "center", letterSpacing: "0.04em" }}>
+                    ✓ Séance validée aujourd&apos;hui — bravo !
+                  </p>
+                </div>
+              );
+            }
+
+            if (isAbandonnee) {
+              // Séance abandonnée → carte rouge sombre + ✕
+              return (
+                <div style={{ backgroundColor: "#120000", border: "1px solid rgba(178,34,34,0.4)", borderRadius: 14, padding: "16px 18px" }}>
+                  <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(178,34,34,0.6)", letterSpacing: "0.1em", margin: "0 0 8px" }}>
+                    {programme.nom.toUpperCase()} · SÉANCE ABANDONNÉE
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {todayItems.filter((i) => i.type !== "video").map((item, idx) => (
+                      <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: "1rem" }}>✕</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#B22222", margin: 0 }}>{itemNom(item)}</p>
+                          {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(178,34,34,0.45)", margin: "1px 0 0" }}>{itemDuree(item)} min</p>}
+                        </div>
+                        {todayKey && (
+                          <Link
+                            href={`/entrainement/seance?assignmentId=${programme!.id}&gridKey=${todayKey}&itemIndex=${idx}`}
+                            style={{ padding: "8px 14px", backgroundColor: "rgba(178,34,34,0.1)", border: "1px solid rgba(178,34,34,0.3)", borderRadius: 9, color: "#B22222", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                          >
+                            ↺ Redémarrer
+                          </Link>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+
+            // État normal : séance active à faire
+            return (
+              <div style={{ background: "linear-gradient(135deg, #8B0000 0%, #B22222 100%)", borderRadius: 14, padding: "16px 18px" }}>
+                <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.1em", margin: "0 0 8px" }}>
+                  {programme.nom.toUpperCase()} · SÉANCE DU JOUR
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {todayItems.filter((i) => i.type !== "video").map((item, idx) => (
                     <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <span style={{ fontSize: "1rem" }}>💪</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -206,11 +275,11 @@ export default function EntrainementClient({
                         </Link>
                       )}
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          ) : (
+            );
+          })() : (
             <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "20px 18px", display: "flex", alignItems: "center", gap: 16 }}>
               <div style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.8rem", flexShrink: 0 }}>
                 📅
