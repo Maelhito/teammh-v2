@@ -251,11 +251,12 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
           return;
         }
 
-        // 6. Sauvegarder la subscription en base
+        // 6. Sauvegarder la subscription en base (avec timezone pour notifs localisées)
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "Europe/Paris";
         const res = await fetch("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(sub),
+          body: JSON.stringify({ subscription: sub, timezone: tz }),
         });
         if (res.ok) {
           setPushEnabled(true);
