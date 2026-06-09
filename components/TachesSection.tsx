@@ -60,6 +60,23 @@ export default function TachesSection() {
     );
   }
 
+  // Toutes validées → encart compact
+  if (count > 0 && doneCount === count) {
+    return (
+      <div style={{ padding: "0 16px 4px" }}>
+        <div style={{ backgroundColor: "#111111", border: "1px solid rgba(74,222,128,0.15)", borderRadius: 14, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: "0.9rem" }}>✅</span>
+          <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#4ADE80", letterSpacing: "0.04em" }}>
+            Tout fait cette semaine !
+          </span>
+          <span className="font-body" style={{ marginLeft: "auto", fontSize: "0.65rem", color: "#4ADE80", opacity: 0.6 }}>
+            {count}/{count}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: "0 16px 4px" }}>
       <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "16px 18px" }}>

@@ -11,6 +11,7 @@ import PushSubscriber from "@/components/PushSubscriber";
 import WelcomeVideoPopup from "@/components/WelcomeVideoPopup";
 import Link from "next/link";
 import TachesSection from "@/components/TachesSection";
+import DashboardCalendar, { type DayData } from "@/components/DashboardCalendar";
 
 export const dynamic = "force-dynamic";
 
@@ -38,17 +39,11 @@ function isEventOnDay(event: CalendarEvent, day: Date): boolean {
   }
 }
 
-function eventDotColor(evt: CalendarEvent): string {
-  if (evt.event_type === "coaching_groupe") return "#3B82F6";
-  if (evt.event_type === "nutrition") return "#22C55E";
-  return "#B22222";
-}
 
 interface PageProps {
   searchParams: Promise<{ locked?: string }>;
 }
 
-const JOURS_COURTS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 export default async function DashboardPage({ searchParams }: PageProps) {
   const { locked } = await searchParams;
@@ -116,6 +111,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   void weekStart; void weekEndStr; // utilisés uniquement pour allEventsRaw
 
+  // Séances validées cette semaine (depuis seances_log)
+  const seancesLogThisWeek: string[] = activeAssignment
+    ? await admin
+        .from("seances_log")
+        .select("grid_key")
+        .eq("user_id", userId)
+        .eq("assignment_id", activeAssignment.id)
+        .gte("created_at", monday.toISOString())
+        .then((r) => (r.data ?? []).map((row) => row.grid_key as string).filter(Boolean))
+    : [];
+
   // Séance du jour
   let seancesDuJour: { nom: string; duree: number | null; itemIndex: number }[] = [];
   let nomProgramme = "";
@@ -149,6 +155,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       }
     } catch {}
   }
+
+  // Séance du jour déjà validée aujourd'hui ?
+  const isTodaySeanceValidee = gridKeyDuJour ? seancesLogThisWeek.includes(gridKeyDuJour) : false;
 
   const completedSet = new Set(completionsWithDates.map((c) => c.module_slug));
   const completedCount = completedSet.size;
@@ -203,6 +212,53 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     } catch {}
   }
 
+  // Construction des données pour DashboardCalendar (séances par jour + validation)
+  const JOURS_COURTS_CAL = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+  const weekDaysData: DayData[] = weekDays.map(({ date, events }) => {
+    // Séances de ce jour depuis grid_data
+    const daySeances: DayData["seances"] = [];
+    if (activeAssignment) {
+      try {
+        const src = activeAssignment.grid_data ?? "";
+        if (src?.startsWith("{")) {
+          const parsed = JSON.parse(src);
+          const grid: Record<string, { type: string; seanceName?: string; nom?: string; duree?: number | null }[]> = parsed.grid ?? {};
+          const dateDebut = activeAssignment.date_debut ? new Date(activeAssignment.date_debut) : null;
+          if (dateDebut) {
+            const diffDays = Math.floor((date.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays >= 0) {
+              const semaine = Math.floor(diffDays / 7) + 1;
+              const jourIndex = date.getDay() === 0 ? 7 : date.getDay();
+              const key = `S${semaine}_J${jourIndex}`;
+              const items = (grid[key] ?? []).filter((i) => i.type !== "video");
+              items.forEach((item, itemIndex) => {
+                daySeances.push({
+                  nom: item.type === "seance" ? (item.seanceName ?? "") : (item.nom ?? ""),
+                  duree: item.duree ?? null,
+                  gridKey: key,
+                  assignmentId: activeAssignment.id,
+                  itemIndex,
+                  validated: seancesLogThisWeek.includes(key),
+                  isToday: date.toDateString() === now.toDateString(),
+                });
+              });
+            }
+          }
+        }
+      } catch {}
+    }
+    const dayOfWeekIdx = date.getDay() === 0 ? 6 : date.getDay() - 1;
+    return {
+      dateStr: date.toISOString().slice(0, 10),
+      dayLabel: JOURS_COURTS_CAL[dayOfWeekIdx],
+      dayNum: date.getDate(),
+      isToday: date.toDateString() === now.toDateString(),
+      isPast: date < now,
+      events: events.map((e) => ({ id: e.id, titre: e.titre, heure: e.heure, event_type: e.event_type })),
+      seances: daySeances,
+    };
+  });
+
   const moduleItems = modules.map((m, i) => ({
     slug: m.slug,
     title: m.title,
@@ -212,8 +268,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     unlock: unlockStatuses[i],
     index: i + 1,
   }));
-
-  const todayStr = now.toDateString();
 
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 90 }}>
@@ -271,8 +325,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        {/* Encart Jour de séance — uniquement si séance prévue aujourd'hui */}
-        {activeAssignment && isJourDeSeance && (
+        {/* Encart Jour de séance — uniquement si séance prévue aujourd'hui ET pas encore validée */}
+        {activeAssignment && isJourDeSeance && !isTodaySeanceValidee && (
           <div style={{ padding: "8px 16px" }}>
             <div style={{ background: "linear-gradient(135deg, #8B0000 0%, #B22222 100%)", borderRadius: 14, padding: "16px 18px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
@@ -313,81 +367,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        {/* Calendrier de la semaine */}
-        <div style={{ padding: "0 16px 4px" }}>
-          <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "16px 16px 14px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <span style={{ display: "inline-block", width: 3, height: 14, backgroundColor: "#B22222", borderRadius: 2, flexShrink: 0 }} />
-              <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#F5F5F0", letterSpacing: "0.06em" }}>
-                CETTE SEMAINE
-              </span>
-              {seancesPreSemaine > 0 && (
-                <span className="font-body" style={{ marginLeft: "auto", fontSize: "0.7rem", fontWeight: 700, color: seancesTermineesSemaine === seancesPreSemaine ? "#4ADE80" : "#FB923C" }}>
-                  {seancesTermineesSemaine}/{seancesPreSemaine} séances {seancesTermineesSemaine === seancesPreSemaine ? "✓" : "🔥"}
-                </span>
-              )}
-            </div>
-
-            {/* 7 colonnes jours */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
-              {weekDays.map(({ date, events: dayEvts }) => {
-                const isToday = date.toDateString() === todayStr;
-                const isPast = date < now;
-                const hasEvts = dayEvts.length > 0;
-
-                const inner = (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 5,
-                        padding: "8px 4px",
-                        borderRadius: 10,
-                        backgroundColor: isToday ? "rgba(178,34,34,0.15)" : "transparent",
-                        border: isToday ? "1px solid rgba(178,34,34,0.35)" : "1px solid transparent",
-                      }}
-                    >
-                      <span className="font-body" style={{ fontSize: "0.6rem", fontWeight: 700, color: isToday ? "#B22222" : "#444", letterSpacing: "0.04em" }}>
-                        {JOURS_COURTS[date.getDay() === 0 ? 6 : date.getDay() - 1]}
-                      </span>
-                      <span className="font-body" style={{ fontSize: "0.95rem", fontWeight: isToday ? 700 : 400, color: isToday ? "#B22222" : isPast ? "#444" : "#F5F5F0", lineHeight: 1 }}>
-                        {date.getDate()}
-                      </span>
-                      {/* Dots événements */}
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 2, justifyContent: "center", minHeight: 8 }}>
-                        {hasEvts && dayEvts.slice(0, 3).map((evt) => (
-                          <span key={evt.id} style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: eventDotColor(evt), display: "block" }} />
-                        ))}
-                        {dayEvts.length > 3 && (
-                          <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#555", display: "block" }} />
-                        )}
-                      </div>
-                    </div>
-                  );
-                return (isToday || hasEvts) ? (
-                  <Link key={date.toISOString()} href="/entrainement" style={{ textDecoration: "none" }}>{inner}</Link>
-                ) : (
-                  <div key={date.toISOString()}>{inner}</div>
-                );
-              })}
-            </div>
-
-            {/* Événements du jour courant sous le calendrier */}
-            {weekDays[now.getDay() === 0 ? 6 : now.getDay() - 1]?.events.length > 0 && (
-              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
-                {weekDays[now.getDay() === 0 ? 6 : now.getDay() - 1].events.slice(0, 3).map((evt) => (
-                  <div key={evt.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", backgroundColor: "#0D0D0D", borderRadius: 8, borderLeft: `3px solid ${eventDotColor(evt)}` }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p className="font-body" style={{ fontSize: "0.8rem", fontWeight: 600, color: "#F5F5F0", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{evt.titre}</p>
-                    </div>
-                    {evt.heure && <span className="font-body" style={{ fontSize: "0.7rem", color: eventDotColor(evt), fontWeight: 700, flexShrink: 0 }}>{evt.heure.slice(0, 5)}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Calendrier de la semaine — composant client avec clic par jour */}
+        <DashboardCalendar
+          weekDays={weekDaysData}
+          seancesTotal={seancesPreSemaine}
+          seancesDone={seancesTermineesSemaine}
+        />
 
         {/* Tâches de la semaine — composant client avec checkboxes */}
         <TachesSection />
