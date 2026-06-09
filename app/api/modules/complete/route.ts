@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { sendPushToUser } from "@/lib/push";
 import { getModules } from "@/lib/modules";
+import { updateStreak } from "@/lib/streak";
 
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -26,6 +27,8 @@ export async function POST(request: NextRequest) {
     );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await updateStreak(user.id);
 
   // Notification immédiate pour module 3 (se débloque quand module-1 ET module-2 sont validés)
   const modules = getModules();

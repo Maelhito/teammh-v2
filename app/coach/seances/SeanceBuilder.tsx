@@ -270,7 +270,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
   onHtmlChange: (html: string) => void;
   onVideoClick: (url: string, nom: string) => void;
   placeholder?: string;
-}>(function RichTextEditor({ initialHtml, onHtmlChange, onVideoClick, placeholder }, ref) {
+  onExerciseDrop?: (ex: Exercise) => void;
+}>(function RichTextEditor({ initialHtml, onHtmlChange, onVideoClick, placeholder, onExerciseDrop }, ref) {
   const divRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -341,7 +342,11 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
         onDrop={e => {
           e.preventDefault(); e.stopPropagation();
           if (e.dataTransfer.getData("source") !== "bank") return;
-          try { insertExerciseAtDrop(e, JSON.parse(e.dataTransfer.getData("exerciseData"))); } catch {}
+          try {
+            const ex = JSON.parse(e.dataTransfer.getData("exerciseData")) as Exercise;
+            insertExerciseAtDrop(e, ex); // toujours insérer en rouge dans la description
+            onExerciseDrop?.(ex);        // tabata : ajoute aussi dans Mouvements
+          } catch {}
         }}
         onClick={e => {
           const t = e.target as HTMLElement;
@@ -399,7 +404,7 @@ function ExerciseBank({
   });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#fff", borderRight: "1px solid #e8e8e8", width: 260, flexShrink: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "calc(100vh - 64px)", alignSelf: "start", backgroundColor: "#fff", borderRight: "1px solid #e8e8e8", width: 260, flexShrink: 0 }}>
       <div style={{ padding: "10px 12px", borderBottom: "1px solid #f0f0f0", flexShrink: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <p style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.1em", margin: 0, fontFamily: "system-ui" }}>
@@ -794,6 +799,12 @@ function BlocCard({
             onHtmlChange={handleDescriptionChange}
             onVideoClick={(url, nom) => setVideoUrl({ url, nom })}
             placeholder="Redigez la description… Glisse un exercice pour l’insérer en rouge et dans Mouvements."
+            onExerciseDrop={bloc.format === "tabata"
+              ? (ex) => {
+                  const item: TabataItem = { _key: newKey(), exercise_id: ex.id, exercise: ex, series: "", tabata_work: bloc.tabata_work, tabata_rest: bloc.tabata_rest, notes: "" };
+                  onBlocChange(bloc._key, { tabata_exercices: [...bloc.tabata_exercices, item] });
+                }
+              : undefined}
           />
         </div>
 

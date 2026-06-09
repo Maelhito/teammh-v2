@@ -132,6 +132,37 @@ export async function POST(req: NextRequest, { params }: Params) {
   return NextResponse.json({ event: data });
 }
 
+export async function PATCH(req: NextRequest, { params }: Params) {
+  const user = await checkCoachAccess();
+  if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  const { id: clientId } = await params;
+
+  const eventId = req.nextUrl.searchParams.get("event_id");
+  if (!eventId) return NextResponse.json({ error: "event_id requis" }, { status: 400 });
+
+  const body = await req.json();
+  const { titre, date, heure, message, lien } = body;
+  if (!titre || !date) return NextResponse.json({ error: "Titre et date requis" }, { status: 400 });
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("calendar_events")
+    .update({
+      titre:   String(titre).slice(0, 200),
+      date,
+      heure:   heure || null,
+      message: message ? String(message).slice(0, 1000) : null,
+      lien:    lien ? String(lien).slice(0, 500) : null,
+    })
+    .eq("id", eventId)
+    .eq("target_user_id", clientId)
+    .select()
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ event: data });
+}
+
 export async function DELETE(req: NextRequest, { params }: Params) {
   const user = await checkCoachAccess();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });

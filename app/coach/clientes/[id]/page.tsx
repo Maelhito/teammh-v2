@@ -13,7 +13,7 @@ interface CalendarEvent {
   recurrence: "none" | "daily" | "weekly" | "monthly";
   message: string | null; lien: string | null; rappel: boolean;
   created_by: "admin" | "cliente";
-  event_type: "coach" | "nutrition" | "coaching_groupe" | null;
+  event_type: "coach" | "nutrition" | "coaching_groupe" | "seance" | "tache" | null;
   target_user_id: string | null;
 }
 interface Assignment {
@@ -428,12 +428,13 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
 }
 
 // ─── Calendrier mensuel avec drag & drop ──────────────────────────────────────
-function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEditItem, onMoveItem, onAddEvent }: {
+function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEditItem, onMoveItem, onAddEvent, onEventClick }: {
   grid: Grid; activeStart: Date | null; dureeSemaines: number; today: Date;
   events: CalendarEvent[];
   onEditItem: (cellKey: string, item: CellItem) => void;
   onMoveItem: (fromKey: string, itemKey: string, toKey: string) => void;
   onAddEvent: (date: Date) => void;
+  onEventClick?: (ev: CalendarEvent) => void;
 }) {
   const [monthOffset, setMonthOffset] = useState(0);
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -532,7 +533,7 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
                 </span>
               </div>
               {dayEvents.map(ev => (
-                <div key={ev.id} style={{ padding: "2px 5px", borderRadius: 4, marginBottom: 2, backgroundColor: `${evColor(ev)}15`, borderLeft: `2px solid ${evColor(ev)}` }}>
+                <div key={ev.id} onClick={() => onEventClick?.(ev)} style={{ padding: "2px 5px", borderRadius: 4, marginBottom: 2, backgroundColor: `${evColor(ev)}15`, borderLeft: `2px solid ${evColor(ev)}`, cursor: "pointer" }}>
                   <p style={{ fontSize: 8, fontWeight: 700, color: evColor(ev), margin: 0, fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.titre}</p>
                 </div>
               ))}
@@ -545,11 +546,11 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
                     onDragEnd={() => setDragOver(null)}
                     onClick={() => { if (cellKey) onEditItem(cellKey, item); }}
                     title="Cliquer pour modifier · Glisser pour déplacer"
-                    style={{ padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: isPast ? "#f5f5f5" : item.type === "video" ? "rgba(139,92,246,0.06)" : "rgba(178,34,34,0.06)", borderLeft: `2px solid ${isPast ? "#ddd" : item.type === "video" ? "#8B5CF6" : "#B22222"}`, transition: "opacity 0.1s" }}
+                    style={{ padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: isPast ? "#f5f5f5" : item.type === "video" ? "rgba(139,92,246,0.06)" : "rgba(249,115,22,0.06)", borderLeft: `2px solid ${isPast ? "#ddd" : item.type === "video" ? "#8B5CF6" : "#F97316"}`, transition: "opacity 0.1s" }}
                     onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.opacity = "0.75"}
                     onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.opacity = "1"}
                   >
-                    <p style={{ fontSize: 8, fontWeight: 700, color: isPast ? "#bbb" : item.type === "video" ? "#7c3aed" : "#B22222", margin: 0, fontFamily: "system-ui", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none" }}>{label}</p>
+                    <p style={{ fontSize: 8, fontWeight: 700, color: isPast ? "#bbb" : item.type === "video" ? "#7c3aed" : "#F97316", margin: 0, fontFamily: "system-ui", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none" }}>{label}</p>
                   </div>
                 );
               })}
@@ -558,6 +559,87 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
         })}
       </div>
       </div></div>{/* /coach-month-inner /coach-month-scroll */}
+    </div>
+  );
+}
+
+// ─── Journal séances (notes post-séance) ─────────────────────────────────────
+interface SeanceLog {
+  id: string; seance_nom: string | null; completed_at: string;
+  duration_min: number | null; note_etoiles: number | null; note_texte: string | null;
+}
+
+function JournalSeances({ clienteId }: { clienteId: string }) {
+  const [open, setOpen] = useState(false);
+  const [logs, setLogs] = useState<SeanceLog[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  async function load() {
+    if (loaded) return;
+    const res = await fetch(`/api/coach/clientes/${clienteId}/journal`);
+    const d = await res.json();
+    setLogs(d.logs ?? []);
+    setLoaded(true);
+  }
+
+  function handleToggle() {
+    setOpen(o => !o);
+    if (!loaded) load();
+  }
+
+  if (!open && !loaded) {
+    return (
+      <div style={{ marginTop: 8, borderRadius: 12, border: "1px solid #efefef", overflow: "hidden", backgroundColor: "#fff" }}>
+        <button onClick={handleToggle} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 18px", background: "none", border: "none", cursor: "pointer", fontFamily: "system-ui" }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: "#bbb", letterSpacing: "0.1em", textTransform: "uppercase" }}>Journal des séances</span>
+          <span style={{ fontSize: 12, color: "#ccc" }}>▼</span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 8, borderRadius: 12, border: "1px solid #efefef", overflow: "hidden", backgroundColor: "#fff" }}>
+      <button onClick={handleToggle} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 18px", background: "none", border: "none", cursor: "pointer", fontFamily: "system-ui" }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: "#bbb", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          Journal des séances {loaded && logs.length > 0 ? `(${logs.length})` : ""}
+        </span>
+        <span style={{ fontSize: 12, color: "#ccc", transition: "transform 0.2s", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+      </button>
+
+      {open && (
+        <div style={{ borderTop: "1px solid #f5f5f5", padding: "6px 12px 12px" }}>
+          {!loaded && <p style={{ fontSize: 12, color: "#bbb", padding: "12px 6px", fontFamily: "system-ui" }}>Chargement…</p>}
+          {loaded && logs.length === 0 && (
+            <p style={{ fontSize: 12, color: "#bbb", padding: "12px 6px", fontFamily: "system-ui" }}>Aucune séance notée pour l'instant.</p>
+          )}
+          {logs.map(log => (
+            <div key={log.id} style={{ padding: "12px 6px", borderBottom: "1px solid #f9f9f9" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: log.note_texte ? 6 : 0 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#333", margin: "0 0 2px", fontFamily: "system-ui", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {log.seance_nom ?? "Séance"}
+                  </p>
+                  <p style={{ fontSize: 10, color: "#bbb", margin: 0, fontFamily: "system-ui" }}>
+                    {new Date(log.completed_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+                    {log.duration_min ? ` · ${log.duration_min} min` : ""}
+                  </p>
+                </div>
+                {log.note_etoiles && (
+                  <span style={{ fontSize: 12, flexShrink: 0, letterSpacing: 1 }}>
+                    {"⭐".repeat(log.note_etoiles)}
+                  </span>
+                )}
+              </div>
+              {log.note_texte && (
+                <p style={{ fontSize: 11, color: "#666", margin: 0, fontFamily: "system-ui", lineHeight: 1.5, fontStyle: "italic", paddingLeft: 2 }}>
+                  "{log.note_texte}"
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -697,7 +779,7 @@ function SeanceListPanel({ grid, dureeSemaines, onEditItem, onClose }: {
                           }}
                         >
                           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                            <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: item.type === "video" ? "#8B5CF6" : "#B22222", flexShrink: 0 }} />
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: item.type === "video" ? "#8B5CF6" : "#F97316", flexShrink: 0 }} />
                             <span style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -840,6 +922,99 @@ function AssignModal({ clienteId, onAssigned, onPersonnaliser, onClose }: {
   );
 }
 
+// ─── Modal édition / suppression événement ────────────────────────────────────
+function EventEditModal({ ev, clienteId, onClose, onUpdated }: {
+  ev: CalendarEvent; clienteId: string; onClose: () => void; onUpdated: () => void;
+}) {
+  const [titre, setTitre] = useState(ev.titre);
+  const [date, setDate] = useState(ev.date);
+  const [heure, setHeure] = useState(ev.heure ?? "");
+  const [message, setMessage] = useState(ev.message ?? "");
+  const [lien, setLien] = useState(ev.lien ?? "");
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+
+  const isTache = ev.event_type === "tache";
+
+  const inp: React.CSSProperties = { width: "100%", padding: "9px 11px", borderRadius: 8, border: "1px solid #2a2a2a", backgroundColor: "#161616", fontSize: 13, color: "#F5F5F0", fontFamily: "system-ui", outline: "none", boxSizing: "border-box" };
+  const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#555", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5, fontFamily: "system-ui" };
+
+  async function handleSave() {
+    if (!titre) { setError("Titre requis"); return; }
+    setSaving(true); setError("");
+    const res = await fetch(`/api/coach/clientes/${clienteId}/evenements?event_id=${ev.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ titre, date, heure: heure || null, message: message || null, lien: lien || null }),
+    });
+    if (res.ok) { onUpdated(); }
+    else { const d = await res.json().catch(() => ({})); setError(d.error ?? "Erreur"); setSaving(false); }
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Supprimer "${ev.titre}" ?`)) return;
+    setDeleting(true);
+    const res = await fetch(`/api/coach/clientes/${clienteId}/evenements?event_id=${ev.id}`, { method: "DELETE" });
+    if (res.ok) { onUpdated(); }
+    else { const d = await res.json().catch(() => ({})); setError(d.error ?? "Erreur"); setDeleting(false); }
+  }
+
+  const typeColor = EV_COLORS[ev.event_type ?? ""] ?? "#B22222";
+  const typeLabel = EV_LABELS[ev.event_type ?? ""] ?? "Événement";
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 350, backgroundColor: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, backgroundColor: "#111", borderRadius: 16, padding: "24px", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", maxHeight: "90vh", overflowY: "auto" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+          <div>
+            <p style={{ fontSize: 9, fontWeight: 700, color: typeColor, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 3px", fontFamily: "system-ui" }}>{typeLabel}</p>
+            <h3 style={{ fontSize: "1rem", fontWeight: 800, margin: 0, color: "#F5F5F0", fontFamily: "system-ui" }}>Modifier l'événement</h3>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 7, color: "#666", fontSize: 18, cursor: "pointer", padding: "5px 11px", fontFamily: "system-ui" }}>✕</button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div><label style={lbl}>Titre *</label>
+            <input style={inp} value={titre} onChange={e => setTitre(e.target.value)} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: isTache ? "1fr" : "1fr 1fr", gap: 8 }}>
+            <div><label style={lbl}>Date *</label>
+              <input type="date" style={inp} value={date} onChange={e => setDate(e.target.value)} />
+            </div>
+            {!isTache && (
+              <div><label style={lbl}>Heure</label>
+                <input type="time" style={inp} value={heure} onChange={e => setHeure(e.target.value)} />
+              </div>
+            )}
+          </div>
+          <div><label style={lbl}>{isTache ? "Description" : "Message"}</label>
+            <textarea style={{ ...inp, minHeight: 72, resize: "none" }} value={message} onChange={e => setMessage(e.target.value)} />
+          </div>
+          {!isTache && (
+            <div><label style={lbl}>Lien (zoom, etc.)</label>
+              <input type="url" style={inp} value={lien} onChange={e => setLien(e.target.value)} placeholder="https://…" />
+            </div>
+          )}
+        </div>
+
+        {error && <p style={{ fontSize: 12, color: "#EF4444", margin: "10px 0 0", fontFamily: "system-ui" }}>✗ {error}</p>}
+
+        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+          <button onClick={handleDelete} disabled={deleting} style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.08)", color: "#EF4444", fontSize: 12, cursor: deleting ? "not-allowed" : "pointer", fontFamily: "system-ui", opacity: deleting ? 0.5 : 1 }}>
+            {deleting ? "…" : "🗑 Supprimer"}
+          </button>
+          <button onClick={onClose} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "1px solid #2a2a2a", background: "#161616", fontSize: 13, color: "#888", cursor: "pointer", fontFamily: "system-ui" }}>Annuler</button>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: "10px", borderRadius: 8, border: "none", backgroundColor: saving ? "#2a2a2a" : "#B22222", color: saving ? "#555" : "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
+            {saving ? "Enregistrement…" : "✅ Enregistrer"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page principale ───────────────────────────────────────────────────────────
 export default function ClienteFichePage() {
   const { id } = useParams() as { id: string };
@@ -854,6 +1029,11 @@ export default function ClienteFichePage() {
   const [showAddEv, setShowAddEv] = useState(false);
   const [addEvDate, setAddEvDate] = useState(toLocalDate(new Date()));
   const [showSeanceList, setShowSeanceList] = useState(false);
+  const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null);
+
+  const loadCalEvents = useCallback(() => {
+    fetch(`/api/coach/clientes/${id}/evenements`).then(r => r.json()).then(d => setCalEvents(d.events ?? []));
+  }, [id]);
 
   function goToEditor(assignId: string) {
     router.push(`/coach/clientes/${id}/programmes/${assignId}`);
@@ -874,8 +1054,8 @@ export default function ClienteFichePage() {
   useEffect(() => {
     fetch("/api/coach/clientes").then(r => r.json()).then(d => setCliente((d.clientes ?? []).find((c: Cliente) => c.id === id) ?? null));
     loadAssignments();
-    fetch(`/api/coach/clientes/${id}/evenements`).then(r => r.json()).then(d => setCalEvents(d.events ?? []));
-  }, [id, loadAssignments]);
+    loadCalEvents();
+  }, [id, loadAssignments, loadCalEvents]);
 
   const enCours = assignments.find(a => a.statut === "en_cours") ?? null;
   const termines = assignments.filter(a => a.statut === "termine");
@@ -1008,6 +1188,7 @@ export default function ClienteFichePage() {
         onEditItem={(cellKey, item) => setEditTarget({ cellKey, item })}
         onMoveItem={handleMoveItem}
         onAddEvent={(date) => { setAddEvDate(toLocalDate(date)); setShowAddEv(true); }}
+        onEventClick={(ev) => setEditEvent(ev)}
       />
 
       {/* Programme en cours */}
@@ -1045,6 +1226,9 @@ export default function ClienteFichePage() {
       {/* Historique / gestion des programmes assignés */}
       <HistoriqueAccordion assignments={assignments} clienteId={id} onDeleted={loadAssignments} />
 
+      {/* Journal des séances (notes post-séance) */}
+      <JournalSeances clienteId={id} />
+
       {/* Edit panel */}
       {editTarget && enCours && (
         <SeanceEditPanel
@@ -1077,6 +1261,15 @@ export default function ClienteFichePage() {
           defaultDate={addEvDate}
           onAdded={(ev) => setCalEvents(prev => [...prev, ev])}
           onClose={() => setShowAddEv(false)}
+        />
+      )}
+
+      {editEvent && (
+        <EventEditModal
+          ev={editEvent}
+          clienteId={id}
+          onClose={() => setEditEvent(null)}
+          onUpdated={() => { setEditEvent(null); loadCalEvents(); }}
         />
       )}
     </div>
