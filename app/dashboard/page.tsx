@@ -117,9 +117,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   void weekStart; void weekEndStr; // utilisés uniquement pour allEventsRaw
 
   // Séance du jour
-  let seancesDuJour: { nom: string; duree: number | null }[] = [];
+  let seancesDuJour: { nom: string; duree: number | null; itemIndex: number }[] = [];
   let nomProgramme = "";
   let isJourDeSeance = false;
+  let gridKeyDuJour: string | null = null;
 
   if (activeAssignment) {
     nomProgramme = activeAssignment.programme?.nom ?? "";
@@ -134,12 +135,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           const semaine = Math.max(Math.floor(diffDays / 7) + 1, 1);
           const jourIndex = now.getDay() === 0 ? 7 : now.getDay();
           const key = `S${semaine}_J${jourIndex}`;
+          gridKeyDuJour = key;
           const items = grid[key] ?? [];
           seancesDuJour = items
             .filter((item) => item.type !== "video")
-            .map((item) => ({
+            .map((item, itemIndex) => ({
               nom: item.type === "seance" ? (item.seanceName ?? "") : (item.nom ?? ""),
               duree: item.duree ?? null,
+              itemIndex,
             }));
           isJourDeSeance = items.some((item) => item.type !== "video");
         }
@@ -271,26 +274,42 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         {/* Encart Jour de séance — uniquement si séance prévue aujourd'hui */}
         {activeAssignment && isJourDeSeance && (
           <div style={{ padding: "8px 16px" }}>
-            <Link href="/entrainement" style={{ textDecoration: "none" }}>
-              <div style={{ background: "linear-gradient(135deg, #8B0000 0%, #B22222 100%)", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ background: "linear-gradient(135deg, #8B0000 0%, #B22222 100%)", borderRadius: 14, padding: "16px 18px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
                 <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.4rem", flexShrink: 0 }}>
                   💪
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", margin: "0 0 3px" }}>
+                  <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", margin: 0 }}>
                     SÉANCE DU JOUR · {nomProgramme.toUpperCase()}
                   </p>
-                  {seancesDuJour.map((s, i) => (
-                    <p key={i} className="font-body" style={{ fontSize: "0.9rem", fontWeight: 700, color: "#FFFFFF", margin: i === 0 ? 0 : "2px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {s.nom}{s.duree ? ` · ${s.duree} min` : ""}
-                    </p>
-                  ))}
                 </div>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
               </div>
-            </Link>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {seancesDuJour.map((s, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#FFFFFF", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {s.nom}
+                      </p>
+                      {s.duree && (
+                        <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.55)", margin: "1px 0 0" }}>
+                          {s.duree} min
+                        </p>
+                      )}
+                    </div>
+                    {gridKeyDuJour && (
+                      <Link
+                        href={`/entrainement/seance?assignmentId=${activeAssignment.id}&gridKey=${gridKeyDuJour}&itemIndex=${s.itemIndex}`}
+                        style={{ padding: "8px 14px", backgroundColor: "rgba(0,0,0,0.3)", borderRadius: 9, color: "#FFF", fontSize: "0.75rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                      >
+                        ▶ Démarrer
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
