@@ -76,6 +76,24 @@ export async function GET(request: NextRequest) {
 
   const admin = createSupabaseAdminClient();
 
+  // ── Mode test : envoie une notif immédiate à tous les abonnés ──────────────
+  const url = new URL(request.url);
+  if (url.searchParams.get("test") === "true") {
+    const { data: testSubs } = await admin.from("push_subscriptions").select("user_id");
+    if (testSubs?.length) {
+      for (const s of testSubs) {
+        await sendPushToUser(s.user_id, {
+          title: "🏋️ Time to Move — Test OK !",
+          body: "Les notifications fonctionnent parfaitement sur ton téléphone 🔥",
+          url: "/dashboard",
+        });
+        sent++;
+      }
+    }
+    logs.push(`[test] ${sent} notif(s) envoyée(s)`);
+    return NextResponse.json({ success: true, sent, logs });
+  }
+
   // Récupère toutes les subscriptions avec leur timezone
   const { data: subs, error: subsError } = await admin
     .from("push_subscriptions")
