@@ -367,20 +367,39 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        {/* Calendrier de la semaine — composant client avec clic par jour */}
+        {/* ── CETTE SEMAINE ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "24px 16px 10px" }}>
+          <span style={{ display: "inline-block", width: 3, height: 18, backgroundColor: "#B22222", borderRadius: 2, flexShrink: 0 }} />
+          <h2 className="font-title" style={{ fontSize: "1.1rem", color: "#F5F5F0", lineHeight: 1, letterSpacing: "0.06em", margin: 0 }}>
+            CETTE SEMAINE
+          </h2>
+          {seancesPreSemaine > 0 && (
+            <span className="font-body" style={{ marginLeft: "auto", fontSize: "0.72rem", fontWeight: 700, color: seancesTermineesSemaine === seancesPreSemaine ? "#FB923C" : "#555" }}>
+              {seancesTermineesSemaine}/{seancesPreSemaine} séances {seancesTermineesSemaine === seancesPreSemaine ? "✓" : ""}
+            </span>
+          )}
+        </div>
+
         <DashboardCalendar
           weekDays={weekDaysData}
           seancesTotal={seancesPreSemaine}
           seancesDone={seancesTermineesSemaine}
         />
 
-        {/* Tâches de la semaine — composant client avec checkboxes */}
+        {/* ── TÂCHES ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "24px 16px 10px" }}>
+          <span style={{ display: "inline-block", width: 3, height: 18, backgroundColor: "#B22222", borderRadius: 2, flexShrink: 0 }} />
+          <h2 className="font-title" style={{ fontSize: "1.1rem", color: "#F5F5F0", lineHeight: 1, letterSpacing: "0.06em", margin: 0 }}>
+            TÂCHES
+          </h2>
+        </div>
+
         <TachesSection />
 
-        {/* Modules */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 16px 12px" }}>
+        {/* ── MES MODULES ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "24px 16px 10px" }}>
           <span style={{ display: "inline-block", width: 3, height: 18, backgroundColor: "#B22222", borderRadius: 2, flexShrink: 0 }} />
-          <h2 className="font-title" style={{ fontSize: "1.45rem", color: "#F5F5F0", lineHeight: 1, letterSpacing: "0.04em" }}>
+          <h2 className="font-title" style={{ fontSize: "1.1rem", color: "#F5F5F0", lineHeight: 1, letterSpacing: "0.06em", margin: 0 }}>
             MES MODULES
           </h2>
           <span className="font-body" style={{ marginLeft: "auto", fontSize: "0.72rem", color: "#555" }}>

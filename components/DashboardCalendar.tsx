@@ -62,23 +62,6 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
     <div style={{ padding: "0 16px 4px" }}>
       <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "16px 16px 14px" }}>
 
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <span style={{ display: "inline-block", width: 3, height: 14, backgroundColor: "#B22222", borderRadius: 2, flexShrink: 0 }} />
-          <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#F5F5F0", letterSpacing: "0.06em" }}>
-            CETTE SEMAINE
-          </span>
-          {seancesTotal > 0 && (
-            <span className="font-body" style={{
-              marginLeft: "auto",
-              fontSize: "0.65rem",
-              color: seancesDone === seancesTotal ? "#4ADE80" : "#888",
-            }}>
-              {seancesDone}/{seancesTotal} séances {seancesDone === seancesTotal ? "✓" : ""}
-            </span>
-          )}
-        </div>
-
         {/* Grille 7 jours */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
           {weekDays.map((day, idx) => {

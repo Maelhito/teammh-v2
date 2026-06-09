@@ -49,12 +49,8 @@ export default function TachesSection() {
   if (count === 0) {
     return (
       <div style={{ padding: "0 16px 4px" }}>
-        <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "12px 18px", display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ display: "inline-block", width: 3, height: 12, backgroundColor: "#2a2a2a", borderRadius: 2, flexShrink: 0 }} />
-          <span className="font-body" style={{ fontSize: "0.72rem", color: "#333", letterSpacing: "0.06em", fontWeight: 700 }}>
-            TÂCHES DE LA SEMAINE
-          </span>
-          <span className="font-body" style={{ marginLeft: "auto", fontSize: "0.68rem", color: "#333" }}>0 tâche</span>
+        <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span className="font-body" style={{ fontSize: "0.75rem", color: "#333" }}>Aucune tâche cette semaine</span>
         </div>
       </div>
     );
@@ -79,21 +75,16 @@ export default function TachesSection() {
 
   return (
     <div style={{ padding: "0 16px 4px" }}>
-      <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "16px 18px" }}>
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <span style={{ display: "inline-block", width: 3, height: 14, backgroundColor: "#B22222", borderRadius: 2, flexShrink: 0 }} />
-          <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#F5F5F0", letterSpacing: "0.06em" }}>
-            TÂCHES DE LA SEMAINE
-          </span>
+      <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "14px 18px" }}>
+        {/* Compteur + barre de progression */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 10 }}>
           <span
             className="font-body"
             style={{
-              marginLeft: "auto",
               fontSize: "0.68rem",
               fontWeight: 700,
-              color: doneCount === count ? "#4ADE80" : "#B22222",
-              backgroundColor: doneCount === count ? "rgba(74,222,128,0.1)" : "rgba(178,34,34,0.1)",
+              color: doneCount === count ? "#FB923C" : "#B22222",
+              backgroundColor: doneCount === count ? "rgba(251,146,60,0.1)" : "rgba(178,34,34,0.1)",
               padding: "2px 8px",
               borderRadius: 6,
             }}
