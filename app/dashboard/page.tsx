@@ -306,25 +306,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           )}
         </div>
 
-        {/* Barre de progression semaine */}
-        {semaineLabel && (
-          <div style={{ padding: "4px 16px" }}>
-            <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 12, padding: "14px 16px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span className="font-body" style={{ fontSize: "0.75rem", fontWeight: 700, color: "#F5F5F0", letterSpacing: "0.04em" }}>
-                  {semaineLabel}
-                </span>
-                <span className="font-body" style={{ fontSize: "0.72rem", color: "#555" }}>
-                  {completedCount}/{modules.length} modules
-                </span>
-              </div>
-              <div style={{ height: 5, backgroundColor: "#1a1a1a", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${semaineProgress * 100}%`, backgroundColor: "#B22222", borderRadius: 3 }} />
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Encart Jour de séance — uniquement si séance prévue aujourd'hui ET pas encore validée */}
         {activeAssignment && isJourDeSeance && !isTodaySeanceValidee && (
           <div style={{ padding: "8px 16px" }}>
