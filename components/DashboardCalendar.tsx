@@ -133,8 +133,9 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
                   {day.seances.slice(0, 2).map((s, si) => (
                     <span key={`s${si}`} style={{
                       width: 5, height: 5, borderRadius: "50%",
-                      backgroundColor: s.validated ? "#4ADE80" : "#FB923C",
+                      backgroundColor: "#FB923C",
                       display: "block",
+                      opacity: s.validated ? 1 : 0.5,
                     }} />
                   ))}
                   {/* Événements calendrier */}

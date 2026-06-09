@@ -396,7 +396,7 @@ export default function EntrainementClient({
               </span>
               {/* Indicateurs */}
               {isTerminee ? (
-                <span style={{ fontSize: "0.6rem", color: "#4ADE80", lineHeight: 1 }}>✓</span>
+                <span style={{ fontSize: "0.6rem", color: "#FB923C", lineHeight: 1 }}>✓</span>
               ) : (hasSeance || hasEvent) ? (
                 <div style={{ display: "flex", gap: 2 }}>
                   {hasSeance && <span style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: "#B22222", display: "block" }} />}
@@ -436,7 +436,7 @@ export default function EntrainementClient({
                   const dk = dateDebut ? dateToGridKey(selectedDay!, dateDebut) : null;
                   const term = dk ? (programme?.seancesTerminees ?? []).includes(dk) : false;
                   return term ? (
-                    <span className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: "#4ADE80", letterSpacing: "0.06em" }}>✓ TERMINÉE</span>
+                    <span className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: "#FB923C", letterSpacing: "0.06em" }}>✓ TERMINÉE</span>
                   ) : null;
                 })()}
               </div>
@@ -457,7 +457,7 @@ export default function EntrainementClient({
                         return (
                           <Link
                             href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${dayKey}&itemIndex=${idx}`}
-                            style={{ padding: "7px 12px", backgroundColor: isTerm ? "#166534" : "#B22222", borderRadius: 8, color: "#FFF", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                            style={{ padding: "7px 12px", backgroundColor: isTerm ? "rgba(251,146,60,0.15)" : "#B22222", border: isTerm ? "1px solid rgba(251,146,60,0.4)" : "none", borderRadius: 8, color: isTerm ? "#FB923C" : "#FFF", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
                           >
                             {isTerm ? "↺" : "▶"}
                           </Link>
