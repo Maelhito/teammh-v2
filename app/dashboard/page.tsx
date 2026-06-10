@@ -295,7 +295,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             <div style={{ display: "flex", alignItems: "center", gap: 4, backgroundColor: "#1a0a00", border: "1px solid rgba(251,146,60,0.3)", borderRadius: 20, padding: "4px 10px" }}>
               <span style={{ fontSize: "0.85rem" }}>🔥</span>
               <span className="font-body" style={{ fontSize: "0.7rem", fontWeight: 700, color: "#FB923C" }}>
-                {streakInfo.streak_current}j
+                {streakInfo.streak_current} jour{streakInfo.streak_current > 1 ? "s" : ""}
               </span>
             </div>
           ) : (

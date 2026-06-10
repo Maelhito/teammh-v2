@@ -398,9 +398,11 @@ export default function EntrainementClient({
               {isTerminee ? (
                 <span style={{ fontSize: "0.6rem", color: "#FB923C", lineHeight: 1 }}>✓</span>
               ) : (hasSeance || hasEvent) ? (
-                <div style={{ display: "flex", gap: 2 }}>
+                <div style={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center" }}>
                   {hasSeance && <span style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: "#B22222", display: "block" }} />}
-                  {hasEvent && <span style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: "#3B82F6", display: "block" }} />}
+                  {dayEvts.slice(0, 2).map((e) => (
+                    <span key={e.id} style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: eventColor(e), display: "block" }} />
+                  ))}
                 </div>
               ) : null}
             </button>
@@ -485,15 +487,25 @@ export default function EntrainementClient({
           {/* Événements calendrier */}
           {selectedDayEvents.length > 0 && (
             <div>
-              <p className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: "#3B82F6", letterSpacing: "0.08em", margin: "0 0 8px" }}>ÉVÉNEMENTS</p>
+              <p className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: "#888", letterSpacing: "0.08em", margin: "0 0 8px" }}>ÉVÉNEMENTS</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {selectedDayEvents.map((evt) => (
-                  <div key={evt.id} style={{ backgroundColor: "#0D0D0D", borderRadius: 10, padding: "10px 14px", borderLeft: `3px solid ${eventColor(evt)}`, border: `1px solid #1a1a1a`, borderLeftColor: eventColor(evt), borderLeftWidth: 3 }}>
+                  <div key={evt.id} style={{ backgroundColor: "#0D0D0D", borderRadius: 10, padding: "10px 14px", border: "1px solid #1a1a1a", borderLeft: `3px solid ${eventColor(evt)}` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <p className="font-body" style={{ fontWeight: 600, color: "#F5F5F0", fontSize: "0.86rem", margin: 0, flex: 1 }}>{evt.titre}</p>
                       {evt.heure && <span style={{ fontSize: "0.72rem", color: eventColor(evt), fontWeight: 600 }}>{evt.heure.slice(0, 5)}</span>}
                     </div>
                     {evt.message && <p className="font-body" style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.75rem", margin: "4px 0 0" }}>{evt.message}</p>}
+                    {evt.lien && (
+                      <a
+                        href={evt.lien}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 8, fontSize: "0.75rem", fontWeight: 700, color: eventColor(evt), textDecoration: "none", padding: "5px 10px", backgroundColor: `${eventColor(evt)}15`, borderRadius: 7, border: `1px solid ${eventColor(evt)}40` }}
+                      >
+                        🔗 Accéder au lien →
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>
