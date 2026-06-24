@@ -4,6 +4,8 @@ import { getModules } from "@/lib/modules";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import ProfileClient from "./ProfileClient";
+import PreviewBanner from "@/components/PreviewBanner";
+import { getEffectiveUser } from "@/lib/preview";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +13,7 @@ export default async function ProfilPage() {
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
 
-  const userId = session?.user.id ?? "";
-  const email = session?.user.email ?? "";
+  const { userId, firstName, email, isPreview } = await getEffectiveUser(session);
 
   const [profile, completedSlugs] = await Promise.all([
     userId ? getUserProfile(userId) : Promise.resolve(null),
@@ -23,6 +24,7 @@ export default async function ProfilPage() {
 
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 90 }}>
+      {isPreview && <PreviewBanner name={firstName} />}
       <AppHeader back backHref="/dashboard" />
 
       <div style={{ padding: "68px 16px 0", maxWidth: 480, margin: "0 auto" }}>

@@ -3,6 +3,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import CalendrierClient from "./CalendrierClient";
+import PreviewBanner from "@/components/PreviewBanner";
+import { getEffectiveUser } from "@/lib/preview";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +17,7 @@ function toLocalDateStr(d: Date): string {
 export default async function CalendrierPage() {
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
-  const userId = session?.user.id ?? "";
+  const { userId, firstName, isPreview } = await getEffectiveUser(session);
 
   let events: object[] = [];
   let completedSeances: { grid_key: string | null; assignment_id: string | null; nom: string | null }[] = [];
@@ -106,6 +108,7 @@ export default async function CalendrierPage() {
 
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 90 }}>
+      {isPreview && <PreviewBanner name={firstName} />}
       <AppHeader />
 
       <div style={{ padding: "60px 16px 0", maxWidth: 480, margin: "0 auto" }}>

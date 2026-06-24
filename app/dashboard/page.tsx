@@ -12,6 +12,8 @@ import WelcomeVideoPopup from "@/components/WelcomeVideoPopup";
 import Link from "next/link";
 import TachesSection from "@/components/TachesSection";
 import DashboardCalendar, { type DayData } from "@/components/DashboardCalendar";
+import PreviewBanner from "@/components/PreviewBanner";
+import { getEffectiveUser } from "@/lib/preview";
 
 export const dynamic = "force-dynamic";
 
@@ -51,10 +53,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
 
-  const userId = session?.user.id ?? "";
-  const firstName = session?.user.user_metadata?.prenom
-    ?? session?.user.email?.split("@")[0]
-    ?? "";
+  const { userId, firstName, isPreview } = await getEffectiveUser(session);
 
   const modules = getModules();
   const slugs = modules.map((m) => m.slug);
@@ -271,9 +270,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 90 }}>
+      {isPreview && <PreviewBanner name={firstName} />}
       <WelcomeVideoPopup userId={userId} />
       <AppHeader />
-      <PushSubscriber />
+      {!isPreview && <PushSubscriber />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>
 
@@ -287,10 +287,32 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
         {/* Greeting + Flamme */}
         <div style={{ padding: "32px 16px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <p className="font-body text-sm" style={{ color: "#555" }}>
-            Bonjour,{" "}
-            <span style={{ color: "#F5F5F0", fontWeight: 700 }}>{firstName}</span>
-          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              border: "1px solid rgba(178,34,34,0.4)",
+              backgroundColor: "#1a1a1a",
+              backgroundImage: profile?.avatar_url ? `url(${profile.avatar_url})` : undefined,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}>
+              {!profile?.avatar_url && (
+                <span className="font-title" style={{ fontSize: "0.85rem", color: "#F5F5F0" }}>
+                  {firstName.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <p className="font-body text-sm" style={{ color: "#555" }}>
+              Bonjour,{" "}
+              <span style={{ color: "#F5F5F0", fontWeight: 700 }}>{firstName}</span>
+            </p>
+          </div>
           {streakInfo.streak_current > 0 ? (
             <div style={{ display: "flex", alignItems: "center", gap: 4, backgroundColor: "#1a0a00", border: "1px solid rgba(251,146,60,0.3)", borderRadius: 20, padding: "4px 10px" }}>
               <span style={{ fontSize: "0.85rem" }}>🔥</span>

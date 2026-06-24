@@ -1143,6 +1143,11 @@ export default function ClienteFichePage() {
     loadAssignments();
   }
 
+  async function handlePreview() {
+    await fetch(`/api/coach/clientes/${id}/preview`, { method: "POST" });
+    window.open("/dashboard", "_blank");
+  }
+
   function displayName(c: Cliente) {
     if (c.prenom || c.nom) return [c.prenom, c.nom].filter(Boolean).join(" ");
     return c.email;
@@ -1175,6 +1180,9 @@ export default function ClienteFichePage() {
               </p>
             </div>
           )}
+          <button onClick={handlePreview} style={{ padding: "9px 16px", borderRadius: 8, border: "1px solid #7C3AED", backgroundColor: "#fff", color: "#7C3AED", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>
+            👁 Voir comme cliente
+          </button>
           <button onClick={() => setShowModal(true)} style={{ padding: "9px 16px", borderRadius: 8, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui", boxShadow: "0 2px 6px rgba(178,34,34,0.25)" }}>
             📅 Assigner un programme
           </button>

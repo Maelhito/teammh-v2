@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { UserProfile, ProgrammeType, ProgrammeDuree } from "@/lib/user-profile";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
@@ -160,6 +160,12 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
 
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+
+  // Photo de profil
+  const [avatarUrl, setAvatarUrl] = useState(initialProfile?.avatar_url ?? "");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarMsg, setAvatarMsg] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Push notifications
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -329,6 +335,43 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
     setMsg(res.ok ? "✓ Profil sauvegardé" : "Erreur lors de la sauvegarde");
   }
 
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    setAvatarMsg("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/profil/avatar", { method: "POST", body: fd });
+      const data = await res.json();
+      if (res.ok) {
+        setAvatarUrl(data.url);
+      } else {
+        setAvatarMsg(data.error ?? "Erreur lors de l'upload");
+      }
+    } catch {
+      setAvatarMsg("Erreur réseau");
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleAvatarRemove() {
+    setAvatarUploading(true);
+    setAvatarMsg("");
+    try {
+      const res = await fetch("/api/profil/avatar", { method: "DELETE" });
+      if (res.ok) setAvatarUrl("");
+      else setAvatarMsg("Erreur lors de la suppression");
+    } catch {
+      setAvatarMsg("Erreur réseau");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
   async function handleSignOut() {
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.signOut();
@@ -358,6 +401,72 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
 
   return (
     <div style={{ maxWidth: 480, margin: "0 auto", padding: "12px 16px 0" }}>
+
+      {/* Photo de profil */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 16 }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={handleAvatarChange}
+          style={{ display: "none" }}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={avatarUploading}
+          style={{
+            width: 88,
+            height: 88,
+            borderRadius: "50%",
+            border: "2px solid #B22222",
+            backgroundColor: "#1a1a1a",
+            backgroundImage: avatarUrl ? `url(${avatarUrl})` : undefined,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: avatarUploading ? "default" : "pointer",
+            position: "relative",
+            opacity: avatarUploading ? 0.6 : 1,
+            padding: 0,
+          }}
+        >
+          {!avatarUrl && (
+            <span className="font-title" style={{ fontSize: "1.8rem", color: "#F5F5F0" }}>
+              {(prenom || "?").charAt(0).toUpperCase()}
+            </span>
+          )}
+          <span style={{
+            position: "absolute",
+            bottom: -2,
+            right: -2,
+            width: 28,
+            height: 28,
+            borderRadius: "50%",
+            backgroundColor: "#B22222",
+            border: "2px solid #0D0D0D",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "0.85rem",
+          }}>
+            📷
+          </span>
+        </button>
+        {avatarUrl && (
+          <button
+            onClick={handleAvatarRemove}
+            disabled={avatarUploading}
+            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 8, cursor: avatarUploading ? "default" : "pointer", textDecoration: "underline" }}
+          >
+            Supprimer la photo
+          </button>
+        )}
+        {avatarMsg && (
+          <p style={{ fontSize: 11, color: "#F87171", marginTop: 6 }}>{avatarMsg}</p>
+        )}
+      </div>
 
       {/* Toggle notifications push */}
       <div style={{
