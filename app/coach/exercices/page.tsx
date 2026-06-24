@@ -416,7 +416,12 @@ export default function CoachExercicesPage() {
 
   async function handleDelete(id: string) {
     if (!confirm("Supprimer cet exercice ?")) return;
-    await fetch(`/api/coach/exercices/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/coach/exercices/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: "Erreur lors de la suppression." }));
+      alert(error);
+      return;
+    }
     setExercises(prev => prev.filter(e => e.id !== id));
   }
 

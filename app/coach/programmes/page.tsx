@@ -81,7 +81,12 @@ export default function CoachProgrammesPage() {
   async function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     if (!confirm("Supprimer ce programme définitivement ?")) return;
-    await fetch(`/api/coach/programmes/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/coach/programmes/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: "Erreur lors de la suppression." }));
+      alert(error);
+      return;
+    }
     setProgrammes(prev => prev.filter(p => p.id !== id));
   }
 

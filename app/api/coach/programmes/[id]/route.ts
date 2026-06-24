@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkCoachAccess } from "@/lib/check-coach-access";
+import { checkCoachAccess, isCoachOnly } from "@/lib/check-coach-access";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
 type Params = { params: Promise<{ id: string }> };
@@ -35,6 +35,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 export async function DELETE(_: NextRequest, { params }: Params) {
   const user = await checkCoachAccess();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  if (isCoachOnly(user)) return NextResponse.json({ error: "Seul l'admin peut supprimer un programme." }, { status: 403 });
   const { id } = await params;
   const admin = createSupabaseAdminClient();
   const { error } = await admin.from("programmes").delete().eq("id", id);

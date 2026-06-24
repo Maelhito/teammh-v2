@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkCoachAccess } from "@/lib/check-coach-access";
+import { checkCoachAccess, isCoachOnly } from "@/lib/check-coach-access";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
 const VALID_CATEGORIES = ["boost_mental", "visio_sport", "visio_stretching"] as const;
@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const user = await checkCoachAccess();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  if (isCoachOnly(user)) return NextResponse.json({ error: "Seul l'admin peut supprimer une vidéo de groupe." }, { status: 403 });
 
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });

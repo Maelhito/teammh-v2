@@ -97,7 +97,12 @@ export default function CoachVisiosPage() {
   async function del(id: string) {
     setDeleting(id);
     const res = await fetch(`/api/coach/visio-replays?id=${id}`, { method: "DELETE" });
-    if (res.ok) setReplays(p => p.filter(r => r.id !== id));
+    if (res.ok) {
+      setReplays(p => p.filter(r => r.id !== id));
+    } else {
+      const { error } = await res.json().catch(() => ({ error: "Erreur lors de la suppression." }));
+      alert(error);
+    }
     setDeleting(null);
   }
 
