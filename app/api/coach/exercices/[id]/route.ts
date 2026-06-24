@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkCoachAccess } from "@/lib/check-coach-access";
+import { checkCoachAccess, isCoachOnly } from "@/lib/check-coach-access";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
 
@@ -30,6 +30,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await checkCoachAccess();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  if (isCoachOnly(user)) return NextResponse.json({ error: "Seul l'admin peut supprimer un exercice." }, { status: 403 });
 
   const { id } = await params;
   const admin = createSupabaseAdminClient();

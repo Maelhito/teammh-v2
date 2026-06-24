@@ -50,6 +50,7 @@ export default async function CoachClientesPage({
     statut: string;
     coach_id: string | null;
     nutrition_id: string | null;
+    date_demarrage: string | null;
   }[] = [];
 
   if (teamMemberIds.length > 0) {
@@ -58,14 +59,14 @@ export default async function CoachClientesPage({
       .join(",");
     const { data } = await admin
       .from("user_profiles")
-      .select("user_id, prenom, nom, statut, coach_id, nutrition_id")
+      .select("user_id, prenom, nom, statut, coach_id, nutrition_id, date_demarrage")
       .or(orFilter)
       .not("role", "in", '("coach","admin","nutrition")');
     profiles = data ?? [];
   } else {
     const { data } = await admin
       .from("user_profiles")
-      .select("user_id, prenom, nom, statut, coach_id, nutrition_id")
+      .select("user_id, prenom, nom, statut, coach_id, nutrition_id, date_demarrage")
       .not("role", "in", '("coach","admin","nutrition")');
     profiles = data ?? [];
   }
@@ -79,6 +80,7 @@ export default async function CoachClientesPage({
     prenom: p.prenom,
     nom: p.nom,
     statut: p.statut as "active" | "pause" | "terminee",
+    dateDemarrage: p.date_demarrage,
   }));
 
   return (
@@ -125,42 +127,58 @@ export default async function CoachClientesPage({
         <p style={{ color: "#aaa", fontSize: 14, fontFamily: "system-ui" }}>Aucune cliente assignée pour le moment.</p>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {clients.map(c => (
-          <Link key={c.id} href={`/coach/clientes/${c.id}`} style={{ textDecoration: "none" }}>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 14,
-              backgroundColor: "#fff", borderRadius: 12, padding: "14px 18px",
-              border: "1px solid #e8e8e8", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-              cursor: "pointer",
-            }}>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+        gap: 12,
+      }}>
+        {clients.map(c => {
+          const isActive = c.statut === "active";
+          return (
+            <Link key={c.id} href={`/coach/clientes/${c.id}`} style={{ textDecoration: "none" }}>
               <div style={{
-                width: 40, height: 40, borderRadius: "50%",
-                backgroundColor: "#FEF2F2", flexShrink: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 16, fontWeight: 700, color: "#B22222", fontFamily: "system-ui",
+                aspectRatio: "1 / 1",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                gap: 8, textAlign: "center",
+                backgroundColor: "#fff", borderRadius: 14, padding: 16,
+                border: "1px solid #e8e8e8", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                cursor: "pointer", position: "relative",
               }}>
-                {clientLabel(c).charAt(0).toUpperCase()}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a", margin: 0, fontFamily: "system-ui" }}>
+                <span style={{
+                  position: "absolute", top: 10, right: 10,
+                  width: 9, height: 9, borderRadius: "50%",
+                  backgroundColor: isActive ? "#22C55E" : "#ccc",
+                }} title={isActive ? "Active" : "Inactive"} />
+                <div style={{
+                  width: 48, height: 48, borderRadius: "50%",
+                  backgroundColor: "#FEF2F2", flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 18, fontWeight: 700, color: "#B22222", fontFamily: "system-ui",
+                }}>
+                  {clientLabel(c).charAt(0).toUpperCase()}
+                </div>
+                <p style={{
+                  fontSize: 13, fontWeight: 700, color: "#1a1a1a", margin: 0, fontFamily: "system-ui",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%",
+                }}>
                   {clientLabel(c)}
                 </p>
-                <p style={{ fontSize: 12, color: "#aaa", margin: "2px 0 0", fontFamily: "system-ui", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {c.email}
+                <p style={{ fontSize: 11, color: "#aaa", margin: 0, fontFamily: "system-ui" }}>
+                  {c.dateDemarrage
+                    ? `Démarrage : ${new Date(c.dateDemarrage).toLocaleDateString("fr-FR")}`
+                    : "Pas de date de démarrage"}
                 </p>
+                <span style={{
+                  fontSize: 10, fontWeight: 600, color: STATUT_COLOR[c.statut],
+                  backgroundColor: `${STATUT_COLOR[c.statut]}20`,
+                  padding: "2px 9px", borderRadius: 20, fontFamily: "system-ui",
+                }}>
+                  {STATUT_LABEL[c.statut] ?? c.statut}
+                </span>
               </div>
-              <span style={{
-                fontSize: 11, fontWeight: 600, color: STATUT_COLOR[c.statut],
-                backgroundColor: `${STATUT_COLOR[c.statut]}20`,
-                padding: "3px 10px", borderRadius: 20, flexShrink: 0, fontFamily: "system-ui",
-              }}>
-                {STATUT_LABEL[c.statut] ?? c.statut}
-              </span>
-              <span style={{ color: "#ccc", fontSize: 18, flexShrink: 0 }}>›</span>
-            </div>
-          </Link>
-        ))}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

@@ -19,3 +19,11 @@ export async function checkCoachAccess() {
   if (role !== "coach" && role !== "admin" && user.email !== "mael.ld@hotmail.fr") return null;
   return user;
 }
+
+// Le coach n'a pas le droit de supprimer programmes / séances / vidéos de groupe / exercices.
+// Seul l'admin (ou mael.ld@hotmail.fr) peut le faire.
+export function isCoachOnly(user: { user_metadata?: { role?: string }; email?: string }) {
+  if (user.email === "mael.ld@hotmail.fr") return false;
+  const role = user.user_metadata?.role ?? "cliente";
+  return role === "coach";
+}
