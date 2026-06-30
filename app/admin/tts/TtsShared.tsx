@@ -112,3 +112,102 @@ export function FileUploadButton({
     </div>
   );
 }
+
+export function youtubeEmbedUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    let id: string | null = null;
+    if (u.hostname.includes("youtu.be")) id = u.pathname.slice(1);
+    else if (u.searchParams.get("v")) id = u.searchParams.get("v");
+    else if (u.pathname.startsWith("/embed/")) id = u.pathname.replace("/embed/", "");
+    if (!id) return null;
+    return `https://www.youtube.com/embed/${id}?autoplay=1`;
+  } catch {
+    return null;
+  }
+}
+
+export function Modal({ children, onClose, maxWidth = 420 }: { children: React.ReactNode; onClose: () => void; maxWidth?: number }) {
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: 16 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ ...cardStyle, maxWidth, width: "100%", maxHeight: "90vh", overflowY: "auto" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function VideoCard({
+  titre,
+  coverUrl,
+  onClick,
+  onDelete,
+}: {
+  titre: string;
+  coverUrl: string | null;
+  onClick: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div style={{ position: "relative", width: 140 }}>
+      <button
+        type="button"
+        onClick={onClick}
+        style={{
+          width: 140, height: 140, borderRadius: 10, border: "1px solid var(--admin-border)",
+          backgroundColor: "var(--admin-card)", cursor: "pointer", padding: 0, overflow: "hidden",
+          position: "relative", display: "block",
+        }}
+      >
+        {coverUrl ? (
+          <img src={coverUrl} alt={titre} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
+          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>🎬</div>
+        )}
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.15)" }}>
+          <span style={{ fontSize: 28, color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,0.6)" }}>▶</span>
+        </div>
+      </button>
+      <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--admin-text)", fontWeight: 600, lineHeight: 1.3 }}>{titre}</p>
+      <button type="button" onClick={onDelete} style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", border: "none", backgroundColor: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 11, cursor: "pointer" }}>✕</button>
+    </div>
+  );
+}
+
+export function VideoPreviewModal({
+  titre,
+  lien_youtube,
+  description,
+  extra,
+  onClose,
+}: {
+  titre: string;
+  lien_youtube: string;
+  description?: string | null;
+  extra?: React.ReactNode;
+  onClose: () => void;
+}) {
+  const embed = youtubeEmbedUrl(lien_youtube);
+  return (
+    <Modal onClose={onClose} maxWidth={560}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <p style={{ margin: 0, fontWeight: 700, color: "var(--admin-text)", fontSize: 15 }}>{titre}</p>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--admin-text-muted)", fontSize: 18, cursor: "pointer" }}>✕</button>
+      </div>
+      {embed ? (
+        <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: 10, overflow: "hidden" }}>
+          <iframe
+            src={embed}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+          />
+        </div>
+      ) : (
+        <a href={lien_youtube} target="_blank" rel="noopener noreferrer" style={{ color: "#3B82F6", fontSize: 13 }}>{lien_youtube}</a>
+      )}
+      {description && <p style={{ marginTop: 12, fontSize: 13, color: "var(--admin-text-muted)" }}>{description}</p>}
+      {extra}
+    </Modal>
+  );
+}

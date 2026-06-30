@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { inputStyle, cardStyle, PageHeader, FileUploadButton } from "../TtsShared";
+import { inputStyle, cardStyle, PageHeader, FileUploadButton, VideoCard, VideoPreviewModal } from "../TtsShared";
 
 interface Video {
   id: string;
@@ -40,7 +40,9 @@ export default function OnboardingAdmin() {
   const [savingModule, setSavingModule] = useState(false);
 
   const [videoForms, setVideoForms] = useState<Record<string, VideoForm>>({});
+  const [formVersion, setFormVersion] = useState<Record<string, number>>({});
   const [savingVideo, setSavingVideo] = useState<string | null>(null);
+  const [previewVideo, setPreviewVideo] = useState<Video | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -118,6 +120,7 @@ export default function OnboardingAdmin() {
       if (!res.ok) { setError(d.error ?? "Erreur"); return; }
       setModules((prev) => prev.map((m) => m.id === moduleId ? { ...m, videos: [...m.videos, d.video] } : m));
       setVideoForms((prev) => ({ ...prev, [moduleId]: EMPTY_FORM }));
+      setFormVersion((prev) => ({ ...prev, [moduleId]: (prev[moduleId] ?? 0) + 1 }));
     } finally {
       setSavingVideo(null);
     }
@@ -168,22 +171,20 @@ export default function OnboardingAdmin() {
                   <button onClick={() => handleDeleteModule(m.id)} style={btnGhost}>Supprimer le bloc</button>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginBottom: 14 }}>
                   {m.videos.map((v) => (
-                    <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", backgroundColor: "var(--admin-card)", borderRadius: 8 }}>
-                      <div>
-                        <p style={{ margin: 0, fontSize: 13, color: "var(--admin-text)" }}>{v.titre}</p>
-                        <a href={v.lien_youtube} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#3B82F6" }}>{v.lien_youtube}</a>
-                        {v.description && <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--admin-text-muted)" }}>{v.description}</p>}
-                        {v.doc_url && <a href={v.doc_url} target="_blank" rel="noopener noreferrer" style={{ display: "block", fontSize: 11, color: "#D97706" }}>📄 {v.doc_name}</a>}
-                      </div>
-                      <button onClick={() => handleDeleteVideo(m.id, v.id)} style={btnGhost}>✕</button>
-                    </div>
+                    <VideoCard
+                      key={v.id}
+                      titre={v.titre}
+                      coverUrl={v.cover_url}
+                      onClick={() => setPreviewVideo(v)}
+                      onDelete={() => handleDeleteVideo(m.id, v.id)}
+                    />
                   ))}
                   {m.videos.length === 0 && <p style={{ fontSize: 12, color: "var(--admin-text-muted)", fontStyle: "italic", margin: 0 }}>Aucune vidéo.</p>}
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div key={formVersion[m.id] ?? 0} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                     <input
                       type="text"
@@ -231,6 +232,20 @@ export default function OnboardingAdmin() {
           })}
           {modules.length === 0 && <p style={{ color: "var(--admin-text-muted)", fontStyle: "italic" }}>Aucun bloc pour l&apos;instant.</p>}
         </div>
+      )}
+
+      {previewVideo && (
+        <VideoPreviewModal
+          titre={previewVideo.titre}
+          lien_youtube={previewVideo.lien_youtube}
+          description={previewVideo.description}
+          extra={previewVideo.doc_url && (
+            <a href={previewVideo.doc_url} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginTop: 10, fontSize: 12, color: "#D97706" }}>
+              📄 {previewVideo.doc_name}
+            </a>
+          )}
+          onClose={() => setPreviewVideo(null)}
+        />
       )}
     </div>
   );

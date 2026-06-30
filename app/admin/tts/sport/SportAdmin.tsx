@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { inputStyle, cardStyle, PageHeader, FileUploadButton } from "../TtsShared";
+import { inputStyle, cardStyle, PageHeader, FileUploadButton, VideoCard, VideoPreviewModal } from "../TtsShared";
 
 const MATERIEL_OPTIONS = ["Élastique", "Petits haltères", "Bande de résistance"];
 
@@ -42,7 +42,9 @@ export default function SportAdmin() {
   const [savingProgramme, setSavingProgramme] = useState(false);
 
   const [videoForms, setVideoForms] = useState<Record<string, VideoForm>>({});
+  const [formVersion, setFormVersion] = useState<Record<string, number>>({});
   const [savingVideo, setSavingVideo] = useState<string | null>(null);
+  const [previewVideo, setPreviewVideo] = useState<Video | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -130,6 +132,7 @@ export default function SportAdmin() {
       if (!res.ok) { setError(d.error ?? "Erreur"); return; }
       setProgrammes((prev) => prev.map((p) => p.id === programmeId ? { ...p, videos: [...p.videos, d.video] } : p));
       setVideoForms((prev) => ({ ...prev, [programmeId]: EMPTY_FORM }));
+      setFormVersion((prev) => ({ ...prev, [programmeId]: (prev[programmeId] ?? 0) + 1 }));
     } finally {
       setSavingVideo(null);
     }
@@ -189,27 +192,20 @@ export default function SportAdmin() {
                   <button onClick={() => handleDeleteProgramme(p.id)} style={btnGhost}>Supprimer</button>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginBottom: 14 }}>
                   {p.videos.map((v) => (
-                    <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "8px 10px", backgroundColor: "var(--admin-card)", borderRadius: 8 }}>
-                      <div style={{ display: "flex", gap: 10 }}>
-                        {v.cover_url && <img src={v.cover_url} alt={v.titre} style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />}
-                        <div>
-                          <p style={{ margin: 0, fontSize: 13, color: "var(--admin-text)" }}>{v.titre}</p>
-                          <a href={v.lien_youtube} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#3B82F6" }}>{v.lien_youtube}</a>
-                          {v.description && <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--admin-text-muted)" }}>{v.description}</p>}
-                          {!!v.materiel?.length && (
-                            <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--admin-text-muted)" }}>🧰 {v.materiel.join(", ")}</p>
-                          )}
-                        </div>
-                      </div>
-                      <button onClick={() => handleDeleteVideo(p.id, v.id)} style={btnGhost}>✕</button>
-                    </div>
+                    <VideoCard
+                      key={v.id}
+                      titre={v.titre}
+                      coverUrl={v.cover_url}
+                      onClick={() => setPreviewVideo(v)}
+                      onDelete={() => handleDeleteVideo(p.id, v.id)}
+                    />
                   ))}
                 </div>
 
                 {p.videos.length < 3 ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div key={formVersion[p.id] ?? 0} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                       <input
                         type="text"
@@ -277,6 +273,18 @@ export default function SportAdmin() {
           })}
           {programmes.length === 0 && <p style={{ color: "var(--admin-text-muted)", fontStyle: "italic" }}>Aucun programme pour l&apos;instant.</p>}
         </div>
+      )}
+
+      {previewVideo && (
+        <VideoPreviewModal
+          titre={previewVideo.titre}
+          lien_youtube={previewVideo.lien_youtube}
+          description={previewVideo.description}
+          extra={!!previewVideo.materiel?.length && (
+            <p style={{ marginTop: 10, fontSize: 12, color: "var(--admin-text-muted)" }}>🧰 {previewVideo.materiel.join(", ")}</p>
+          )}
+          onClose={() => setPreviewVideo(null)}
+        />
       )}
     </div>
   );

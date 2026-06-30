@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { inputStyle, cardStyle, PageHeader, FileUploadButton } from "../TtsShared";
+import { inputStyle, cardStyle, PageHeader, FileUploadButton, Modal } from "../TtsShared";
 
 interface Macros {
   calories?: number;
@@ -33,6 +33,8 @@ export default function NutritionAdmin() {
   const [proteines, setProteines] = useState("");
   const [glucides, setGlucides] = useState("");
   const [lipides, setLipides] = useState("");
+  const [formVersion, setFormVersion] = useState(0);
+  const [previewRecette, setPreviewRecette] = useState<Recette | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -90,6 +92,7 @@ export default function NutritionAdmin() {
       setRecettes((prev) => [d.recette, ...prev]);
       setTitre(""); setPhoto(null); setTexte(""); setIngredients([""]);
       setCalories(""); setProteines(""); setGlucides(""); setLipides("");
+      setFormVersion((v) => v + 1);
     } finally {
       setSaving(false);
     }
@@ -110,7 +113,7 @@ export default function NutritionAdmin() {
 
       {error && <p style={{ color: "#F87171", fontSize: 13 }}>{error}</p>}
 
-      <form onSubmit={handleAdd} style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+      <form key={formVersion} onSubmit={handleAdd} style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
         <input type="text" placeholder="Titre de la recette" value={titre} onChange={(e) => setTitre(e.target.value)} style={inputStyle} />
 
         <FileUploadButton
@@ -160,18 +163,19 @@ export default function NutritionAdmin() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
           {recettes.map((r) => (
             <div key={r.id} style={cardStyle}>
-              {r.photo_url && (
-                <img src={r.photo_url} alt={r.titre} style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />
-              )}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+              <button type="button" onClick={() => setPreviewRecette(r)} style={{ all: "unset", cursor: "pointer", display: "block", width: "100%" }}>
+                {r.photo_url ? (
+                  <img src={r.photo_url} alt={r.titre} style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />
+                ) : (
+                  <div style={{ width: "100%", height: 120, borderRadius: 8, marginBottom: 8, backgroundColor: "var(--admin-card)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>🍽️</div>
+                )}
                 <p style={{ margin: 0, fontWeight: 700, color: "var(--admin-text)", fontSize: 14 }}>{r.titre}</p>
-                <button onClick={() => handleDelete(r.id)} style={btnGhost}>✕</button>
+              </button>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={() => handleDelete(r.id)} style={{ ...btnGhost, marginTop: 6 }}>✕ Supprimer</button>
               </div>
-              {r.ingredients && (
-                <pre style={{ margin: "6px 0 0", fontSize: 11, color: "var(--admin-text-muted)", whiteSpace: "pre-wrap", fontFamily: "inherit" }}>{r.ingredients}</pre>
-              )}
               {r.macros && (
-                <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--admin-text-muted)" }}>
+                <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--admin-text-muted)" }}>
                   {r.macros.calories ? `${r.macros.calories} kcal` : ""}{r.macros.proteines ? ` · P ${r.macros.proteines}g` : ""}{r.macros.glucides ? ` · G ${r.macros.glucides}g` : ""}{r.macros.lipides ? ` · L ${r.macros.lipides}g` : ""}
                 </p>
               )}
@@ -179,6 +183,27 @@ export default function NutritionAdmin() {
           ))}
           {recettes.length === 0 && <p style={{ color: "var(--admin-text-muted)", fontStyle: "italic" }}>Aucune recette pour l&apos;instant.</p>}
         </div>
+      )}
+
+      {previewRecette && (
+        <Modal onClose={() => setPreviewRecette(null)} maxWidth={480}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <p style={{ margin: 0, fontWeight: 700, color: "var(--admin-text)", fontSize: 16 }}>{previewRecette.titre}</p>
+            <button onClick={() => setPreviewRecette(null)} style={{ background: "none", border: "none", color: "var(--admin-text-muted)", fontSize: 18, cursor: "pointer" }}>✕</button>
+          </div>
+          {previewRecette.photo_url && (
+            <img src={previewRecette.photo_url} alt={previewRecette.titre} style={{ width: "100%", maxHeight: 240, objectFit: "cover", borderRadius: 10, marginBottom: 12 }} />
+          )}
+          {previewRecette.texte && <p style={{ fontSize: 13, color: "var(--admin-text)", marginBottom: 12 }}>{previewRecette.texte}</p>}
+          {previewRecette.ingredients && (
+            <pre style={{ fontSize: 12, color: "var(--admin-text-muted)", whiteSpace: "pre-wrap", fontFamily: "inherit", margin: "0 0 12px" }}>{previewRecette.ingredients}</pre>
+          )}
+          {previewRecette.macros && (
+            <p style={{ fontSize: 12, color: "var(--admin-text-muted)", fontWeight: 700 }}>
+              {previewRecette.macros.calories ? `${previewRecette.macros.calories} kcal` : ""}{previewRecette.macros.proteines ? ` · P ${previewRecette.macros.proteines}g` : ""}{previewRecette.macros.glucides ? ` · G ${previewRecette.macros.glucides}g` : ""}{previewRecette.macros.lipides ? ` · L ${previewRecette.macros.lipides}g` : ""}
+            </p>
+          )}
+        </Modal>
       )}
     </div>
   );
