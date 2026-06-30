@@ -24,6 +24,13 @@ const COACH_NAV = [
   { href: "/admin/coach/profil",     icon: "👤", label: "Mon profil" },
 ];
 
+const TTS_NAV = [
+  { href: "/admin/tts/clientes",   icon: "👥", label: "Clientes" },
+  { href: "/admin/tts/onboarding", icon: "🎬", label: "Onboarding" },
+  { href: "/admin/tts/sport",      icon: "🏋️", label: "Sport" },
+  { href: "/admin/tts/nutrition",  icon: "🥗", label: "Nutrition" },
+];
+
 export default function AdminSidebar() {
   const pathname = usePathname();
   const { theme, toggle } = useAdminTheme();
@@ -35,6 +42,7 @@ export default function AdminSidebar() {
     }
     return isOnCoach;
   });
+  const [ttsOpen, setTtsOpen] = useState(() => pathname.startsWith("/admin/tts"));
 
   async function handleLogout() {
     const sb = createSupabaseBrowserClient();
@@ -47,6 +55,8 @@ export default function AdminSidebar() {
 
   const isCoachActive = (href: string) =>
     href === "/admin/coach" ? pathname === "/admin/coach" : pathname.startsWith(href);
+
+  const isTtsActive = (href: string) => pathname.startsWith(href);
 
   const sidebar = (
     <nav style={{
@@ -175,6 +185,71 @@ export default function AdminSidebar() {
                   fontSize: 12, fontWeight: active ? 700 : 400,
                   fontFamily: "system-ui",
                   borderLeft: active ? "2px solid #2d7ab5" : "2px solid transparent",
+                  transition: "all 0.12s",
+                }}>
+                  <span style={{ fontSize: 13, flexShrink: 0 }}>{icon}</span>
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Séparateur */}
+      <div style={{ margin: "8px 14px", height: 1, backgroundColor: "var(--admin-separator)" }} />
+
+      {/* Section TTS/TTL */}
+      <div style={{ padding: "8px 10px" }}>
+        <button
+          onClick={() => setTtsOpen((o) => !o)}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            width: "100%", padding: "8px 10px", borderRadius: 8, border: "none",
+            background: ttsOpen
+              ? "linear-gradient(135deg, rgba(34,197,94,0.25), rgba(20,100,60,0.15))"
+              : theme === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
+            cursor: "pointer", textAlign: "left", fontFamily: "system-ui",
+            marginBottom: ttsOpen ? 6 : 0,
+            outline: "none",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <span style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 28, height: 28, borderRadius: 7,
+              background: "linear-gradient(135deg, #22C55E, #0e7a40)",
+              fontSize: 14, flexShrink: 0,
+            }}>🚀</span>
+            <div>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: ttsOpen ? "#fff" : "#3fae6e", fontFamily: "system-ui", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                TTS / TTL
+              </p>
+              <p style={{ margin: 0, fontSize: 10, color: ttsOpen ? "rgba(255,255,255,0.4)" : "#2a5a3a", fontFamily: "system-ui" }}>
+                Time To Start / Last
+              </p>
+            </div>
+          </div>
+          <span style={{ fontSize: 9, color: "#2a8a5a" }}>{ttsOpen ? "▲" : "▼"}</span>
+        </button>
+
+        {ttsOpen && (
+          <div style={{
+            display: "flex", flexDirection: "column", gap: 1,
+            borderLeft: "2px solid rgba(34,197,94,0.3)",
+            marginLeft: 14, paddingLeft: 6,
+          }}>
+            {TTS_NAV.map(({ href, icon, label }) => {
+              const active = isTtsActive(href);
+              return (
+                <Link key={href} href={href} style={{
+                  display: "flex", alignItems: "center", gap: 9,
+                  padding: "8px 10px", borderRadius: 6, textDecoration: "none",
+                  backgroundColor: active ? "rgba(34,197,94,0.25)" : "transparent",
+                  color: active ? "#fff" : "rgba(100,200,150,0.85)",
+                  fontSize: 12, fontWeight: active ? 700 : 400,
+                  fontFamily: "system-ui",
+                  borderLeft: active ? "2px solid #22C55E" : "2px solid transparent",
                   transition: "all 0.12s",
                 }}>
                   <span style={{ fontSize: 13, flexShrink: 0 }}>{icon}</span>
