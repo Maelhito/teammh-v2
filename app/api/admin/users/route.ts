@@ -145,6 +145,9 @@ export async function PATCH(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Sync vers user_metadata pour que le middleware lise le statut sans requête DB
+  await admin.auth.admin.updateUserById(userId, { user_metadata: { statut } });
+
   return NextResponse.json({ success: true });
 }
 

@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     email,
     password,
     email_confirm: true,
-    user_metadata: { prenom, nom: nom ?? "", role: safeRole },
+    user_metadata: { prenom, nom: nom ?? "", role: safeRole, statut: "active" },
   });
 
   if (error) {

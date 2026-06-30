@@ -75,29 +75,13 @@ export async function middleware(request: NextRequest) {
 
   if (!user) return response;
 
-  // Rôle lu depuis la DB à chaque requête → changement immédiat sans reconnexion
+  // Rôle et statut lus depuis user_metadata (synchronisé à chaque écriture côté admin)
+  // → évite un appel réseau supplémentaire à chaque navigation
+  const role = user.user_metadata?.role ?? "cliente";
   const NEEDS_ROLE = ["/dashboard", "/admin", "/coach", "/profil", "/modules", "/calendrier"];
-  let role = "cliente";
   if (!isAdmin && NEEDS_ROLE.some((p) => pathname.startsWith(p))) {
-    try {
-      const profileRes = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${user.id}&select=statut,role`,
-        {
-          headers: {
-            apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
-            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-          },
-        }
-      );
-      const [profile] = await profileRes.json().catch(() => [null]);
-      role = profile?.role ?? user.user_metadata?.role ?? "cliente";
-
-      // Statut suspendu
-      const statut = profile?.statut ?? "active";
-      if (statut === "pause" || statut === "terminee") return redirect("/acces-suspendu");
-    } catch {
-      role = user.user_metadata?.role ?? "cliente";
-    }
+    const statut = user.user_metadata?.statut ?? "active";
+    if (statut === "pause" || statut === "terminee") return redirect("/acces-suspendu");
   }
 
   const isCoach = role === "coach";
