@@ -108,3 +108,22 @@ ALTER TABLE tts_modules_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tts_programmes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tts_videos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tts_recettes ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- MIGRATION 2 — description + document optionnel sur les vidéos
+-- d'onboarding, buckets storage pour upload direct (images,
+-- documents type devoirs). À exécuter après le bloc ci-dessus.
+-- ============================================================
+
+ALTER TABLE tts_modules_videos
+  ADD COLUMN IF NOT EXISTS description TEXT,
+  ADD COLUMN IF NOT EXISTS doc_url TEXT,
+  ADD COLUMN IF NOT EXISTS doc_name TEXT;
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('tts-images', 'tts-images', true)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('tts-docs', 'tts-docs', true)
+ON CONFLICT (id) DO NOTHING;

@@ -40,14 +40,16 @@ export async function fetchClients(): Promise<{ clients: ClientData[]; error: st
   const totalModules = getModules().length;
   const admin = createSupabaseAdminClient();
 
-  const [{ data: profiles }, { data: completions }] = await Promise.all([
+  const [{ data: profiles }, { data: completions }, { data: offres }] = await Promise.all([
     admin.from("user_profiles")
       .select("user_id, prenom, nom, statut, date_demarrage, acces_app, programme_type, programme_duree, coach_id, nutrition_id, role")
       .in("user_id", allIds),
     admin.from("module_completions").select("user_id").in("user_id", allIds),
+    admin.from("offres_clientes").select("user_id, offre").in("user_id", allIds),
   ]);
 
   const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.user_id, p]));
+  const offreMap = Object.fromEntries((offres ?? []).map((o) => [o.user_id, o.offre as "TTS" | "TTM" | "TTL"]));
 
   // Exclure les membres de l'équipe — seules les clientes apparaissent ici
   const TEAM_ROLES = new Set(["coach", "admin", "nutrition"]);
@@ -76,6 +78,7 @@ export async function fetchClients(): Promise<{ clients: ClientData[]; error: st
       programme_duree: (profileMap[u.id]?.programme_duree ?? "16_semaines") as "16_semaines" | "6_mois" | "12_mois",
       coach_id: profileMap[u.id]?.coach_id ?? null,
       nutrition_id: profileMap[u.id]?.nutrition_id ?? null,
+      offre: offreMap[u.id] ?? null,
     })),
     error: null,
   };

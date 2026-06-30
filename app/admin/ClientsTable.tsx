@@ -5,6 +5,7 @@ import { useState } from "react";
 export type Statut = "active" | "pause" | "terminee";
 export type ProgrammeType = "N1" | "N2";
 export type ProgrammeDuree = "16_semaines" | "6_mois" | "12_mois";
+export type Offre = "TTS" | "TTM" | "TTL";
 
 export interface ClientData {
   id: string;
@@ -21,7 +22,10 @@ export interface ClientData {
   programme_duree: ProgrammeDuree;
   coach_id: string | null;
   nutrition_id: string | null;
+  offre: Offre | null;
 }
+
+const OFFRE_COLOR: Record<Offre, string> = { TTS: "#22C55E", TTM: "#3B82F6", TTL: "#B22222" };
 
 export interface TeamMember {
   id: string;
@@ -98,6 +102,7 @@ function ClientRow({
   onDelete,
   onUpdateProgramme,
   onUpdateTeam,
+  onUpdateOffre,
 }: {
   client: ClientData;
   teamMembers: TeamMember[];
@@ -106,6 +111,7 @@ function ClientRow({
   onDelete: (id: string) => Promise<void>;
   onUpdateProgramme: (id: string, type: ProgrammeType, duree: ProgrammeDuree) => Promise<void>;
   onUpdateTeam: (id: string, field: "coach_id" | "nutrition_id", value: string | null) => Promise<void>;
+  onUpdateOffre: (id: string, current: Offre | null, next: Offre) => Promise<boolean>;
 }) {
   const [acces, setAcces] = useState(client.acces_app);
   const [loadingAcces, setLoadingAcces] = useState(false);
@@ -117,6 +123,8 @@ function ClientRow({
   const [savingProg, setSavingProg] = useState(false);
   const [coachId, setCoachId] = useState<string>(client.coach_id ?? "");
   const [nutritionId, setNutritionId] = useState<string>(client.nutrition_id ?? "");
+  const [offre, setOffre] = useState<Offre | null>(client.offre);
+  const [savingOffre, setSavingOffre] = useState(false);
   const coaches = teamMembers.filter((m) => m.role === "coach");
   const nutritionists = teamMembers.filter((m) => m.role === "nutrition");
 
@@ -156,6 +164,14 @@ function ClientRow({
   async function handleNutritionChange(val: string) {
     setNutritionId(val);
     await onUpdateTeam(client.id, "nutrition_id", val || null);
+  }
+
+  async function handleOffreChange(val: string) {
+    if (!val || val === offre) return;
+    setSavingOffre(true);
+    const ok = await onUpdateOffre(client.id, offre, val as Offre);
+    if (ok) setOffre(val as Offre);
+    setSavingOffre(false);
   }
 
   const dateDemarrage = client.date_demarrage
@@ -214,6 +230,29 @@ function ClientRow({
         >
           <option value="">—</option>
           {nutritionists.map((m) => <option key={m.id} value={m.id} style={{ backgroundColor: "#1A1A1A" }}>{m.nom}</option>)}
+        </select>
+      </td>
+      <td style={{ ...tdStyle }}>
+        <select
+          value={offre ?? ""}
+          onChange={(e) => handleOffreChange(e.target.value)}
+          disabled={savingOffre}
+          style={{
+            backgroundColor: "#0D0D0D",
+            border: `1px solid ${offre ? `${OFFRE_COLOR[offre]}66` : "rgba(255,255,255,0.15)"}`,
+            borderRadius: 6,
+            padding: "4px 8px",
+            color: offre ? OFFRE_COLOR[offre] : "#555",
+            fontSize: 11,
+            fontWeight: 700,
+            cursor: savingOffre ? "not-allowed" : "pointer",
+            outline: "none",
+          }}
+        >
+          <option value="" style={{ backgroundColor: "#1A1A1A" }}>—</option>
+          {(["TTS", "TTM", "TTL"] as Offre[]).map((o) => (
+            <option key={o} value={o} style={{ backgroundColor: "#1A1A1A" }}>{o}</option>
+          ))}
         </select>
       </td>
       <td style={{ ...tdStyle, textAlign: "center" }}>
@@ -302,6 +341,29 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
     });
   }
 
+  async function handleUpdateOffre(userId: string, current: Offre | null, next: Offre): Promise<boolean> {
+    const res = await fetch("/api/admin/tts/offres", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, offre: next, confirmed: false }),
+    });
+    const d = await res.json();
+    if (res.ok) return true;
+    if (d.needsConfirmation) {
+      const step1 = confirm(`⚠️ Changement hors de l'ordre normal TTS → TTM → TTL.\nPassage de ${current ?? "—"} vers ${next}. Continuer ?`);
+      if (!step1) return false;
+      const step2 = confirm(`Confirmer définitivement le passage vers ${next} ? Cette action sera enregistrée dans l'historique.`);
+      if (!step2) return false;
+      const res2 = await fetch("/api/admin/tts/offres", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, offre: next, confirmed: true }),
+      });
+      return res2.ok;
+    }
+    return false;
+  }
+
   return (
     <div style={{ marginTop: 48 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
@@ -343,6 +405,7 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
                   { label: "PROGRAMME", align: "left" as const },
                   { label: "🔴 COACH", align: "left" as const },
                   { label: "🟢 NUTRITION", align: "left" as const },
+                  { label: "OFFRE", align: "left" as const },
                   { label: "ACCÈS APP", align: "center" as const },
                   { label: "ACTIONS", align: "left" as const },
                 ].map(({ label, align }) => (
@@ -374,6 +437,7 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
                   onDelete={handleDelete}
                   onUpdateProgramme={handleUpdateProgramme}
                   onUpdateTeam={handleUpdateTeam}
+                  onUpdateOffre={handleUpdateOffre}
                 />
               ))}
             </tbody>

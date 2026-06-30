@@ -42,14 +42,18 @@ export default function SportAdmin() {
 
   async function handleAddProgramme(e: React.FormEvent) {
     e.preventDefault();
-    if (!numeroMois) return;
+    const mois = Number(numeroMois);
+    if (!numeroMois || !Number.isInteger(mois) || mois < 1) {
+      setError("Indique un numéro de mois valide (ex: 1) avant d'ajouter le programme");
+      return;
+    }
     setSavingProgramme(true);
     setError(null);
     try {
       const res = await fetch("/api/admin/tts/programmes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ numero_mois: Number(numeroMois), titre: titreProgramme || null }),
+        body: JSON.stringify({ numero_mois: mois, titre: titreProgramme || null }),
       });
       const d = await res.json();
       if (!res.ok) { setError(d.error ?? "Erreur"); return; }
@@ -117,10 +121,11 @@ export default function SportAdmin() {
         <input
           type="number"
           min={1}
-          placeholder="N° du mois (ex: 1)"
+          required
+          placeholder="N° du mois (obligatoire, ex: 1)"
           value={numeroMois}
           onChange={(e) => setNumeroMois(e.target.value)}
-          style={{ ...inputStyle, maxWidth: 160 }}
+          style={{ ...inputStyle, maxWidth: 200 }}
         />
         <input
           type="text"
