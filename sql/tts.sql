@@ -127,3 +127,14 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('tts-docs', 'tts-docs', true)
 ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================
+-- MIGRATION 3 — description, matériel, image de couverture sur
+-- chaque vidéo sport (tts_videos). À exécuter après les blocs
+-- précédents.
+-- ============================================================
+
+ALTER TABLE tts_videos
+  ADD COLUMN IF NOT EXISTS description TEXT,
+  ADD COLUMN IF NOT EXISTS materiel TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS cover_url TEXT;

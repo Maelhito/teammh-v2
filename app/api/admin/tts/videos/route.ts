@@ -12,7 +12,7 @@ async function requireAdmin() {
 export async function POST(request: NextRequest) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
-  const { programme_id, titre, lien_youtube, ordre } = await request.json();
+  const { programme_id, titre, lien_youtube, description, materiel, cover_url, ordre } = await request.json();
   if (!programme_id || !titre || !lien_youtube) {
     return NextResponse.json({ error: "programme_id, titre et lien_youtube requis" }, { status: 400 });
   }
@@ -33,6 +33,9 @@ export async function POST(request: NextRequest) {
       programme_id,
       titre: String(titre).slice(0, 200),
       lien_youtube: String(lien_youtube).slice(0, 500),
+      description: description ? String(description).slice(0, 2000) : null,
+      materiel: Array.isArray(materiel) ? materiel.map((m) => String(m).slice(0, 100)) : [],
+      cover_url: cover_url ? String(cover_url).slice(0, 500) : null,
       ordre: Number(ordre) || (count ?? 0) + 1,
     })
     .select()

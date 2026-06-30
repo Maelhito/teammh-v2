@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { inputStyle, cardStyle, PageHeader } from "../TtsShared";
+import { inputStyle, cardStyle, PageHeader, FileUploadButton } from "../TtsShared";
+
+const MATERIEL_OPTIONS = ["Élastique", "Petits haltères", "Bande de résistance"];
 
 interface Video {
   id: string;
   titre: string;
   lien_youtube: string;
+  description: string | null;
+  materiel: string[] | null;
+  cover_url: string | null;
   ordre: number;
 }
 
@@ -17,6 +22,16 @@ interface Programme {
   videos: Video[];
 }
 
+interface VideoForm {
+  titre: string;
+  lien: string;
+  description: string;
+  materiel: string[];
+  cover: { url: string; name: string } | null;
+}
+
+const EMPTY_FORM: VideoForm = { titre: "", lien: "", description: "", materiel: [], cover: null };
+
 export default function SportAdmin() {
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +41,7 @@ export default function SportAdmin() {
   const [titreProgramme, setTitreProgramme] = useState("");
   const [savingProgramme, setSavingProgramme] = useState(false);
 
-  const [videoForms, setVideoForms] = useState<Record<string, { titre: string; lien: string }>>({});
+  const [videoForms, setVideoForms] = useState<Record<string, VideoForm>>({});
   const [savingVideo, setSavingVideo] = useState<string | null>(null);
 
   useEffect(() => { load(); }, []);
@@ -38,6 +53,20 @@ export default function SportAdmin() {
       .then((d) => setProgrammes(d.programmes ?? []))
       .catch(() => setError("Erreur de chargement"))
       .finally(() => setLoading(false));
+  }
+
+  function getForm(programmeId: string): VideoForm {
+    return videoForms[programmeId] ?? EMPTY_FORM;
+  }
+
+  function setForm(programmeId: string, patch: Partial<VideoForm>) {
+    setVideoForms((prev) => ({ ...prev, [programmeId]: { ...getForm(programmeId), ...patch } }));
+  }
+
+  function toggleMateriel(programmeId: string, item: string) {
+    const current = getForm(programmeId).materiel;
+    const next = current.includes(item) ? current.filter((m) => m !== item) : [...current, item];
+    setForm(programmeId, { materiel: next });
   }
 
   async function handleAddProgramme(e: React.FormEvent) {
@@ -75,8 +104,11 @@ export default function SportAdmin() {
   }
 
   async function handleAddVideo(programmeId: string) {
-    const form = videoForms[programmeId];
-    if (!form?.titre.trim() || !form?.lien.trim()) return;
+    const form = getForm(programmeId);
+    if (!form.titre.trim() || !form.lien.trim()) {
+      setError("Titre et lien YouTube requis pour la vidéo");
+      return;
+    }
     setSavingVideo(programmeId);
     setError(null);
     try {
@@ -88,13 +120,16 @@ export default function SportAdmin() {
           programme_id: programmeId,
           titre: form.titre,
           lien_youtube: form.lien,
+          description: form.description || null,
+          materiel: form.materiel,
+          cover_url: form.cover?.url ?? null,
           ordre: (programme?.videos.length ?? 0) + 1,
         }),
       });
       const d = await res.json();
       if (!res.ok) { setError(d.error ?? "Erreur"); return; }
       setProgrammes((prev) => prev.map((p) => p.id === programmeId ? { ...p, videos: [...p.videos, d.video] } : p));
-      setVideoForms((prev) => ({ ...prev, [programmeId]: { titre: "", lien: "" } }));
+      setVideoForms((prev) => ({ ...prev, [programmeId]: EMPTY_FORM }));
     } finally {
       setSavingVideo(null);
     }
@@ -143,52 +178,103 @@ export default function SportAdmin() {
         <p style={{ color: "var(--admin-text-muted)" }}>Chargement...</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {programmes.map((p) => (
-            <div key={p.id} style={cardStyle}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <p style={{ margin: 0, fontWeight: 700, color: "var(--admin-text)", fontSize: 15 }}>
-                  Mois {p.numero_mois} {p.titre ? `— ${p.titre}` : ""} <span style={{ fontSize: 12, color: "var(--admin-text-muted)" }}>({p.videos.length}/3)</span>
-                </p>
-                <button onClick={() => handleDeleteProgramme(p.id)} style={btnGhost}>Supprimer</button>
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
-                {p.videos.map((v) => (
-                  <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", backgroundColor: "var(--admin-card)", borderRadius: 8 }}>
-                    <div>
-                      <p style={{ margin: 0, fontSize: 13, color: "var(--admin-text)" }}>{v.titre}</p>
-                      <a href={v.lien_youtube} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#3B82F6" }}>{v.lien_youtube}</a>
-                    </div>
-                    <button onClick={() => handleDeleteVideo(p.id, v.id)} style={btnGhost}>✕</button>
-                  </div>
-                ))}
-              </div>
-
-              {p.videos.length < 3 ? (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 6 }}>
-                  <input
-                    type="text"
-                    placeholder="Titre vidéo"
-                    value={videoForms[p.id]?.titre ?? ""}
-                    onChange={(e) => setVideoForms((prev) => ({ ...prev, [p.id]: { titre: e.target.value, lien: prev[p.id]?.lien ?? "" } }))}
-                    style={inputStyle}
-                  />
-                  <input
-                    type="url"
-                    placeholder="Lien YouTube"
-                    value={videoForms[p.id]?.lien ?? ""}
-                    onChange={(e) => setVideoForms((prev) => ({ ...prev, [p.id]: { titre: prev[p.id]?.titre ?? "", lien: e.target.value } }))}
-                    style={inputStyle}
-                  />
-                  <button onClick={() => handleAddVideo(p.id)} disabled={savingVideo === p.id} style={btnPrimary}>
-                    {savingVideo === p.id ? "..." : "+ Vidéo"}
-                  </button>
+          {programmes.map((p) => {
+            const form = getForm(p.id);
+            return (
+              <div key={p.id} style={cardStyle}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <p style={{ margin: 0, fontWeight: 700, color: "var(--admin-text)", fontSize: 15 }}>
+                    Mois {p.numero_mois} {p.titre ? `— ${p.titre}` : ""} <span style={{ fontSize: 12, color: "var(--admin-text-muted)" }}>({p.videos.length}/3)</span>
+                  </p>
+                  <button onClick={() => handleDeleteProgramme(p.id)} style={btnGhost}>Supprimer</button>
                 </div>
-              ) : (
-                <p style={{ fontSize: 12, color: "var(--admin-text-muted)", fontStyle: "italic", margin: 0 }}>3 vidéos complètes.</p>
-              )}
-            </div>
-          ))}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                  {p.videos.map((v) => (
+                    <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "8px 10px", backgroundColor: "var(--admin-card)", borderRadius: 8 }}>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        {v.cover_url && <img src={v.cover_url} alt={v.titre} style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />}
+                        <div>
+                          <p style={{ margin: 0, fontSize: 13, color: "var(--admin-text)" }}>{v.titre}</p>
+                          <a href={v.lien_youtube} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#3B82F6" }}>{v.lien_youtube}</a>
+                          {v.description && <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--admin-text-muted)" }}>{v.description}</p>}
+                          {!!v.materiel?.length && (
+                            <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--admin-text-muted)" }}>🧰 {v.materiel.join(", ")}</p>
+                          )}
+                        </div>
+                      </div>
+                      <button onClick={() => handleDeleteVideo(p.id, v.id)} style={btnGhost}>✕</button>
+                    </div>
+                  ))}
+                </div>
+
+                {p.videos.length < 3 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                      <input
+                        type="text"
+                        placeholder="Titre vidéo"
+                        value={form.titre}
+                        onChange={(e) => setForm(p.id, { titre: e.target.value })}
+                        style={inputStyle}
+                      />
+                      <input
+                        type="url"
+                        placeholder="Lien YouTube"
+                        value={form.lien}
+                        onChange={(e) => setForm(p.id, { lien: e.target.value })}
+                        style={inputStyle}
+                      />
+                    </div>
+                    <textarea
+                      placeholder="Description (optionnel)"
+                      value={form.description}
+                      onChange={(e) => setForm(p.id, { description: e.target.value })}
+                      style={{ ...inputStyle, minHeight: 50, resize: "vertical" }}
+                    />
+                    <div>
+                      <label style={{ display: "block", fontSize: 11, color: "var(--admin-text-muted)", marginBottom: 6, letterSpacing: "0.04em" }}>
+                        MATÉRIEL (optionnel)
+                      </label>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {MATERIEL_OPTIONS.map((item) => {
+                          const checked = form.materiel.includes(item);
+                          return (
+                            <button
+                              key={item}
+                              type="button"
+                              onClick={() => toggleMateriel(p.id, item)}
+                              style={{
+                                padding: "6px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer",
+                                border: `1px solid ${checked ? "#B22222" : "var(--admin-border)"}`,
+                                backgroundColor: checked ? "rgba(178,34,34,0.15)" : "transparent",
+                                color: checked ? "#B22222" : "var(--admin-text-muted)",
+                                fontWeight: checked ? 700 : 400,
+                              }}
+                            >
+                              {checked ? "✓ " : ""}{item}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <FileUploadButton
+                      bucket="tts-images"
+                      accept="image/*"
+                      label="🖼 Image de couverture (optionnel)"
+                      value={form.cover}
+                      onUploaded={(result) => setForm(p.id, { cover: result })}
+                    />
+                    <button onClick={() => handleAddVideo(p.id)} disabled={savingVideo === p.id} style={{ ...btnPrimary, alignSelf: "flex-start" }}>
+                      {savingVideo === p.id ? "..." : "+ Vidéo"}
+                    </button>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 12, color: "var(--admin-text-muted)", fontStyle: "italic", margin: 0 }}>3 vidéos complètes.</p>
+                )}
+              </div>
+            );
+          })}
           {programmes.length === 0 && <p style={{ color: "var(--admin-text-muted)", fontStyle: "italic" }}>Aucun programme pour l&apos;instant.</p>}
         </div>
       )}
