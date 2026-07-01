@@ -106,7 +106,7 @@ export default function AdminSidebar() {
           {NAV.map(({ href, icon, label }) => {
             const active = isActive(href);
             return (
-              <Link key={href} href={href} style={{
+              <Link key={href} href={href} onClick={() => setOpen(false)} style={{
                 display: "flex", alignItems: "center", gap: 10,
                 padding: "9px 10px", borderRadius: 7, textDecoration: "none",
                 backgroundColor: active ? "rgba(178,34,34,0.12)" : "transparent",
@@ -178,7 +178,7 @@ export default function AdminSidebar() {
             {COACH_NAV.map(({ href, icon, label }) => {
               const active = isCoachActive(href);
               return (
-                <Link key={href} href={href} style={{
+                <Link key={href} href={href} onClick={() => setOpen(false)} style={{
                   display: "flex", alignItems: "center", gap: 9,
                   padding: "8px 10px", borderRadius: 6, textDecoration: "none",
                   backgroundColor: active ? "rgba(30,80,120,0.25)" : "transparent",
@@ -264,7 +264,7 @@ export default function AdminSidebar() {
 
       {/* Bas : toggle + vue cliente + déconnexion */}
       <div style={{ padding: "8px 10px 14px", borderTop: "1px solid var(--admin-separator)", display: "flex", flexDirection: "column", gap: 2 }}>
-        <Link href="/dashboard?preview=1" style={{
+        <Link href="/dashboard?preview=1" onClick={() => setOpen(false)} style={{
           display: "flex", alignItems: "center", gap: 8, padding: "8px 10px",
           borderRadius: 7, textDecoration: "none", color: "var(--admin-bottom-action)", fontSize: 12, fontFamily: "system-ui",
         }}>
