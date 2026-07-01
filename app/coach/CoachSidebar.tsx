@@ -56,7 +56,7 @@ export default function CoachSidebar() {
     }}>
       {/* Bouton retour admin — visible uniquement si admin + hors localhost */}
       {showAdminBtn && (
-        <Link href="/admin" style={{
+        <Link href="/admin" onClick={() => setOpen(false)} style={{
           display: "flex", alignItems: "center", gap: 8,
           padding: "10px 16px", backgroundColor: "rgba(178,34,34,0.12)",
           borderBottom: "1px solid rgba(178,34,34,0.2)",
@@ -84,7 +84,7 @@ export default function CoachSidebar() {
       {/* Menu */}
       <div style={{ flex: 1, padding: "16px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
         {NAV.map(({ href, icon, label }) => (
-          <Link key={href} href={href} style={{
+          <Link key={href} href={href} onClick={() => setOpen(false)} style={{
             display: "flex", alignItems: "center", gap: 10,
             padding: "10px 12px", borderRadius: 8, textDecoration: "none",
             backgroundColor: isActive(href) ? "rgba(178,34,34,0.15)" : "transparent",
@@ -102,7 +102,7 @@ export default function CoachSidebar() {
 
       {/* Footer */}
       <div style={{ padding: "16px 12px", borderTop: "1px solid #1e1e1e" }}>
-        <Link href="/dashboard?preview=1" target="_blank" style={{
+        <Link href="/dashboard?preview=1" target="_blank" onClick={() => setOpen(false)} style={{
           display: "block", textAlign: "center",
           padding: "10px 14px", marginBottom: 8,
           border: "2px solid #ef4444", borderRadius: 10,
