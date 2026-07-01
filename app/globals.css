@@ -17,6 +17,16 @@
   box-sizing: border-box;
 }
 
+.skeleton-pulse {
+  background-color: var(--gris);
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
 body {
   background-color: var(--noir);
   color: var(--blanc);
