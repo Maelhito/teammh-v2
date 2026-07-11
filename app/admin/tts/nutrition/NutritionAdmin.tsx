@@ -10,6 +10,15 @@ interface Macros {
   lipides?: number;
 }
 
+type Categorie = "petit_dej" | "dejeuner" | "diner" | "collation";
+
+const CATEGORIE_LABELS: Record<Categorie, string> = {
+  petit_dej: "Petit-déjeuner",
+  dejeuner: "Déjeuner",
+  diner: "Dîner",
+  collation: "Collation",
+};
+
 interface Recette {
   id: string;
   titre: string;
@@ -17,6 +26,8 @@ interface Recette {
   texte: string | null;
   ingredients: string | null;
   macros: Macros | null;
+  categorie: Categorie | null;
+  duree_minutes: number | null;
 }
 
 export default function NutritionAdmin() {
@@ -33,6 +44,8 @@ export default function NutritionAdmin() {
   const [proteines, setProteines] = useState("");
   const [glucides, setGlucides] = useState("");
   const [lipides, setLipides] = useState("");
+  const [categorie, setCategorie] = useState<Categorie | "">("");
+  const [dureeMinutes, setDureeMinutes] = useState("");
   const [formVersion, setFormVersion] = useState(0);
   const [previewRecette, setPreviewRecette] = useState<Recette | null>(null);
 
@@ -85,6 +98,8 @@ export default function NutritionAdmin() {
           texte: texte || null,
           ingredients: cleanIngredients.map((i) => `- ${i}`).join("\n"),
           macros: Object.keys(macros).length ? macros : null,
+          categorie: categorie || null,
+          duree_minutes: dureeMinutes ? Number(dureeMinutes) : null,
         }),
       });
       const d = await res.json();
@@ -92,6 +107,7 @@ export default function NutritionAdmin() {
       setRecettes((prev) => [d.recette, ...prev]);
       setTitre(""); setPhoto(null); setTexte(""); setIngredients([""]);
       setCalories(""); setProteines(""); setGlucides(""); setLipides("");
+      setCategorie(""); setDureeMinutes("");
       setFormVersion((v) => v + 1);
     } finally {
       setSaving(false);
@@ -154,6 +170,15 @@ export default function NutritionAdmin() {
           <input type="number" placeholder="Glucides (g)" value={glucides} onChange={(e) => setGlucides(e.target.value)} style={inputStyle} />
           <input type="number" placeholder="Lipides (g)" value={lipides} onChange={(e) => setLipides(e.target.value)} style={inputStyle} />
         </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <select value={categorie} onChange={(e) => setCategorie(e.target.value as Categorie | "")} style={inputStyle}>
+            <option value="">Catégorie (optionnel)</option>
+            {(Object.keys(CATEGORIE_LABELS) as Categorie[]).map((c) => (
+              <option key={c} value={c}>{CATEGORIE_LABELS[c]}</option>
+            ))}
+          </select>
+          <input type="number" placeholder="Durée (min)" value={dureeMinutes} onChange={(e) => setDureeMinutes(e.target.value)} style={inputStyle} />
+        </div>
         <button type="submit" disabled={saving} style={btnPrimary}>{saving ? "..." : "+ Recette"}</button>
       </form>
 
@@ -170,6 +195,11 @@ export default function NutritionAdmin() {
                   <div style={{ width: "100%", height: 120, borderRadius: 8, marginBottom: 8, backgroundColor: "var(--admin-card)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>🍽️</div>
                 )}
                 <p style={{ margin: 0, fontWeight: 700, color: "var(--admin-text)", fontSize: 14 }}>{r.titre}</p>
+                {(r.categorie || r.duree_minutes) && (
+                  <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--admin-text-muted)" }}>
+                    {r.categorie ? CATEGORIE_LABELS[r.categorie] : ""}{r.categorie && r.duree_minutes ? " · " : ""}{r.duree_minutes ? `${r.duree_minutes} min` : ""}
+                  </p>
+                )}
               </button>
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <button onClick={() => handleDelete(r.id)} style={{ ...btnGhost, marginTop: 6 }}>✕ Supprimer</button>
