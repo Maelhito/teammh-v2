@@ -1,7 +1,9 @@
+import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getEffectiveUser } from "@/lib/preview";
 import { requireTtsAccess } from "@/lib/tts-access";
 import { getTtsStripeOffers } from "@/lib/tts-stripe-offers";
+import { getTtsSubscription, isTtsSubscriptionActive } from "@/lib/tts";
 import TtsHeader from "@/components/TtsHeader";
 import PreviewBanner from "@/components/PreviewBanner";
 import { ttsColors } from "@/lib/tts-theme";
@@ -21,6 +23,15 @@ export default async function TtsPaiementPage({ searchParams }: PageProps) {
   const { userId, firstName, isPreview } = await getEffectiveUser(session);
 
   await requireTtsAccess(userId, isPreview, { skipSubscriptionCheck: true });
+
+  // Déjà abonnée : on ne montre jamais les offres, pour éviter un double abonnement
+  // Stripe (deux souscriptions actives sur le même customer, double débit mensuel).
+  if (!isPreview) {
+    const subscription = userId ? await getTtsSubscription(userId) : null;
+    if (isTtsSubscriptionActive(subscription)) {
+      redirect("/tts");
+    }
+  }
 
   const offers = getTtsStripeOffers().filter((o) => o.priceId);
 

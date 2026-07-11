@@ -32,9 +32,12 @@ export default function CapsulesAdmin() {
   function load() {
     setLoading(true);
     fetch("/api/admin/tts/capsules")
-      .then((r) => r.json())
-      .then((d) => setCapsules(d.capsules ?? []))
-      .catch(() => setError("Erreur de chargement"))
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? "Erreur de chargement");
+        setCapsules(d.capsules ?? []);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Erreur de chargement"))
       .finally(() => setLoading(false));
   }
 

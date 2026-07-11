@@ -46,18 +46,24 @@ export default function ClientesOffres() {
   function load() {
     setLoading(true);
     fetch("/api/admin/tts/offres")
-      .then((r) => r.json())
-      .then((d) => setClientes(d.clients ?? []))
-      .catch(() => setError("Erreur de chargement"))
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? "Erreur de chargement");
+        setClientes(d.clients ?? []);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Erreur de chargement"))
       .finally(() => setLoading(false));
   }
 
   function loadDemandes() {
     setDemandesLoading(true);
     fetch("/api/admin/tts/demandes-bilan")
-      .then((r) => r.json())
-      .then((d) => setDemandes(d.demandes ?? []))
-      .catch(() => {})
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? "Erreur de chargement des demandes de bilan");
+        setDemandes(d.demandes ?? []);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Erreur de chargement des demandes de bilan"))
       .finally(() => setDemandesLoading(false));
   }
 
