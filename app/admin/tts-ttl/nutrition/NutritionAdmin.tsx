@@ -40,7 +40,7 @@ export default function NutritionAdmin() {
 
   function load() {
     setLoading(true);
-    fetch("/api/admin/tts/recettes")
+    fetch("/api/admin/tts-ttl/recettes")
       .then((r) => r.json())
       .then((d) => setRecettes(d.recettes ?? []))
       .catch(() => setError("Erreur de chargement"))
@@ -76,7 +76,7 @@ export default function NutritionAdmin() {
       if (glucides) macros.glucides = Number(glucides);
       if (lipides) macros.lipides = Number(lipides);
 
-      const res = await fetch("/api/admin/tts/recettes", {
+      const res = await fetch("/api/admin/tts-ttl/recettes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -99,7 +99,7 @@ export default function NutritionAdmin() {
   }
 
   async function handleDelete(id: string) {
-    const res = await fetch("/api/admin/tts/recettes", {
+    const res = await fetch("/api/admin/tts-ttl/recettes", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { OFFRE_COLOR, OFFRE_ORDER, type Offre } from "@/lib/offers/types";
+export type { Offre };
 
 export type Statut = "active" | "pause" | "terminee";
 export type ProgrammeType = "N1" | "N2";
 export type ProgrammeDuree = "16_semaines" | "6_mois" | "12_mois";
-export type Offre = "TTS" | "TTM" | "TTL";
 
 export interface ClientData {
   id: string;
@@ -24,8 +25,6 @@ export interface ClientData {
   nutrition_id: string | null;
   offre: Offre | null;
 }
-
-const OFFRE_COLOR: Record<Offre, string> = { TTS: "#22C55E", TTM: "#3B82F6", TTL: "#B22222" };
 
 export interface TeamMember {
   id: string;
@@ -250,7 +249,7 @@ function ClientRow({
           }}
         >
           <option value="" style={{ backgroundColor: "#1A1A1A" }}>—</option>
-          {(["TTS", "TTM", "TTL"] as Offre[]).map((o) => (
+          {OFFRE_ORDER.map((o) => (
             <option key={o} value={o} style={{ backgroundColor: "#1A1A1A" }}>{o}</option>
           ))}
         </select>
@@ -342,7 +341,7 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
   }
 
   async function handleUpdateOffre(userId: string, current: Offre | null, next: Offre): Promise<boolean> {
-    const res = await fetch("/api/admin/tts/offres", {
+    const res = await fetch("/api/admin/offres", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: userId, offre: next, confirmed: false }),
@@ -354,7 +353,7 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
       if (!step1) return false;
       const step2 = confirm(`Confirmer définitivement le passage vers ${next} ? Cette action sera enregistrée dans l'historique.`);
       if (!step2) return false;
-      const res2 = await fetch("/api/admin/tts/offres", {
+      const res2 = await fetch("/api/admin/offres", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: userId, offre: next, confirmed: true }),

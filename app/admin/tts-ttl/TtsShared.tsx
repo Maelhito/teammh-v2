@@ -60,7 +60,7 @@ export function FileUploadButton({
     setUploading(true);
     setError(null);
     try {
-      const urlRes = await fetch("/api/admin/tts/storage/signed-url", {
+      const urlRes = await fetch("/api/admin/tts-ttl/storage/signed-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bucket, filename: file.name }),
@@ -74,7 +74,7 @@ export function FileUploadButton({
         .uploadToSignedUrl(urlData.storagePath, urlData.token, file, { contentType: file.type || undefined });
       if (uploadError) { setError(uploadError.message); return; }
 
-      const confirmRes = await fetch("/api/admin/tts/storage/public-url", {
+      const confirmRes = await fetch("/api/admin/tts-ttl/storage/public-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bucket, storagePath: urlData.storagePath }),

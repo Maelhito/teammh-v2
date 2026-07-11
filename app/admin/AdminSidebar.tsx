@@ -25,10 +25,10 @@ const COACH_NAV = [
 ];
 
 const TTS_NAV = [
-  { href: "/admin/tts/clientes",   icon: "👥", label: "Clientes" },
-  { href: "/admin/tts/onboarding", icon: "🎬", label: "Onboarding" },
-  { href: "/admin/tts/sport",      icon: "🏋️", label: "Sport" },
-  { href: "/admin/tts/nutrition",  icon: "🥗", label: "Nutrition" },
+  { href: "/admin/tts-ttl/clientes",   icon: "👥", label: "Clientes" },
+  { href: "/admin/tts-ttl/onboarding", icon: "🎬", label: "Onboarding" },
+  { href: "/admin/tts-ttl/sport",      icon: "🏋️", label: "Sport" },
+  { href: "/admin/tts-ttl/nutrition",  icon: "🥗", label: "Nutrition" },
 ];
 
 export default function AdminSidebar() {
@@ -42,7 +42,7 @@ export default function AdminSidebar() {
     }
     return isOnCoach;
   });
-  const [ttsOpen, setTtsOpen] = useState(() => pathname.startsWith("/admin/tts"));
+  const [ttsOpen, setTtsOpen] = useState(() => pathname.startsWith("/admin/tts-ttl"));
 
   async function handleLogout() {
     const sb = createSupabaseBrowserClient();

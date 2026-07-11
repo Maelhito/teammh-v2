@@ -1,8 +1,16 @@
 -- ============================================================
 -- TIME TO START (TTS) / TIME TO LAST (TTL)
--- Schéma isolé, aucune dépendance sur les tables TTM existantes.
--- Référence uniquement auth.users(id) — jamais user_profiles
--- pour garder TTS/TTL totalement découplé du contenu TTM.
+-- Les tables tts_* (modules, programmes, vidéos, recettes) sont
+-- isolées : aucune FK vers les tables TTM, tout référence
+-- uniquement auth.users(id). Un split TTS/TTL est délibérément
+-- différé tant qu'aucune app cliente TTL n'existe et que son
+-- contenu ne diverge pas de celui de TTS.
+-- offres_clientes / offres_clientes_historique sont volontairement
+-- transverses : elles pilotent aussi TTM et piloteront plus tard
+-- l'app cliente TTL. Gérées via l'endpoint neutre
+-- app/api/admin/offres (hors du namespace tts-ttl), qui peut lire
+-- user_profiles à des fins d'affichage — ce n'est pas TTS/TTL qui
+-- va chercher dans TTM.
 -- RLS activé sans policy = accès exclusif via service role (admin),
 -- jamais en lecture/écriture directe coach ou cliente.
 -- À exécuter dans l'éditeur SQL Supabase.

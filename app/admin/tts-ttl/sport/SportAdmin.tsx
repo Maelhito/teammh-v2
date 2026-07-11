@@ -50,7 +50,7 @@ export default function SportAdmin() {
 
   function load() {
     setLoading(true);
-    fetch("/api/admin/tts/programmes")
+    fetch("/api/admin/tts-ttl/programmes")
       .then((r) => r.json())
       .then((d) => setProgrammes(d.programmes ?? []))
       .catch(() => setError("Erreur de chargement"))
@@ -81,7 +81,7 @@ export default function SportAdmin() {
     setSavingProgramme(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/tts/programmes", {
+      const res = await fetch("/api/admin/tts-ttl/programmes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ numero_mois: mois, titre: titreProgramme || null }),
@@ -97,7 +97,7 @@ export default function SportAdmin() {
   }
 
   async function handleDeleteProgramme(id: string) {
-    const res = await fetch("/api/admin/tts/programmes", {
+    const res = await fetch("/api/admin/tts-ttl/programmes", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
@@ -115,7 +115,7 @@ export default function SportAdmin() {
     setError(null);
     try {
       const programme = programmes.find((p) => p.id === programmeId);
-      const res = await fetch("/api/admin/tts/videos", {
+      const res = await fetch("/api/admin/tts-ttl/videos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -139,7 +139,7 @@ export default function SportAdmin() {
   }
 
   async function handleDeleteVideo(programmeId: string, videoId: string) {
-    const res = await fetch("/api/admin/tts/videos", {
+    const res = await fetch("/api/admin/tts-ttl/videos", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: videoId }),

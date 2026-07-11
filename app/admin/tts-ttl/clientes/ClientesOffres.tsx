@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { inputStyle, cardStyle, PageHeader } from "../TtsShared";
-
-type Offre = "TTS" | "TTM" | "TTL";
+import { OFFRE_LABEL, OFFRE_COLOR, OFFRE_ORDER, type Offre } from "@/lib/offers/types";
 
 interface Cliente {
   id: string;
@@ -13,9 +12,6 @@ interface Cliente {
   offre: Offre | null;
   date_debut: string | null;
 }
-
-const OFFRE_LABEL: Record<Offre, string> = { TTS: "Time To Start", TTM: "Time To Move", TTL: "Time To Last" };
-const OFFRE_COLOR: Record<Offre, string> = { TTS: "#22C55E", TTM: "#3B82F6", TTL: "#B22222" };
 
 export default function ClientesOffres() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -32,7 +28,7 @@ export default function ClientesOffres() {
 
   function load() {
     setLoading(true);
-    fetch("/api/admin/tts/offres")
+    fetch("/api/admin/offres")
       .then((r) => r.json())
       .then((d) => setClientes(d.clients ?? []))
       .catch(() => setError("Erreur de chargement"))
@@ -43,7 +39,7 @@ export default function ClientesOffres() {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/tts/offres", {
+      const res = await fetch("/api/admin/offres", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: cliente.id, offre, confirmed }),
@@ -114,7 +110,7 @@ export default function ClientesOffres() {
                   style={{ ...inputStyle, width: "auto" }}
                 >
                   <option value="">{c.offre ? "Changer d'offre…" : "Affecter une offre…"}</option>
-                  {(["TTS", "TTM", "TTL"] as Offre[]).filter((o) => o !== c.offre).map((o) => (
+                  {OFFRE_ORDER.filter((o) => o !== c.offre).map((o) => (
                     <option key={o} value={o}>{OFFRE_LABEL[o]}</option>
                   ))}
                 </select>

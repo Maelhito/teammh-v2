@@ -48,7 +48,7 @@ export default function OnboardingAdmin() {
 
   function load() {
     setLoading(true);
-    fetch("/api/admin/tts/modules")
+    fetch("/api/admin/tts-ttl/modules")
       .then((r) => r.json())
       .then((d) => setModules(d.modules ?? []))
       .catch(() => setError("Erreur de chargement"))
@@ -69,7 +69,7 @@ export default function OnboardingAdmin() {
     setSavingModule(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/tts/modules", {
+      const res = await fetch("/api/admin/tts-ttl/modules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ titre: moduleTitre, ordre: modules.length }),
@@ -84,7 +84,7 @@ export default function OnboardingAdmin() {
   }
 
   async function handleDeleteModule(id: string) {
-    const res = await fetch("/api/admin/tts/modules", {
+    const res = await fetch("/api/admin/tts-ttl/modules", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
@@ -102,7 +102,7 @@ export default function OnboardingAdmin() {
     setError(null);
     try {
       const module = modules.find((m) => m.id === moduleId);
-      const res = await fetch("/api/admin/tts/modules-videos", {
+      const res = await fetch("/api/admin/tts-ttl/modules-videos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -127,7 +127,7 @@ export default function OnboardingAdmin() {
   }
 
   async function handleDeleteVideo(moduleId: string, videoId: string) {
-    const res = await fetch("/api/admin/tts/modules-videos", {
+    const res = await fetch("/api/admin/tts-ttl/modules-videos", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: videoId }),
