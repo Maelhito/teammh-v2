@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 const ADMIN_EMAIL = "mael.ld@hotmail.fr";
 
 // Routes accessibles sans session — vérifiées en premier, sans appel réseau
-const PUBLIC_PATHS = ["/login", "/auth/confirm", "/auth/set-password", "/acces-suspendu", "/inscription"];
+const PUBLIC_PATHS = ["/login", "/auth/confirm", "/auth/set-password", "/acces-suspendu", "/inscription", "/time-to-start"];
 
 // Routes protégées pour les clientes (vérification statut)
 const CLIENT_PROTECTED = ["/dashboard", "/profil", "/modules", "/calendrier"];
