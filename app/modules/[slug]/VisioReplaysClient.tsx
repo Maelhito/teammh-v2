@@ -10,11 +10,15 @@ interface Replay {
   created_at: string;
 }
 
-const CATEGORIES = [
+export interface ReplayCategory {
+  key: string;
+  label: string;
+}
+
+const DEFAULT_CATEGORIES: ReplayCategory[] = [
   { key: "boost_mental",      label: "🧠 Boost Mental" },
-  { key: "visio_sport",       label: "💪 Visio Sport" },
   { key: "visio_stretching",  label: "🧘 Visio Stretching" },
-] as const;
+];
 
 function youtubeEmbed(url: string): string {
   const m = url.match(
@@ -28,7 +32,7 @@ function isVideoFile(url: string): boolean {
   return /\.(mp4|mov|webm|avi|mkv)(\?|$)/i.test(url) || url.includes("/storage/v1/object/public/visio-videos/");
 }
 
-function AccordionSection({ category, replays }: { category: typeof CATEGORIES[number]; replays: Replay[] }) {
+function AccordionSection({ category, replays }: { category: ReplayCategory; replays: Replay[] }) {
   const [open, setOpen] = useState(false);
   const sectionReplays = replays.filter((r) => r.categorie === category.key);
 
@@ -101,7 +105,7 @@ function AccordionSection({ category, replays }: { category: typeof CATEGORIES[n
   );
 }
 
-export default function VisioReplaysClient() {
+export default function VisioReplaysClient({ categories = DEFAULT_CATEGORIES }: { categories?: ReplayCategory[] }) {
   const [replays, setReplays] = useState<Replay[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -119,7 +123,7 @@ export default function VisioReplaysClient() {
 
   return (
     <div style={{ marginTop: 12 }}>
-      {CATEGORIES.map((cat) => (
+      {categories.map((cat) => (
         <AccordionSection key={cat.key} category={cat} replays={replays} />
       ))}
     </div>

@@ -19,6 +19,9 @@ export interface UnlockStatus {
  *   i=2    → accessible quand modules 1 ET 2 validés (module 3)
  *   i=3    → accessible 2h après validation du module 3 (module 4)
  *   i≥4    → accessible immédiatement après validation du module précédent
+ *
+ * Note : module-7, module-8 et module-9 sont toujours accessibles, quel que
+ * soit leur index (voir cas particulier ci-dessous).
  */
 export function computeUnlockStatuses(
   slugs: string[],
@@ -33,8 +36,8 @@ export function computeUnlockStatuses(
 
   return slugs.map((slug, i) => {
     // Modules 1 et 2 : toujours accessibles
-    // Module Visio de Groupe (module-8) : toujours accessible pour toutes les clientes
-    if (i === 0 || i === 1 || slug === "module-7" || slug === "module-8") {
+    // Capsule Boost (module-8) et Replay Mobilité (module-9) : toujours accessibles pour toutes les clientes
+    if (i === 0 || i === 1 || slug === "module-7" || slug === "module-8" || slug === "module-9") {
       return { slug, unlocked: true, unlocksAt: null };
     }
 
@@ -53,7 +56,7 @@ export function computeUnlockStatuses(
       return { slug, unlocked: false, unlocksAt: unlocksAt.toISOString() };
     }
 
-    // Modules 5-8 (i≥4) : immédiatement après validation du module précédent
+    // i≥4 : immédiatement après validation du module précédent
     const prevCompleted = completedAt[slugs[i - 1]];
     if (!prevCompleted) return { slug, unlocked: false, unlocksAt: null };
     return { slug, unlocked: true, unlocksAt: null };

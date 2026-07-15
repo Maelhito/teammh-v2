@@ -62,13 +62,23 @@
     },
     {
       "slug": "module-8",
-      "title": "Visio de Groupe",
-      "description": "Retrouve tous les replays de tes séances de groupe : Boost Mental, Sport et Stretching.",
-      "category": "Replays",
+      "title": "Capsule Boost",
+      "description": "Des capsules pour t'aider à garder la motivation et le mental au top.",
+      "category": "Mental",
       "order": 7,
       "duration": "",
       "type": "video",
-      "emoji": "🎥"
+      "emoji": "🧠"
+    },
+    {
+      "slug": "module-9",
+      "title": "Replay Mobilité",
+      "description": "Retrouve tous les replays des visios mobilité de Yoan.",
+      "category": "Mobilité",
+      "order": 8,
+      "duration": "",
+      "type": "video",
+      "emoji": "🧘"
     }
   ]
 }

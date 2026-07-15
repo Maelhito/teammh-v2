@@ -273,8 +273,11 @@ export default async function ModulePage({ params }: PageProps) {
           </a>
         )}
 
-        {/* Accordéon replays Visio de Groupe (module-8) */}
-        {slug === "module-8" && <VisioReplaysClient />}
+        {/* Accordéon Capsule Boost (module-8) */}
+        {slug === "module-8" && <VisioReplaysClient categories={[{ key: "boost_mental", label: "🧠 Boost Mental" }]} />}
+
+        {/* Accordéon Replay Mobilité (module-9) */}
+        {slug === "module-9" && <VisioReplaysClient categories={[{ key: "visio_stretching", label: "🧘 Replay Mobilité" }]} />}
 
         <ValidateButton slug={slug} initialCompleted={isCompleted} />
       </div>

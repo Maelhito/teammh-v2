@@ -114,22 +114,24 @@ function CanvaLinkSection({ label, slug, initialUrl }: { label: string; slug: st
   );
 }
 
-// ─── Visio Replays Admin (module-8) ──────────────────────────────────────────
+// ─── Visio Replays Admin (module-8 : Capsule Boost, module-9 : Replay Mobilité) ─
 
-const VISIO_CATEGORIES = [
-  { key: "boost_mental",     label: "🧠 Boost Mental" },
-  { key: "visio_sport",      label: "💪 Visio Sport" },
-  { key: "visio_stretching", label: "🧘 Visio Stretching" },
-] as const;
+interface VisioCategory { key: string; label: string; }
+
+// Catégories affichées dans le panneau admin, par module
+const MODULE_VISIO_CATEGORIES: Record<string, VisioCategory[]> = {
+  "module-8": [{ key: "boost_mental", label: "🧠 Boost Mental" }],
+  "module-9": [{ key: "visio_stretching", label: "🧘 Replay Mobilité" }],
+};
 
 interface VisioReplay { id: string; categorie: string; video_url: string; titre: string | null; }
 
-function VisioAdminSection() {
+function VisioAdminSection({ categories }: { categories: VisioCategory[] }) {
   const [replays, setReplays] = useState<VisioReplay[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newUrls, setNewUrls] = useState<Record<string, string>>({ boost_mental: "", visio_sport: "", visio_stretching: "" });
-  const [newTitres, setNewTitres] = useState<Record<string, string>>({ boost_mental: "", visio_sport: "", visio_stretching: "" });
-  const [addModes, setAddModes] = useState<Record<string, "url" | "file">>({ boost_mental: "url", visio_sport: "url", visio_stretching: "url" });
+  const [newUrls, setNewUrls] = useState<Record<string, string>>({ boost_mental: "", visio_stretching: "" });
+  const [newTitres, setNewTitres] = useState<Record<string, string>>({ boost_mental: "", visio_stretching: "" });
+  const [addModes, setAddModes] = useState<Record<string, "url" | "file">>({ boost_mental: "url", visio_stretching: "url" });
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [adding, setAdding] = useState<Record<string, boolean>>({});
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -230,7 +232,7 @@ function VisioAdminSection() {
       {loading ? (
         <p style={{ color: "#555", fontSize: "0.78rem", textAlign: "center", padding: 12 }}>Chargement…</p>
       ) : (
-        VISIO_CATEGORIES.map((cat) => {
+        categories.map((cat) => {
           const catReplays = replays.filter((r) => r.categorie === cat.key);
           return (
             <div key={cat.key} style={{ marginBottom: 18 }}>
@@ -737,7 +739,8 @@ function ModuleRow({
   const pdf2Label = MODULE_PDF2_LABEL[module.slug];
   const imageLabel = MODULE_IMAGE_LABEL[module.slug];
   const canvaLabel = MODULE_CANVA_LABEL[module.slug];
-  const isVisio = module.slug === "module-8";
+  const visioCategories = MODULE_VISIO_CATEGORIES[module.slug];
+  const isVisio = !!visioCategories;
 
   return (
     <div style={{ backgroundColor: "#1A1A1A", borderRadius: 12, border: "1px solid #2a2a2a", overflow: "hidden" }}>
@@ -770,10 +773,10 @@ function ModuleRow({
       {/* Contenu dépliable */}
       {isOpen && (
         <div style={{ padding: "0 20px 18px" }}>
-          {/* Section Visio de Groupe (module-8) */}
-          {isVisio && <VisioAdminSection />}
+          {/* Section replays (module-8 : Capsule Boost, module-9 : Replay Mobilité) */}
+          {visioCategories && <VisioAdminSection categories={visioCategories} />}
 
-          {/* Champs vidéo (pas pour module-8) */}
+          {/* Champs vidéo (pas pour les modules replays) */}
           {!isVisio && module.videoLabels.map((label, i) => (
             <div key={i}>
               <div style={{ marginBottom: 14 }}>
