@@ -1,7 +1,8 @@
 import { isAdminUser } from "@/lib/is-admin";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { sendPushToAllTts } from "@/lib/push";
 
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient();
@@ -44,6 +45,12 @@ export async function POST(request: NextRequest) {
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  after(() => sendPushToAllTts({
+    title: "💡 Nouvelle capsule motiv' disponible !",
+    body: `${data.titre} vient d'être ajoutée à ta bibliothèque.`,
+    url: "/tts/bibliotheque?tab=capsules",
+  }));
 
   return NextResponse.json({ capsule: data });
 }

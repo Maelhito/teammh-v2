@@ -55,6 +55,44 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
   }
 }
 
+export async function sendPushToAllTts(payload: PushPayload) {
+  const wp = getWebPush();
+  if (!wp) return;
+
+  const admin = createSupabaseAdminClient();
+  const { data: offres } = await admin
+    .from("offres_clientes")
+    .select("user_id")
+    .eq("offre", "TTS");
+  const ttsUserIds = (offres ?? []).map((o) => o.user_id);
+  if (!ttsUserIds.length) return;
+
+  const { data: subs } = await admin
+    .from("push_subscriptions")
+    .select("id, subscription")
+    .in("user_id", ttsUserIds);
+
+  if (!subs?.length) return;
+
+  const message = JSON.stringify(payload);
+  const expired: string[] = [];
+
+  await Promise.allSettled(
+    subs.map(async (row) => {
+      try {
+        await wp.sendNotification(row.subscription, message);
+      } catch (err: unknown) {
+        const status = (err as { statusCode?: number }).statusCode;
+        if (status === 410 || status === 404) expired.push(row.id);
+      }
+    })
+  );
+
+  if (expired.length) {
+    await admin.from("push_subscriptions").delete().in("id", expired);
+  }
+}
+
 export async function sendPushToAll(payload: PushPayload) {
   const wp = getWebPush();
   if (!wp) return;

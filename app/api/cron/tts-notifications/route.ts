@@ -102,38 +102,35 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 2. Alerte flamme en danger — a une flamme à perdre et rien fait aujourd'hui.
-    // Un seul passage quotidien (limite cron Hobby), programmé en soirée pour que
-    // "rien fait aujourd'hui" reste pertinent — voir vercel.json.
-    {
-      const streakCurrent = profile?.streak_current ?? 0;
-      const activeToday = (profile?.streak_last_activity ?? null) === dateStr;
-      if (streakCurrent > 0 && !activeToday) {
-        const canSend = await tryMarkSent(admin, userId, "tts_flamme_danger", dateStr);
-        if (canSend) {
-          await sendPushToUser(userId, {
-            title: "🔥 Ta flamme est en danger !",
-            body: `${streakCurrent} jour${streakCurrent > 1 ? "s" : ""} de suite — une capsule de 2 min suffit pour la garder`,
-            url: "/tts",
-          });
-          logs.push(`[tts-flamme-danger] notif envoyée → ${userId} (streak ${streakCurrent})`);
-          sent++;
-        }
+    // 2. Rappel du matin si aujourd'hui est un jour d'entraînement choisi
+    const joursChoisis = (prefs?.jours_entrainement ?? []).map(Number);
+    const estJourEntrainement = joursChoisis.includes(dayOfWeek);
+    if (estJourEntrainement) {
+      const canSend = await tryMarkSent(admin, userId, "tts_jour_entrainement", dateStr);
+      if (canSend) {
+        await sendPushToUser(userId, {
+          title: "💪 C'est ton jour de séance !",
+          body: "Tu t'étais dit que tu t'entraînerais aujourd'hui — on y va ?",
+          url: "/tts/bibliotheque?tab=seances",
+        });
+        logs.push(`[tts-jour-entrainement] notif envoyée → ${userId}`);
+        sent++;
       }
     }
 
-    // 3. Rappel si aujourd'hui est un jour d'entraînement choisi
-    {
-      const joursChoisis = (prefs?.jours_entrainement ?? []).map(Number);
-      if (joursChoisis.includes(dayOfWeek)) {
-        const canSend = await tryMarkSent(admin, userId, "tts_jour_entrainement", dateStr);
+    // 3. Maintien de flamme les autres jours — évite de doubler avec le rappel
+    // ci-dessus les jours d'entraînement choisis.
+    if (!estJourEntrainement) {
+      const streakCurrent = profile?.streak_current ?? 0;
+      if (streakCurrent > 0) {
+        const canSend = await tryMarkSent(admin, userId, "tts_flamme_danger", dateStr);
         if (canSend) {
           await sendPushToUser(userId, {
-            title: "💪 C'était ton jour de séance !",
-            body: "Encore le temps de t'entraîner aujourd'hui — on y va ?",
-            url: "/tts/bibliotheque?tab=seances",
+            title: "🔥 Garde ta flamme allumée",
+            body: `${streakCurrent} jour${streakCurrent > 1 ? "s" : ""} de suite — une capsule de 2 min suffit aujourd'hui`,
+            url: "/tts",
           });
-          logs.push(`[tts-jour-entrainement] notif envoyée → ${userId}`);
+          logs.push(`[tts-flamme-danger] notif envoyée → ${userId} (streak ${streakCurrent})`);
           sent++;
         }
       }
