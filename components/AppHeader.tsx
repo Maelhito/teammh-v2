@@ -12,9 +12,9 @@ export default function AppHeader({ back = false, backHref = "/dashboard" }: App
   return (
     <header
       className="sticky top-0 z-50 w-full"
-      style={{ backgroundColor: "#B22222", borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}
+      style={{ backgroundColor: "#B22222", borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}
     >
-      <div className="mx-auto flex items-center justify-between px-4" style={{ maxWidth: 480, height: 56 }}>
+      <div className="mx-auto flex items-center justify-between px-4" style={{ maxWidth: 480, height: 48 }}>
 
         {/* Gauche */}
         {back ? (
@@ -34,16 +34,16 @@ export default function AppHeader({ back = false, backHref = "/dashboard" }: App
 
         {/* Logo centré */}
         <div style={{
-          width: 72,
-          height: 72,
+          width: 64,
+          height: 64,
           borderRadius: 16,
           backgroundColor: "#0D0D0D",
           overflow: "hidden",
           boxShadow: "0 0 0 2px rgba(255,255,255,0.25), 0 0 18px rgba(255,255,255,0.15)",
-          marginTop: 55,
+          marginTop: 32,
           flexShrink: 0,
         }}>
-          <Image src="/logo.jpeg" alt="Time To Move" width={72} height={72} style={{ objectFit: "cover" }} priority />
+          <Image src="/logo.jpeg" alt="Time To Move" width={64} height={64} style={{ objectFit: "cover" }} priority />
         </div>
 
         <div style={{ width: 60 }} />
