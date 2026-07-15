@@ -117,6 +117,21 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
+  if (action === "update_date_demarrage") {
+    const { date_demarrage } = body;
+    if (date_demarrage !== null && !/^\d{4}-\d{2}-\d{2}$/.test(date_demarrage)) {
+      return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
+    }
+    const { error } = await admin
+      .from("user_profiles")
+      .upsert(
+        { user_id: userId, date_demarrage, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" }
+      );
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
   if (action === "update_team") {
     const { coach_id, nutrition_id } = body;
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
