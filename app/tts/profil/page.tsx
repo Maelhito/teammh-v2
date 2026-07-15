@@ -51,6 +51,14 @@ export default async function TtsProfilPage() {
     joursDepuisDebut,
   });
   const badgeCategories = [...new Set(badges.map((b) => b.category))];
+  const earnedBadges = badges.filter((b) => b.earned);
+  const lockedBadges = badges.filter((b) => !b.earned);
+  const earnedByCategory = badgeCategories
+    .map((category) => ({ category, items: earnedBadges.filter((b) => b.category === category) }))
+    .filter((g) => g.items.length > 0);
+  const lockedByCategory = badgeCategories
+    .map((category) => ({ category, items: lockedBadges.filter((b) => b.category === category) }))
+    .filter((g) => g.items.length > 0);
   const bilanUnlocked = isBilanUnlocked({ onboardingDone, seancesValidees, streakCurrent: streakInfo.streak_current });
 
   return (
@@ -111,31 +119,72 @@ export default async function TtsProfilPage() {
           )}
 
           <p className="font-body" style={{ color: "#fff", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", margin: "24px 0 10px" }}>MES BADGES</p>
-          {badgeCategories.map((category) => (
-            <div key={category} style={{ marginBottom: 16 }}>
-              <p className="font-body" style={{ color: ttsColors.muted, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", margin: "0 0 8px" }}>
-                {category.toUpperCase()}
-              </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {badges.filter((b) => b.category === category).map((b) => (
-                  <div
-                    key={b.label}
-                    style={{
-                      background: b.earned ? "rgba(230,57,70,0.1)" : ttsColors.card,
-                      border: `1px solid ${b.earned ? ttsColors.redBright : ttsColors.cardBorder}`,
-                      borderRadius: 14,
-                      padding: "14px 12px",
-                      textAlign: "center",
-                      opacity: b.earned ? 1 : 0.45,
-                    }}
-                  >
-                    <p style={{ margin: 0, fontSize: 26 }}>{b.emoji}</p>
-                    <p className="font-body" style={{ margin: "6px 0 0", color: "#fff", fontSize: 12, fontWeight: 600 }}>{b.label}</p>
-                  </div>
-                ))}
+          {earnedBadges.length > 0 ? (
+            earnedByCategory.map(({ category, items }) => (
+              <div key={category} style={{ marginBottom: 16 }}>
+                <p className="font-body" style={{ color: ttsColors.muted, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", margin: "0 0 8px" }}>
+                  {category.toUpperCase()}
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {items.map((b) => (
+                    <div
+                      key={b.label}
+                      style={{
+                        background: "rgba(230,57,70,0.1)",
+                        border: `1px solid ${ttsColors.redBright}`,
+                        borderRadius: 14,
+                        padding: "14px 12px",
+                        textAlign: "center",
+                      }}
+                    >
+                      <p style={{ margin: 0, fontSize: 26 }}>{b.emoji}</p>
+                      <p className="font-body" style={{ margin: "6px 0 0", color: "#fff", fontSize: 12, fontWeight: 600 }}>{b.label}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="font-body" style={{ color: ttsColors.muted, fontSize: 12, margin: "0 0 16px" }}>
+              Pas encore de badge — continue pour en débloquer !
+            </p>
+          )}
+
+          {lockedBadges.length > 0 && (
+            <details style={{ marginTop: 4, marginBottom: 8 }}>
+              <summary
+                className="font-body"
+                style={{ color: ttsColors.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "6px 0" }}
+              >
+                {lockedBadges.length} badge{lockedBadges.length > 1 ? "s" : ""} à débloquer
+              </summary>
+              {lockedByCategory.map(({ category, items }) => (
+                <div key={category} style={{ marginTop: 12 }}>
+                  <p className="font-body" style={{ color: ttsColors.muted, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", margin: "0 0 8px" }}>
+                    {category.toUpperCase()}
+                  </p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    {items.map((b) => (
+                      <div
+                        key={b.label}
+                        style={{
+                          background: ttsColors.card,
+                          border: `1px solid ${ttsColors.cardBorder}`,
+                          borderRadius: 14,
+                          padding: "14px 12px",
+                          textAlign: "center",
+                          opacity: 0.45,
+                        }}
+                      >
+                        <p style={{ margin: 0, fontSize: 26 }}>{b.emoji}</p>
+                        <p className="font-body" style={{ margin: "6px 0 0", color: "#fff", fontSize: 12, fontWeight: 600 }}>{b.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </details>
+          )}
 
           <TtsUpgradeTeaser
             unlocked={bilanUnlocked}

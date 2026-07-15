@@ -193,10 +193,21 @@ export async function getJoursEntrainement(userId: string): Promise<number[]> {
 
 export async function setJoursEntrainement(userId: string, jours: number[]): Promise<void> {
   const admin = createSupabaseAdminClient();
-  await admin
+  const { data } = await admin
     .from("tts_objectifs")
     .update({ jours_entrainement: jours.map(String) })
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .select("user_id");
+
+  // Aucune ligne tts_objectifs pour cette cliente (ex: offre assignée manuellement,
+  // jamais passée par /inscription-tts) → update() ne fait rien, il faut créer la ligne.
+  if (!data || data.length === 0) {
+    await admin.from("tts_objectifs").insert({
+      user_id: userId,
+      objectif: "",
+      jours_entrainement: jours.map(String),
+    });
+  }
 }
 
 export interface TtsSubscription {
