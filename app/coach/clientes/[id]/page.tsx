@@ -1145,7 +1145,16 @@ export default function ClienteFichePage() {
 
   async function handlePreview() {
     await fetch(`/api/coach/clientes/${id}/preview`, { method: "POST" });
-    window.open("/dashboard", "_blank");
+    let target = "/dashboard";
+    try {
+      const res = await fetch("/api/admin/offres");
+      if (res.ok) {
+        const data = await res.json();
+        const entry = data.clients?.find((c: { id: string; offre: string | null }) => c.id === id);
+        if (entry?.offre === "TTS") target = "/tts";
+      }
+    } catch {}
+    window.open(target, "_blank");
   }
 
   function displayName(c: Cliente) {

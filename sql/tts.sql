@@ -146,3 +146,111 @@ ALTER TABLE tts_videos
   ADD COLUMN IF NOT EXISTS description TEXT,
   ADD COLUMN IF NOT EXISTS materiel TEXT[] DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS cover_url TEXT;
+
+-- ============================================================
+-- MIGRATION 4 — capsules motivation (contenu court, libre,
+-- non lié à un mois ni à un module) + catégorie/durée sur les
+-- recettes pour la bibliothèque. À exécuter après les blocs
+-- précédents.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS tts_capsules (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  titre TEXT NOT NULL,
+  lien_youtube TEXT NOT NULL,
+  description TEXT,
+  duree_minutes INT,
+  cover_url TEXT,
+  ordre INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE tts_capsules ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE tts_recettes
+  ADD COLUMN IF NOT EXISTS categorie TEXT CHECK (categorie IN ('petit_dej', 'dejeuner', 'diner', 'collation')),
+  ADD COLUMN IF NOT EXISTS duree_minutes INT;
+
+-- ============================================================
+-- MIGRATION 5 — validation des séances sport par semaine.
+-- Le programme du mois (3 vidéos) est répété chaque semaine ;
+-- valider une séance en semaine 2 ne la valide pas en semaine 3.
+-- À exécuter après les blocs précédents.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS tts_seances_progress (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  video_id UUID REFERENCES tts_videos(id) ON DELETE CASCADE NOT NULL,
+  semaine INT NOT NULL CHECK (semaine BETWEEN 1 AND 4),
+  validated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, video_id, semaine)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tts_seances_progress_user ON tts_seances_progress(user_id);
+
+ALTER TABLE tts_seances_progress ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- MIGRATION 6 — objectif capturé à l'inscription + demandes de
+-- bilan (CTA de conversion vers Time To Move, uniquement visible
+-- côté admin qui recontacte la cliente).
+-- À exécuter après les blocs précédents.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS tts_objectifs (
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  objectif TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE tts_objectifs ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS tts_demandes_bilan (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  message TEXT,
+  traite BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tts_demandes_bilan_user ON tts_demandes_bilan(user_id);
+CREATE INDEX IF NOT EXISTS idx_tts_demandes_bilan_traite ON tts_demandes_bilan(traite);
+
+ALTER TABLE tts_demandes_bilan ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- MIGRATION 7 — abonnement Stripe TTS. L'accès à /tts est payant
+-- (contrairement à TTM, géré manuellement hors app). Le statut
+-- fait foi via les webhooks Stripe, jamais via le client.
+-- À exécuter après les blocs précédents.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS tts_subscriptions (
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  stripe_customer_id TEXT NOT NULL,
+  stripe_subscription_id TEXT,
+  offer_slug TEXT,
+  status TEXT NOT NULL DEFAULT 'incomplete',
+  current_period_end TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tts_subscriptions_customer ON tts_subscriptions(stripe_customer_id);
+
+ALTER TABLE tts_subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- MIGRATION 8 — gels de streak (protège la flamme sans la
+-- réinitialiser) et jours d'entraînement choisis par la cliente.
+-- streak_freezes rejoint streak_current/streak_last_activity sur
+-- user_profiles (déjà partagé entre TTM et TTS pour la même
+-- raison : une cliente n'a qu'une offre active à la fois).
+-- À exécuter après les blocs précédents.
+-- ============================================================
+
+ALTER TABLE user_profiles
+  ADD COLUMN IF NOT EXISTS streak_freezes INT NOT NULL DEFAULT 0;
+
+ALTER TABLE tts_objectifs
+  ADD COLUMN IF NOT EXISTS jours_entrainement TEXT[] DEFAULT '{}';

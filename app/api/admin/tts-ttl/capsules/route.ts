@@ -14,39 +14,38 @@ export async function GET() {
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
-    .from("tts_recettes")
+    .from("tts_capsules")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("ordre", { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ recettes: data ?? [] });
+  return NextResponse.json({ capsules: data ?? [] });
 }
 
 export async function POST(request: NextRequest) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
-  const { titre, photo_url, texte, ingredients, macros, categorie, duree_minutes } = await request.json();
-  if (!titre) return NextResponse.json({ error: "Titre requis" }, { status: 400 });
-
-  const CATEGORIES = ["petit_dej", "dejeuner", "diner", "collation"];
+  const { titre, lien_youtube, description, duree_minutes, cover_url, ordre } = await request.json();
+  if (!titre || !lien_youtube) {
+    return NextResponse.json({ error: "titre et lien_youtube requis" }, { status: 400 });
+  }
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
-    .from("tts_recettes")
+    .from("tts_capsules")
     .insert({
       titre: String(titre).slice(0, 200),
-      photo_url: photo_url ? String(photo_url).slice(0, 500) : null,
-      texte: texte ? String(texte).slice(0, 5000) : null,
-      ingredients: ingredients ? String(ingredients).slice(0, 3000) : null,
-      macros: macros ?? null,
-      categorie: CATEGORIES.includes(categorie) ? categorie : null,
+      lien_youtube: String(lien_youtube).slice(0, 500),
+      description: description ? String(description).slice(0, 2000) : null,
       duree_minutes: duree_minutes ? Number(duree_minutes) : null,
+      cover_url: cover_url ? String(cover_url).slice(0, 500) : null,
+      ordre: Number(ordre) || 0,
     })
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ recette: data });
+  return NextResponse.json({ capsule: data });
 }
 
 export async function DELETE(request: NextRequest) {
@@ -56,7 +55,7 @@ export async function DELETE(request: NextRequest) {
   if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
 
   const admin = createSupabaseAdminClient();
-  const { error } = await admin.from("tts_recettes").delete().eq("id", id);
+  const { error } = await admin.from("tts_capsules").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ success: true });

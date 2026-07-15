@@ -3,18 +3,20 @@ import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 export interface StreakInfo {
   streak_current: number;
   streak_last_activity: string | null;
+  streak_freezes?: number;
 }
 
 export async function getStreak(userId: string): Promise<StreakInfo> {
   const admin = createSupabaseAdminClient();
   const { data } = await admin
     .from("user_profiles")
-    .select("streak_current, streak_last_activity")
+    .select("streak_current, streak_last_activity, streak_freezes")
     .eq("user_id", userId)
     .single();
   return {
     streak_current: data?.streak_current ?? 0,
     streak_last_activity: data?.streak_last_activity ?? null,
+    streak_freezes: data?.streak_freezes ?? 0,
   };
 }
 

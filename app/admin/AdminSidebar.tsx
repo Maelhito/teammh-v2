@@ -29,6 +29,7 @@ const TTS_NAV = [
   { href: "/admin/tts-ttl/onboarding", icon: "🎬", label: "Onboarding" },
   { href: "/admin/tts-ttl/sport",      icon: "🏋️", label: "Sport" },
   { href: "/admin/tts-ttl/nutrition",  icon: "🥗", label: "Nutrition" },
+  { href: "/admin/tts-ttl/capsules",   icon: "💡", label: "Capsules" },
 ];
 
 export default function AdminSidebar() {
