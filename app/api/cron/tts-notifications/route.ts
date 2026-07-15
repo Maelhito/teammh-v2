@@ -34,6 +34,32 @@ function localTime(utcNow: Date, timezone: string): { hour: number; minute: numb
   }
 }
 
+/** Décalage UTC actuel (en minutes) d'un fuseau, DST compris — pour regrouper les clientes par zone. */
+function utcOffsetMinutes(utcNow: Date, timezone: string): number {
+  try {
+    const dtf = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      hourCycle: "h23",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+    });
+    const parts = Object.fromEntries(dtf.formatToParts(utcNow).map((p) => [p.type, p.value]));
+    const asUTC = Date.UTC(
+      Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+      Number(parts.hour), Number(parts.minute), Number(parts.second)
+    );
+    return Math.round((asUTC - utcNow.getTime()) / 60000);
+  } catch {
+    return 60; // repli Europe/Paris (hiver) si le fuseau est invalide
+  }
+}
+
+// Nouvelle-Calédonie (UTC+11, pas de changement d'heure) a son propre horaire de cron
+// (voir vercel.json) car un seul horaire UTC ne peut pas tomber "le matin" à la fois
+// à Paris et à Nouméa (~11h d'écart). Toute cliente hors de cette zone reste sur le
+// passage par défaut, pour ne jamais être silencieusement oubliée.
+const REGION_NC_OFFSET_RANGE = { min: 630, max: 690 }; // UTC+10h30 à UTC+11h30
+
 /** Tente d'insérer dans notif_log — retourne false si déjà envoyé aujourd'hui pour ce type */
 async function tryMarkSent(
   admin: ReturnType<typeof createSupabaseAdminClient>,
@@ -72,7 +98,14 @@ export async function GET(request: NextRequest) {
     .from("push_subscriptions")
     .select("user_id, timezone")
     .in("user_id", [...ttsUserIds]);
-  const users = [...new Map((subs ?? []).map((s) => [s.user_id, s.timezone ?? "Europe/Paris"])).entries()];
+  const allUsers = [...new Map((subs ?? []).map((s) => [s.user_id, s.timezone ?? "Europe/Paris"])).entries()];
+
+  const region = request.nextUrl.searchParams.get("region") === "nc" ? "nc" : "default";
+  const users = allUsers.filter(([, timezone]) => {
+    const offset = utcOffsetMinutes(utcNow, timezone);
+    const isNc = offset >= REGION_NC_OFFSET_RANGE.min && offset <= REGION_NC_OFFSET_RANGE.max;
+    return region === "nc" ? isNc : !isNc;
+  });
 
   for (const [userId, timezone] of users) {
     const { dateStr, dayOfWeek } = localTime(utcNow, timezone);
