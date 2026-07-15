@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
   const users = [...new Map((subs ?? []).map((s) => [s.user_id, s.timezone ?? "Europe/Paris"])).entries()];
 
   for (const [userId, timezone] of users) {
-    const { hour, dateStr, dayOfWeek } = localTime(utcNow, timezone);
+    const { dateStr, dayOfWeek } = localTime(utcNow, timezone);
 
     const [{ data: lastVideo }, { data: lastSeance }, { data: profile }, { data: prefs }] = await Promise.all([
       admin.from("tts_modules_progress").select("watched_at").eq("user_id", userId).order("watched_at", { ascending: false }).limit(1).maybeSingle(),
@@ -102,15 +102,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 2. Alerte flamme en danger à 21h locale — a une flamme à perdre et rien fait aujourd'hui
-    if (hour === 21) {
+    // 2. Alerte flamme en danger — a une flamme à perdre et rien fait aujourd'hui.
+    // Un seul passage quotidien (limite cron Hobby), programmé en soirée pour que
+    // "rien fait aujourd'hui" reste pertinent — voir vercel.json.
+    {
       const streakCurrent = profile?.streak_current ?? 0;
       const activeToday = (profile?.streak_last_activity ?? null) === dateStr;
       if (streakCurrent > 0 && !activeToday) {
         const canSend = await tryMarkSent(admin, userId, "tts_flamme_danger", dateStr);
         if (canSend) {
           await sendPushToUser(userId, {
-            title: "🔥 Ta flamme s'éteint dans 3h !",
+            title: "🔥 Ta flamme est en danger !",
             body: `${streakCurrent} jour${streakCurrent > 1 ? "s" : ""} de suite — une capsule de 2 min suffit pour la garder`,
             url: "/tts",
           });
@@ -120,15 +122,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 3. Rappel du matin (7h locale) si aujourd'hui est un jour d'entraînement choisi
-    if (hour === 7) {
+    // 3. Rappel si aujourd'hui est un jour d'entraînement choisi
+    {
       const joursChoisis = (prefs?.jours_entrainement ?? []).map(Number);
       if (joursChoisis.includes(dayOfWeek)) {
         const canSend = await tryMarkSent(admin, userId, "tts_jour_entrainement", dateStr);
         if (canSend) {
           await sendPushToUser(userId, {
-            title: "💪 C'est ton jour de séance !",
-            body: "Tu t'étais dit que tu t'entraînerais aujourd'hui — on y va ?",
+            title: "💪 C'était ton jour de séance !",
+            body: "Encore le temps de t'entraîner aujourd'hui — on y va ?",
             url: "/tts/bibliotheque?tab=seances",
           });
           logs.push(`[tts-jour-entrainement] notif envoyée → ${userId}`);
@@ -137,8 +139,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 4. Récap dominical (dimanche 19h locale) — bilan de la semaine écoulée
-    if (dayOfWeek === 0 && hour === 19) {
+    // 4. Récap dominical — bilan de la semaine écoulée
+    if (dayOfWeek === 0) {
       const canSend = await tryMarkSent(admin, userId, "tts_recap_dominical", dateStr);
       if (canSend) {
         const weekAgo = new Date(utcNow.getTime() - 7 * 86400000).toISOString();
