@@ -25,7 +25,7 @@ type TtsHeaderProps = HomeProps | PageProps;
 
 export default function TtsHeader(props: TtsHeaderProps) {
   return (
-    <div style={{ background: ttsHeaderGradient, padding: "18px 22px 26px" }}>
+    <div style={{ background: ttsHeaderGradient, padding: "18px 22px 26px", borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         {props.variant === "page" && props.back ? (
           <Link href={props.backHref ?? "/tts"} className="font-body" style={{ color: "#fff", fontSize: 14, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
