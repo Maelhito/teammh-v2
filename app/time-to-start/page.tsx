@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import FaqAccordion from "./FaqAccordion";
 import PhoneShowcase from "./PhoneShowcase";
 import StickyCta from "./StickyCta";
 import SignupButton from "./SignupButton";
-import { TESTIMONIALS } from "./testimonials";
+import YoutubeTestimonial from "./YoutubeTestimonial";
+import { VIDEO_TESTIMONIALS, QUOTE_TESTIMONIALS } from "./testimonials";
 
 export const metadata: Metadata = {
-  title: "Time To Start — Retrouve ton énergie, à ton rythme",
+  title: "Time To Start, retrouve ton énergie à ton rythme",
   description:
     "3 séances courtes par semaine, des recettes simples, un vrai coach derrière toi. Sans engagement, à 4 900 XPF/mois.",
 };
@@ -64,9 +66,15 @@ export default function TimeToStartPage() {
 
           <div className="tts-hero-photo">
             <span className="tts-photo-tag">Mael &amp; Julie</span>
-            <div className="tts-photo-frame">
-              <span className="tts-photo-placeholder">Photo ou vidéo courte à intégrer</span>
-            </div>
+            <Image
+              src="/time-to-start/hero/mael-julie.png"
+              alt="Mael et Julie, coachs Time To Move"
+              width={1456}
+              height={960}
+              priority
+              sizes="(max-width: 880px) 90vw, 440px"
+              style={{ width: "100%", height: "auto" }}
+            />
           </div>
         </div>
       </header>
@@ -150,6 +158,18 @@ export default function TimeToStartPage() {
               <p>Motivation collective, questions posées directement à ton coach.</p>
             </div>
           </div>
+
+          <div className="tts-community">
+            <Image
+              src="/time-to-start/community/hike.jpg"
+              alt="La communauté Time To Move lors d'une sortie de groupe"
+              width={1600}
+              height={1200}
+              sizes="(max-width: 880px) 100vw, 1120px"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+            <p className="tts-community-caption">La communauté Time To Move, en vrai.</p>
+          </div>
         </div>
       </section>
 
@@ -191,24 +211,21 @@ export default function TimeToStartPage() {
           </div>
 
           <div className="tts-testi-grid">
-            {TESTIMONIALS.map((t, i) => (
-              <div className="tts-testi-card" key={i}>
-                {t.type === "video" ? (
-                  <div className="tts-testi-video">
-                    <span className="tts-ph-tag">Vidéo</span>
-                    <div className="tts-play-btn">
-                      <svg viewBox="0 0 24 24" fill="var(--blanc)">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="tts-testi-photo-row">
-                    <div className="tts-testi-avatar" />
-                  </div>
-                )}
+            {VIDEO_TESTIMONIALS.map((t) => (
+              <YoutubeTestimonial
+                key={t.prenom}
+                prenom={t.prenom}
+                youtubeUrl={t.youtubeUrl}
+                featured={t.featured}
+              />
+            ))}
+            {QUOTE_TESTIMONIALS.map((t) => (
+              <div className="tts-testi-card" key={t.prenom}>
+                <div className="tts-testi-photo-row">
+                  <div className="tts-testi-avatar" />
+                </div>
                 <div className="tts-testi-body">
-                  {t.quote && <p className="tts-testi-quote">&laquo; {t.quote} &raquo;</p>}
+                  <p className="tts-testi-quote">&laquo; {t.quote} &raquo;</p>
                   <p className="tts-testi-name font-title">{t.prenom}</p>
                   <p className="tts-testi-source">Cliente Time To Move</p>
                 </div>
@@ -379,8 +396,6 @@ export default function TimeToStartPage() {
 
         .tts-hero-photo { position: relative; }
         .tts-photo-tag { position: absolute; top: -14px; left: 16px; z-index: 2; font-family: var(--font-title), sans-serif; font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; background: var(--noir); border: 1px solid var(--border); padding: 6px 12px; color: var(--text-muted); }
-        .tts-photo-frame { border: 3px solid var(--rouge); border-radius: 50%; aspect-ratio: 1; max-width: 320px; margin: 0 auto; background: var(--gris); display: flex; align-items: center; justify-content: center; padding: 24px; }
-        .tts-photo-placeholder { color: var(--text-muted); font-size: 0.82rem; text-align: center; }
 
         @media (max-width: 880px) {
           .tts-hero-grid { grid-template-columns: 1fr; }
@@ -404,17 +419,14 @@ export default function TimeToStartPage() {
         .tts-pillar-mark { font-family: var(--font-title), sans-serif; font-size: 1.8rem; color: var(--rouge); margin-bottom: 12px; }
         .tts-pillar h3 { font-size: 1.05rem; letter-spacing: 1.5px; margin: 0 0 8px; text-transform: uppercase; }
         .tts-pillar p { color: #9a9a9a; font-size: 0.88rem; margin: 0; font-weight: 300; }
+        .tts-community { margin-top: 32px; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+        .tts-community-caption { margin: 0; padding: 14px 18px; font-size: 0.82rem; color: var(--text-muted); background: #111111; }
 
         /* Showcase / phone carousel */
         .tts-showcase { display: flex; flex-direction: column; align-items: center; gap: 18px; }
-        .tts-showcase-phone { width: 100%; max-width: 300px; aspect-ratio: 9/17.5; background: #0a0a0a; border: 6px solid #000; border-radius: 22px; position: relative; padding: 16px 12px; touch-action: pan-y; }
-        .tts-showcase-notch { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 40%; height: 14px; background: #000; border-radius: 0 0 10px 10px; }
-        .tts-showcase-screen { height: 100%; border-radius: 10px; background: #111111; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 8px; padding: 20px 10px 10px; }
-        .tts-showcase-tag { position: absolute; top: 8px; left: 8px; font-size: 0.55rem; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); border: 1px solid var(--border); padding: 3px 7px; z-index: 2; }
-        .tts-showcase-rows { display: flex; flex-direction: column; gap: 8px; flex: 1; margin-top: 14px; }
-        .tts-showcase-row { background: rgba(245,245,240,0.06); border-radius: 6px; flex: 1; }
-        .tts-showcase-row.tall { flex: 2; }
-        .tts-showcase-row.accent { background: rgba(178,34,34,0.18); }
+        .tts-showcase-phone { width: 100%; max-width: 280px; aspect-ratio: 962/1466; background: #0a0a0a; border: 6px solid #000; border-radius: 22px; position: relative; padding: 10px; touch-action: pan-y; }
+        .tts-showcase-notch { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 40%; height: 14px; background: #000; border-radius: 0 0 10px 10px; z-index: 2; }
+        .tts-showcase-screen { height: 100%; border-radius: 14px; background: #111111; position: relative; overflow: hidden; }
         .tts-showcase-controls { display: flex; align-items: center; gap: 18px; }
         .tts-showcase-arrow { background: none; border: 1px solid var(--border); color: var(--blanc); width: 32px; height: 32px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; line-height: 1; }
         .tts-showcase-label { font-size: 0.85rem; color: #9a9a9a; min-width: 180px; text-align: center; }
@@ -427,9 +439,13 @@ export default function TimeToStartPage() {
         @media (max-width: 980px) { .tts-testi-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 620px) { .tts-testi-grid { grid-template-columns: 1fr; } }
         .tts-testi-card { background: #111111; }
-        .tts-testi-video { aspect-ratio: 4/5; background: #0a0a0a; display: flex; align-items: center; justify-content: center; position: relative; border-bottom: 1px solid var(--border); }
-        .tts-ph-tag { position: absolute; top: 12px; left: 12px; font-family: var(--font-title), sans-serif; font-size: 0.65rem; letter-spacing: 1.5px; text-transform: uppercase; border: 1px solid var(--border); color: var(--text-muted); padding: 4px 9px; }
-        .tts-play-btn { width: 46px; height: 46px; border-radius: 50%; background: var(--rouge); display: flex; align-items: center; justify-content: center; }
+        .tts-testi-featured { grid-column: span 2; grid-row: span 2; }
+        @media (max-width: 620px) { .tts-testi-featured { grid-column: span 1; } }
+        .tts-testi-video { aspect-ratio: 4/5; background: #0a0a0a; position: relative; border-bottom: 1px solid var(--border); overflow: hidden; }
+        .tts-testi-featured .tts-testi-video { aspect-ratio: 16/10; }
+        .tts-testi-play-trigger { position: absolute; inset: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; padding: 0; }
+        .tts-ph-tag { position: absolute; top: 12px; left: 12px; font-family: var(--font-title), sans-serif; font-size: 0.65rem; letter-spacing: 1.5px; text-transform: uppercase; border: 1px solid var(--border); color: var(--text-muted); padding: 4px 9px; z-index: 1; }
+        .tts-play-btn { width: 46px; height: 46px; border-radius: 50%; background: var(--rouge); display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; }
         .tts-play-btn svg { width: 16px; height: 16px; margin-left: 2px; }
         .tts-testi-photo-row { padding: 20px 18px 0; }
         .tts-testi-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--gris); border: 2px solid var(--rouge); }

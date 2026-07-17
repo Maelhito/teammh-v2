@@ -1,17 +1,18 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 
 interface Screen {
   label: string;
-  rows: string[];
+  src: string;
 }
 
 const SCREENS: Screen[] = [
-  { label: "Ton tableau de bord", rows: ["accent", "", "", ""] },
-  { label: "Une séance du jour", rows: ["", "tall accent", "", ""] },
-  { label: "Une recette", rows: ["tall", "accent", ""] },
-  { label: "Ton calendrier de la semaine", rows: ["", "", "tall accent", ""] },
+  { label: "Ton tableau de bord", src: "/time-to-start/screens/accueil.png" },
+  { label: "Ton parcours", src: "/time-to-start/screens/parcours.png" },
+  { label: "Ta bibliothèque de séances", src: "/time-to-start/screens/bibliotheque.png" },
+  { label: "Ton profil", src: "/time-to-start/screens/profil.png" },
 ];
 
 export default function PhoneShowcase() {
@@ -44,12 +45,15 @@ export default function PhoneShowcase() {
       >
         <div className="tts-showcase-notch" />
         <div className="tts-showcase-screen">
-          <span className="tts-showcase-tag">Capture à venir</span>
-          <div className="tts-showcase-rows">
-            {current.rows.map((r, i) => (
-              <div key={i} className={"tts-showcase-row " + r} />
-            ))}
-          </div>
+          <Image
+            key={current.src}
+            src={current.src}
+            alt={current.label}
+            fill
+            sizes="(max-width: 640px) 80vw, 300px"
+            style={{ objectFit: "cover" }}
+            priority={index === 0}
+          />
         </div>
       </div>
 
