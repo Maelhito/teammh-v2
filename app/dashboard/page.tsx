@@ -8,6 +8,7 @@ import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import DashboardModules from "@/components/DashboardModules";
 import PushSubscriber from "@/components/PushSubscriber";
+import InstallAppPrompt from "@/components/InstallAppPrompt";
 import WelcomeVideoPopup from "@/components/WelcomeVideoPopup";
 import Link from "next/link";
 import TachesSection from "@/components/TachesSection";
@@ -276,6 +277,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       {!isPreview && <PushSubscriber />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>
+
+        {!isPreview && <InstallAppPrompt app="ttm" />}
 
         {locked === "1" && (
           <div style={{ margin: "12px 16px 0", backgroundColor: "#1a1a1a", border: "1px solid rgba(178,34,34,0.3)", borderRadius: 10, padding: "12px 16px" }}>

@@ -24,6 +24,7 @@ import PreviewBanner from "@/components/PreviewBanner";
 import { TtsProgressRing } from "@/components/TtsUI";
 import TtsUpgradeTeaser from "@/components/TtsUpgradeTeaser";
 import PushSubscriber from "@/components/PushSubscriber";
+import InstallAppPrompt from "@/components/InstallAppPrompt";
 import TtsWelcomePopup from "@/components/TtsWelcomePopup";
 
 export const dynamic = "force-dynamic";
@@ -123,6 +124,8 @@ export default async function TtsAccueilPage() {
           objectifLabel={ttsObjectifLabel(objectif)}
           objectifEmoji={ttsObjectifEmoji(objectif)}
         />
+
+        {!isPreview && <InstallAppPrompt app="tts" />}
 
         <div style={{ padding: "20px 20px 100px" }}>
 
