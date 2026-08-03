@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import PasswordInput from "@/components/PasswordInput";
 
 type State = "idle" | "loading" | "success";
 
@@ -132,12 +133,12 @@ export default function InscriptionPage() {
 
           <div>
             <label style={labelStyle}>MOT DE PASSE</label>
-            <input style={inputStyle} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="8 caractères minimum" required autoComplete="new-password" />
+            <PasswordInput style={inputStyle} value={password} onChange={setPassword} placeholder="8 caractères minimum" required autoComplete="new-password" />
           </div>
 
           <div>
             <label style={labelStyle}>CONFIRMER LE MOT DE PASSE</label>
-            <input style={inputStyle} type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="••••••••" required autoComplete="new-password" />
+            <PasswordInput style={inputStyle} value={confirm} onChange={setConfirm} placeholder="••••••••" required autoComplete="new-password" />
           </div>
 
           {error && (

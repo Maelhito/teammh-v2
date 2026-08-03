@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import PasswordInput from "@/components/PasswordInput";
 
 type Mode = "login" | "forgot" | "sent";
 
@@ -129,10 +130,9 @@ export default function LoginPage() {
 
             <div>
               <label style={labelStyle}>MOT DE PASSE</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={setPassword}
                 required
                 placeholder="••••••••"
                 style={inputStyle}
