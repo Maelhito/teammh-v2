@@ -9,7 +9,6 @@ import BottomNav from "@/components/BottomNav";
 import DashboardModules from "@/components/DashboardModules";
 import PushSubscriber from "@/components/PushSubscriber";
 import InstallPrompt from "@/components/InstallPrompt";
-import WelcomeVideoPopup from "@/components/WelcomeVideoPopup";
 import Link from "next/link";
 import TachesSection from "@/components/TachesSection";
 import DashboardCalendar, { type DayData } from "@/components/DashboardCalendar";
@@ -272,7 +271,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 90 }}>
       {isPreview && <PreviewBanner name={firstName} />}
-      <WelcomeVideoPopup userId={userId} />
       <AppHeader />
       {!isPreview && <PushSubscriber />}
       {!isPreview && <InstallPrompt color="#B22222" />}
