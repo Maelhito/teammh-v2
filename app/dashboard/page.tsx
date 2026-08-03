@@ -8,6 +8,7 @@ import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import DashboardModules from "@/components/DashboardModules";
 import PushSubscriber from "@/components/PushSubscriber";
+import InstallPrompt from "@/components/InstallPrompt";
 import WelcomeVideoPopup from "@/components/WelcomeVideoPopup";
 import Link from "next/link";
 import TachesSection from "@/components/TachesSection";
@@ -274,6 +275,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       <WelcomeVideoPopup userId={userId} />
       <AppHeader />
       {!isPreview && <PushSubscriber />}
+      {!isPreview && <InstallPrompt color="#B22222" />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>
 

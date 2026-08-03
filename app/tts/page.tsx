@@ -24,6 +24,7 @@ import PreviewBanner from "@/components/PreviewBanner";
 import { TtsProgressRing } from "@/components/TtsUI";
 import TtsUpgradeTeaser from "@/components/TtsUpgradeTeaser";
 import PushSubscriber from "@/components/PushSubscriber";
+import InstallPrompt from "@/components/InstallPrompt";
 import TtsWelcomePopup from "@/components/TtsWelcomePopup";
 
 export const dynamic = "force-dynamic";
@@ -111,6 +112,7 @@ export default async function TtsAccueilPage() {
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 100 }}>
       {isPreview && <PreviewBanner name={firstName} />}
       {!isPreview && <PushSubscriber />}
+      {!isPreview && <InstallPrompt color="#22C55E" />}
       {!isPreview && <TtsWelcomePopup firstName={firstName || "toi"} objectifLabel={ttsObjectifLabel(objectif)} />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>
