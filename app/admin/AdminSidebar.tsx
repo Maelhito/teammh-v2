@@ -24,12 +24,12 @@ const COACH_NAV = [
   { href: "/admin/coach/profil",     icon: "👤", label: "Mon profil" },
 ];
 
-const TTS_NAV = [
-  { href: "/admin/tts-ttl/clientes",   icon: "👥", label: "Clientes" },
-  { href: "/admin/tts-ttl/onboarding", icon: "🎬", label: "Onboarding" },
-  { href: "/admin/tts-ttl/sport",      icon: "🏋️", label: "Sport" },
-  { href: "/admin/tts-ttl/nutrition",  icon: "🥗", label: "Nutrition" },
-  { href: "/admin/tts-ttl/capsules",   icon: "💡", label: "Capsules" },
+const TTL_NAV = [
+  { href: "/admin/ttl/clientes",   icon: "👥", label: "Clientes" },
+  { href: "/admin/ttl/onboarding", icon: "🎬", label: "Onboarding" },
+  { href: "/admin/ttl/sport",      icon: "🏋️", label: "Sport" },
+  { href: "/admin/ttl/nutrition",  icon: "🥗", label: "Nutrition" },
+  { href: "/admin/ttl/capsules",   icon: "💡", label: "Capsules" },
 ];
 
 export default function AdminSidebar() {
@@ -43,7 +43,7 @@ export default function AdminSidebar() {
     }
     return isOnCoach;
   });
-  const [ttsOpen, setTtsOpen] = useState(() => pathname.startsWith("/admin/tts-ttl"));
+  const [ttlOpen, setTtlOpen] = useState(() => pathname.startsWith("/admin/ttl"));
 
   async function handleLogout() {
     const sb = createSupabaseBrowserClient();
@@ -57,7 +57,7 @@ export default function AdminSidebar() {
   const isCoachActive = (href: string) =>
     href === "/admin/coach" ? pathname === "/admin/coach" : pathname.startsWith(href);
 
-  const isTtsActive = (href: string) => pathname.startsWith(href);
+  const isTtlActive = (href: string) => pathname.startsWith(href);
 
   const sidebar = (
     <nav style={{
@@ -200,18 +200,18 @@ export default function AdminSidebar() {
       {/* Séparateur */}
       <div style={{ margin: "8px 14px", height: 1, backgroundColor: "var(--admin-separator)" }} />
 
-      {/* Section TTS/TTL */}
+      {/* Section TTL */}
       <div style={{ padding: "8px 10px" }}>
         <button
-          onClick={() => setTtsOpen((o) => !o)}
+          onClick={() => setTtlOpen((o) => !o)}
           style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
             width: "100%", padding: "8px 10px", borderRadius: 8, border: "none",
-            background: ttsOpen
+            background: ttlOpen
               ? "linear-gradient(135deg, rgba(34,197,94,0.25), rgba(20,100,60,0.15))"
               : theme === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
             cursor: "pointer", textAlign: "left", fontFamily: "system-ui",
-            marginBottom: ttsOpen ? 6 : 0,
+            marginBottom: ttlOpen ? 6 : 0,
             outline: "none",
           }}
         >
@@ -223,25 +223,25 @@ export default function AdminSidebar() {
               fontSize: 14, flexShrink: 0,
             }}>🚀</span>
             <div>
-              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: ttsOpen ? "#fff" : "#3fae6e", fontFamily: "system-ui", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                TTS / TTL
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: ttlOpen ? "#fff" : "#3fae6e", fontFamily: "system-ui", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                TTL
               </p>
-              <p style={{ margin: 0, fontSize: 10, color: ttsOpen ? "rgba(255,255,255,0.4)" : "#2a5a3a", fontFamily: "system-ui" }}>
-                Time To Start / Last
+              <p style={{ margin: 0, fontSize: 10, color: ttlOpen ? "rgba(255,255,255,0.4)" : "#2a5a3a", fontFamily: "system-ui" }}>
+                Time To Last
               </p>
             </div>
           </div>
-          <span style={{ fontSize: 9, color: "#2a8a5a" }}>{ttsOpen ? "▲" : "▼"}</span>
+          <span style={{ fontSize: 9, color: "#2a8a5a" }}>{ttlOpen ? "▲" : "▼"}</span>
         </button>
 
-        {ttsOpen && (
+        {ttlOpen && (
           <div style={{
             display: "flex", flexDirection: "column", gap: 1,
             borderLeft: "2px solid rgba(34,197,94,0.3)",
             marginLeft: 14, paddingLeft: 6,
           }}>
-            {TTS_NAV.map(({ href, icon, label }) => {
-              const active = isTtsActive(href);
+            {TTL_NAV.map(({ href, icon, label }) => {
+              const active = isTtlActive(href);
               return (
                 <Link key={href} href={href} style={{
                   display: "flex", alignItems: "center", gap: 9,

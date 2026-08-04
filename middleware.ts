@@ -65,7 +65,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Non connecté → /login (en dev, on laisse naviguer sans session pour tester les pages)
-  const PROTECTED = ["/dashboard", "/admin", "/profil", "/modules", "/calendrier", "/coach", "/tts"];
+  const PROTECTED = ["/dashboard", "/admin", "/profil", "/modules", "/calendrier", "/coach", "/ttl"];
   if (!isDev && !user && PROTECTED.some((p) => pathname.startsWith(p))) {
     return redirect("/login");
   }
@@ -73,7 +73,7 @@ export async function middleware(request: NextRequest) {
   if (!user) return response;
 
   // Rôle lu depuis la DB à chaque requête → changement immédiat sans reconnexion
-  const NEEDS_ROLE = ["/dashboard", "/admin", "/coach", "/profil", "/modules", "/calendrier", "/tts"];
+  const NEEDS_ROLE = ["/dashboard", "/admin", "/coach", "/profil", "/modules", "/calendrier", "/ttl"];
   let role = "cliente";
   if (!isAdmin && NEEDS_ROLE.some((p) => pathname.startsWith(p))) {
     try {
@@ -107,9 +107,9 @@ export async function middleware(request: NextRequest) {
     if (isCoach) return redirect("/coach");
   }
 
-  // Aiguillage cliente selon l'offre (TTS ↔ TTM) — actif en dev ET en prod dès qu'une
+  // Aiguillage cliente selon l'offre (TTL ↔ TTM) — actif en dev ET en prod dès qu'une
   // session existe, pour ne jamais confondre les deux interfaces.
-  if (!isAdmin && !isCoach && !isRoleAdmin && !isPreview && (pathname.startsWith("/dashboard") || pathname.startsWith("/tts"))) {
+  if (!isAdmin && !isCoach && !isRoleAdmin && !isPreview && (pathname.startsWith("/dashboard") || pathname.startsWith("/ttl"))) {
     try {
       const offreRes = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/offres_clientes?user_id=eq.${user.id}&select=offre`,
@@ -122,8 +122,8 @@ export async function middleware(request: NextRequest) {
       );
       const [offreRow] = await offreRes.json().catch(() => [null]);
       const offre = offreRow?.offre ?? "TTM";
-      if (pathname.startsWith("/dashboard") && offre === "TTS") return redirect("/tts");
-      if (pathname.startsWith("/tts") && offre !== "TTS") return redirect("/dashboard");
+      if (pathname.startsWith("/dashboard") && offre === "TTL") return redirect("/ttl");
+      if (pathname.startsWith("/ttl") && offre !== "TTL") return redirect("/dashboard");
     } catch {}
   }
 

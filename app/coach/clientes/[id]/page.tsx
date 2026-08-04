@@ -1151,7 +1151,7 @@ export default function ClienteFichePage() {
       if (res.ok) {
         const data = await res.json();
         const entry = data.clients?.find((c: { id: string; offre: string | null }) => c.id === id);
-        if (entry?.offre === "TTS") target = "/tts";
+        if (entry?.offre === "TTL") target = "/ttl";
       }
     } catch {}
     window.open(target, "_blank");
