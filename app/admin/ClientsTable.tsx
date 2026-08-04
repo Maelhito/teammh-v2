@@ -102,6 +102,7 @@ function ClientRow({
   onUpdateProgramme,
   onUpdateTeam,
   onUpdateOffre,
+  onUpdateDateDemarrage,
 }: {
   client: ClientData;
   teamMembers: TeamMember[];
@@ -111,6 +112,7 @@ function ClientRow({
   onUpdateProgramme: (id: string, type: ProgrammeType, duree: ProgrammeDuree) => Promise<void>;
   onUpdateTeam: (id: string, field: "coach_id" | "nutrition_id", value: string | null) => Promise<void>;
   onUpdateOffre: (id: string, current: Offre | null, next: Offre) => Promise<boolean>;
+  onUpdateDateDemarrage: (id: string, date: string) => Promise<void>;
 }) {
   const [acces, setAcces] = useState(client.acces_app);
   const [loadingAcces, setLoadingAcces] = useState(false);
@@ -124,6 +126,10 @@ function ClientRow({
   const [nutritionId, setNutritionId] = useState<string>(client.nutrition_id ?? "");
   const [offre, setOffre] = useState<Offre | null>(client.offre);
   const [savingOffre, setSavingOffre] = useState(false);
+  const [dateDemarrage, setDateDemarrage] = useState(
+    client.date_demarrage ? client.date_demarrage.slice(0, 10) : ""
+  );
+  const [savingDate, setSavingDate] = useState(false);
   const coaches = teamMembers.filter((m) => m.role === "coach");
   const nutritionists = teamMembers.filter((m) => m.role === "nutrition");
 
@@ -173,20 +179,39 @@ function ClientRow({
     setSavingOffre(false);
   }
 
-  const dateDemarrage = client.date_demarrage
-    ? new Date(client.date_demarrage).toLocaleDateString("fr-FR", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
-    : "—";
+  async function handleDateDemarrageChange(val: string) {
+    if (!val) return;
+    setDateDemarrage(val);
+    setSavingDate(true);
+    await onUpdateDateDemarrage(client.id, val);
+    setSavingDate(false);
+  }
 
   return (
     <tr style={{ borderBottom: "1px solid #1A1A1A" }}>
       <td style={tdStyle}>{client.nom ?? <span style={{ color: "#444", fontStyle: "italic" }}>—</span>}</td>
       <td style={tdStyle}>{client.prenom ?? <span style={{ color: "#444", fontStyle: "italic" }}>—</span>}</td>
       <td style={{ ...tdStyle, color: "rgba(255,255,255,0.45)", fontSize: 12 }}>{client.email}</td>
-      <td style={{ ...tdStyle, color: "rgba(255,255,255,0.45)", fontSize: 12, whiteSpace: "nowrap" }}>{dateDemarrage}</td>
+      <td style={{ ...tdStyle }}>
+        <input
+          type="date"
+          value={dateDemarrage}
+          onChange={(e) => handleDateDemarrageChange(e.target.value)}
+          disabled={savingDate}
+          style={{
+            backgroundColor: "#0D0D0D",
+            border: "1px solid rgba(255,255,255,0.15)",
+            borderRadius: 6,
+            padding: "4px 8px",
+            color: "#F5F5F0",
+            fontSize: 11,
+            fontWeight: 700,
+            cursor: savingDate ? "not-allowed" : "pointer",
+            outline: "none",
+            colorScheme: "dark",
+          }}
+        />
+      </td>
       <td style={{ ...tdStyle }}>
         <select
           value={combo}
@@ -332,6 +357,14 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
     });
   }
 
+  async function handleUpdateDateDemarrage(userId: string, date_demarrage: string) {
+    await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, action: "update_date_demarrage", date_demarrage }),
+    });
+  }
+
   async function handleUpdateTeam(userId: string, field: "coach_id" | "nutrition_id", value: string | null) {
     await fetch("/api/admin/users", {
       method: "PATCH",
@@ -437,6 +470,7 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
                   onUpdateProgramme={handleUpdateProgramme}
                   onUpdateTeam={handleUpdateTeam}
                   onUpdateOffre={handleUpdateOffre}
+                  onUpdateDateDemarrage={handleUpdateDateDemarrage}
                 />
               ))}
             </tbody>
