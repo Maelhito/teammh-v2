@@ -31,7 +31,7 @@ function ManualStepsBanner({
   onDismiss: () => void;
 }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
       <div
         className="w-full rounded-2xl bg-neutral-900 p-5 shadow-2xl"
         style={{ maxWidth: 420, border: `1px solid ${color}55` }}
@@ -152,8 +152,11 @@ export default function InstallPrompt({ color = "#B22222" }: InstallPromptProps)
         }
         step2={
           <>
-            Choisis <span className="font-bold">« Ajouter à l&apos;écran d&apos;accueil »</span> ou{" "}
-            <span className="font-bold">« Installer l&apos;application »</span>
+            Choisis <span className="font-bold">« Ajouter à l&apos;écran d&apos;accueil »</span>,{" "}
+            <span className="font-bold">« Ajouter au bureau »</span>,{" "}
+            <span className="font-bold">« Créer un raccourci »</span> ou{" "}
+            <span className="font-bold">« Installer l&apos;application »</span> (le libellé change
+            selon le navigateur)
           </>
         }
         onDismiss={() => setDismissed(true)}
@@ -162,22 +165,29 @@ export default function InstallPrompt({ color = "#B22222" }: InstallPromptProps)
   }
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 z-50 flex items-center justify-between gap-3 rounded-2xl bg-neutral-900 px-4 py-3 shadow-lg">
-      <span className="text-sm text-white">Installer l&apos;application sur cet écran d&apos;accueil</span>
-      <div className="flex shrink-0 items-center gap-2">
-        <button
-          onClick={() => setDismissed(true)}
-          className="px-2 py-1 text-sm text-neutral-400"
-        >
-          Non
-        </button>
-        <button
-          onClick={handleInstall}
-          className="rounded-full px-3 py-1.5 text-sm font-semibold text-white"
-          style={{ backgroundColor: color }}
-        >
-          Installer
-        </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+      <div
+        className="w-full rounded-2xl bg-neutral-900 p-5 shadow-2xl"
+        style={{ maxWidth: 420, border: `1px solid ${color}55` }}
+      >
+        <p className="mb-4 text-base font-bold text-white">
+          Installer l&apos;application sur ton écran d&apos;accueil
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setDismissed(true)}
+            className="px-3 py-2 text-sm text-neutral-400"
+          >
+            Non
+          </button>
+          <button
+            onClick={handleInstall}
+            className="flex-1 rounded-full py-2.5 text-sm font-semibold text-white"
+            style={{ backgroundColor: color }}
+          >
+            Installer
+          </button>
+        </div>
       </div>
     </div>
   );
