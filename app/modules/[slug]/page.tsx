@@ -2,7 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { getModuleBySlug, getModules } from "@/lib/modules";
 import { getModuleContent } from "@/lib/modules-content";
 import { getModuleCompletionsWithDates } from "@/lib/user-profile";
-import { computeUnlockStatuses, applyPhaseGate } from "@/lib/module-unlock";
+import { computeUnlockStatuses, applyPhaseGate, MODULE_DEMARRAGE_SLUG } from "@/lib/module-unlock";
+import Module0Steps from "./Module0Steps";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getClientPhase } from "@/lib/offers/queries";
@@ -245,9 +246,14 @@ export default async function ModulePage({ params }: PageProps) {
 
       {/* Contenu */}
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "12px 16px 0" }}>
-        <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 18, padding: "20px 20px 24px" }}>
-          <article className="prose-module" dangerouslySetInnerHTML={{ __html: htmlContent }} />
-        </div>
+        {slug === MODULE_DEMARRAGE_SLUG ? (
+          /* Module de démarrage : liste des 4 points à parcourir */
+          <Module0Steps completedSlugs={completionsWithDates.map((c) => c.module_slug)} />
+        ) : (
+          <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 18, padding: "20px 20px 24px" }}>
+            <article className="prose-module" dangerouslySetInnerHTML={{ __html: htmlContent }} />
+          </div>
+        )}
 
         {/* Bouton Canva équivalences (module-3) */}
         {slug === "module-3" && dbContent?.lien_canva_equivalences && (
@@ -279,7 +285,10 @@ export default async function ModulePage({ params }: PageProps) {
         {/* Accordéon replays (module-8 : Tes interrogations du Quotidien, module-9 : Séances Mobilité) */}
         {(slug === "module-8" || slug === "module-9") && <VisioReplaysClient moduleSlug={slug} />}
 
-        <ValidateButton slug={slug} initialCompleted={isCompleted} />
+        {/* Le module de démarrage se valide point par point, pas d'un bloc */}
+        {slug !== MODULE_DEMARRAGE_SLUG && (
+          <ValidateButton slug={slug} initialCompleted={isCompleted} />
+        )}
       </div>
 
       <BottomNav />
