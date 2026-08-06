@@ -273,8 +273,8 @@ export default async function ModulePage({ params }: PageProps) {
           </a>
         )}
 
-        {/* Accordéon replays Visio de Groupe (module-8) */}
-        {slug === "module-8" && <VisioReplaysClient />}
+        {/* Accordéon replays (module-8 : Tes interrogations du Quotidien, module-9 : Séances Mobilité) */}
+        {(slug === "module-8" || slug === "module-9") && <VisioReplaysClient moduleSlug={slug} />}
 
         <ValidateButton slug={slug} initialCompleted={isCompleted} />
       </div>

@@ -7,7 +7,6 @@ interface Replay { id: string; categorie: string; video_url: string; titre: stri
 
 const CATEGORIES = [
   { key: "boost_mental",     label: "🧠 Boost Mental",      color: "#8B5CF6" },
-  { key: "visio_sport",      label: "💪 Visio Sport",        color: "#B22222" },
   { key: "visio_stretching", label: "🧘 Visio Mobilité",     color: "#10B981" },
 ] as const;
 
@@ -23,9 +22,9 @@ function ytThumb(url: string) {
 export default function CoachVisiosPage() {
   const [replays, setReplays] = useState<Replay[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newUrls, setNewUrls]   = useState<Record<string, string>>({ boost_mental: "", visio_sport: "", visio_stretching: "" });
-  const [newTitres, setNewTitres] = useState<Record<string, string>>({ boost_mental: "", visio_sport: "", visio_stretching: "" });
-  const [addModes, setAddModes] = useState<Record<string, "url" | "file">>({ boost_mental: "url", visio_sport: "url", visio_stretching: "url" });
+  const [newUrls, setNewUrls]   = useState<Record<string, string>>({ boost_mental: "", visio_stretching: "" });
+  const [newTitres, setNewTitres] = useState<Record<string, string>>({ boost_mental: "", visio_stretching: "" });
+  const [addModes, setAddModes] = useState<Record<string, "url" | "file">>({ boost_mental: "url", visio_stretching: "url" });
   const [adding, setAdding]   = useState<Record<string, boolean>>({});
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [deleting, setDeleting] = useState<string | null>(null);

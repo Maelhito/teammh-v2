@@ -52,7 +52,7 @@
     },
     {
       "slug": "module-7",
-      "title": "Mission Caddie",
+      "title": "Ton guide des courses",
       "description": "Faire ses courses intelligemment : les bons rayons, les bonnes marques, sans prise de tête.",
       "category": "Lifestyle",
       "order": 6,
@@ -62,13 +62,23 @@
     },
     {
       "slug": "module-8",
-      "title": "Visio de Groupe",
-      "description": "Retrouve tous les replays de tes séances de groupe : Boost Mental, Sport et Stretching.",
+      "title": "Tes interrogations du Quotidien",
+      "description": "Retrouve tous les replays des séances de groupe qui répondent à tes questions du quotidien.",
       "category": "Replays",
       "order": 7,
       "duration": "",
       "type": "video",
-      "emoji": "🎥"
+      "emoji": "💬"
+    },
+    {
+      "slug": "module-9",
+      "title": "Séances Mobilité",
+      "description": "Retrouve tous les replays de tes séances de mobilité en groupe.",
+      "category": "Replays",
+      "order": 8,
+      "duration": "",
+      "type": "video",
+      "emoji": "🧘"
     }
   ]
 }
