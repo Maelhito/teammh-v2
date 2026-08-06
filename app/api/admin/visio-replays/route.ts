@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
 
-const VALID_CATEGORIES = ["boost_mental", "visio_sport", "visio_stretching"] as const;
+const VALID_CATEGORIES = ["boost_mental", "visio_stretching"] as const;
 
 async function requireAdmin(req: NextRequest) {
   const supabase = await createSupabaseServerClient();

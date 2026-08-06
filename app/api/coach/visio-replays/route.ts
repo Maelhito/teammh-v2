@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkCoachAccess, isCoachOnly } from "@/lib/check-coach-access";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
-const VALID_CATEGORIES = ["boost_mental", "visio_sport", "visio_stretching"] as const;
+const VALID_CATEGORIES = ["boost_mental", "visio_stretching"] as const;
 
 export async function GET() {
   const user = await checkCoachAccess();

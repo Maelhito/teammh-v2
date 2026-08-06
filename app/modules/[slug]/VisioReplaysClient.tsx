@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 interface Replay {
   id: string;
@@ -10,11 +10,14 @@ interface Replay {
   created_at: string;
 }
 
-const CATEGORIES = [
-  { key: "boost_mental",      label: "🧠 Boost Mental" },
-  { key: "visio_sport",       label: "💪 Visio Sport" },
-  { key: "visio_stretching",  label: "🧘 Visio Stretching" },
-] as const;
+const CATEGORIES_BY_MODULE: Record<string, ReadonlyArray<{ key: string; label: string }>> = {
+  "module-8": [
+    { key: "boost_mental", label: "💬 Tes interrogations du Quotidien" },
+  ],
+  "module-9": [
+    { key: "visio_stretching", label: "🧘 Séances Mobilité" },
+  ],
+};
 
 function youtubeEmbed(url: string): string {
   const m = url.match(
@@ -28,80 +31,55 @@ function isVideoFile(url: string): boolean {
   return /\.(mp4|mov|webm|avi|mkv)(\?|$)/i.test(url) || url.includes("/storage/v1/object/public/visio-videos/");
 }
 
-function AccordionSection({ category, replays }: { category: typeof CATEGORIES[number]; replays: Replay[] }) {
-  const [open, setOpen] = useState(false);
+function VideoSection({ category, replays }: { category: { key: string; label: string }; replays: Replay[] }) {
   const sectionReplays = replays.filter((r) => r.categorie === category.key);
 
   return (
-    <div style={{ marginBottom: 8, borderRadius: 12, overflow: "hidden", border: "1px solid #1a1a1a" }}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        style={{
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "14px 18px",
-          background: "#111111",
-          border: "none",
-          cursor: "pointer",
-          textAlign: "left",
-        }}
-      >
-        <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#F5F5F0", letterSpacing: "0.03em" }}>
-          {category.label}
-          {sectionReplays.length > 0 && (
-            <span style={{ marginLeft: 8, fontSize: "0.72rem", color: "#555", fontWeight: 400 }}>
-              {sectionReplays.length} vidéo{sectionReplays.length > 1 ? "s" : ""}
-            </span>
-          )}
-        </span>
-        <span style={{ fontSize: "0.7rem", color: "#555", flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
-      </button>
+    <div style={{ marginBottom: 20 }}>
+      <p style={{ fontSize: "0.95rem", fontWeight: 700, color: "#F5F5F0", letterSpacing: "0.03em", marginBottom: 12 }}>
+        {category.label}
+      </p>
 
-      {open && (
-        <div style={{ backgroundColor: "#0D0D0D", padding: "12px 16px 16px" }}>
-          {sectionReplays.length === 0 ? (
-            <p style={{ color: "#555", fontSize: "0.82rem", textAlign: "center", margin: "12px 0" }}>
-              Aucune vidéo disponible pour le moment
-            </p>
-          ) : (
-            sectionReplays.map((replay) => (
-              <div key={replay.id} style={{ marginBottom: 16 }}>
-                {replay.titre && (
-                  <p style={{ fontSize: "0.82rem", fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 8 }}>
-                    {replay.titre}
-                  </p>
-                )}
-                {isVideoFile(replay.video_url) ? (
-                  <video
-                    controls
-                    preload="metadata"
-                    style={{ width: "100%", borderRadius: 10, backgroundColor: "#000", display: "block" }}
-                  >
-                    <source src={replay.video_url} type="video/mp4" />
-                    Ton navigateur ne supporte pas la lecture vidéo.
-                  </video>
-                ) : (
-                  <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: 10, overflow: "hidden" }}>
-                    <iframe
-                      src={youtubeEmbed(replay.video_url)}
-                      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
-                      allowFullScreen
-                      loading="lazy"
-                    />
-                  </div>
-                )}
+      {sectionReplays.length === 0 ? (
+        <p style={{ color: "#555", fontSize: "0.82rem", textAlign: "center", margin: "12px 0" }}>
+          Aucune vidéo disponible pour le moment
+        </p>
+      ) : (
+        sectionReplays.map((replay) => (
+          <div key={replay.id} style={{ marginBottom: 16 }}>
+            {replay.titre && (
+              <p style={{ fontSize: "0.82rem", fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 8 }}>
+                {replay.titre}
+              </p>
+            )}
+            {isVideoFile(replay.video_url) ? (
+              <video
+                controls
+                preload="metadata"
+                style={{ width: "100%", borderRadius: 10, backgroundColor: "#000", display: "block" }}
+              >
+                <source src={replay.video_url} type="video/mp4" />
+                Ton navigateur ne supporte pas la lecture vidéo.
+              </video>
+            ) : (
+              <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: 10, overflow: "hidden" }}>
+                <iframe
+                  src={youtubeEmbed(replay.video_url)}
+                  style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+                  allowFullScreen
+                  loading="lazy"
+                />
               </div>
-            ))
-          )}
-        </div>
+            )}
+          </div>
+        ))
       )}
     </div>
   );
 }
 
-export default function VisioReplaysClient() {
+export default function VisioReplaysClient({ moduleSlug }: { moduleSlug: string }) {
+  const categories = CATEGORIES_BY_MODULE[moduleSlug] ?? [];
   const [replays, setReplays] = useState<Replay[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -119,8 +97,8 @@ export default function VisioReplaysClient() {
 
   return (
     <div style={{ marginTop: 12 }}>
-      {CATEGORIES.map((cat) => (
-        <AccordionSection key={cat.key} category={cat} replays={replays} />
+      {categories.map((cat) => (
+        <VideoSection key={cat.key} category={cat} replays={replays} />
       ))}
     </div>
   );
