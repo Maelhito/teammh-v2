@@ -2,8 +2,10 @@ import { notFound, redirect } from "next/navigation";
 import { getModuleBySlug, getModules } from "@/lib/modules";
 import { getModuleContent } from "@/lib/modules-content";
 import { getModuleCompletionsWithDates } from "@/lib/user-profile";
-import { computeUnlockStatuses } from "@/lib/module-unlock";
+import { computeUnlockStatuses, applyPhaseGate } from "@/lib/module-unlock";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { getClientPhase } from "@/lib/offers/queries";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import ValidateButton from "./ValidateButton";
@@ -167,8 +169,9 @@ export default async function ModulePage({ params }: PageProps) {
     userId ? getModuleCompletionsWithDates(userId) : Promise.resolve([]),
   ]);
 
-  // Vérifier si le module est accessible
-  const unlockStatuses = computeUnlockStatuses(slugs, completionsWithDates);
+  // Vérifier si le module est accessible (avec verrouillage phase de démarrage)
+  const phase = userId ? await getClientPhase(createSupabaseAdminClient(), userId) : "demarree";
+  const unlockStatuses = applyPhaseGate(computeUnlockStatuses(slugs, completionsWithDates), phase);
   const slugIndex = slugs.indexOf(slug);
   const unlockStatus = unlockStatuses[slugIndex];
 

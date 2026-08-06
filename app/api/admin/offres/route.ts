@@ -2,8 +2,8 @@ import { isAdminUser } from "@/lib/is-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
-import { getOffresMap, upsertOffre } from "@/lib/offers/queries";
-import { OFFRE_ORDER, type Offre } from "@/lib/offers/types";
+import { getOffresMap, upsertOffre, setPhase } from "@/lib/offers/queries";
+import { OFFRE_ORDER, type Offre, type Phase } from "@/lib/offers/types";
 
 export async function GET(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -37,9 +37,29 @@ export async function GET(request: NextRequest) {
     nom: profileMap[u.id]?.nom ?? null,
     offre: offreMap[u.id]?.offre ?? null,
     date_debut: offreMap[u.id]?.date_debut ?? null,
+    phase: offreMap[u.id]?.phase ?? "demarree",
   }));
 
   return NextResponse.json({ clients: result });
+}
+
+// Bascule la phase de démarrage d'une cliente (demarrage ⇄ demarree)
+export async function PATCH(request: NextRequest) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!isAdminUser(user)) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  }
+
+  const { user_id, phase } = await request.json();
+  if (!user_id || (phase !== "demarrage" && phase !== "demarree")) {
+    return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
+  }
+
+  const admin = createSupabaseAdminClient();
+  const result = await setPhase(admin, user_id, phase as Phase);
+  if (result.error) return NextResponse.json({ error: result.error }, { status: 500 });
+  return NextResponse.json({ success: true });
 }
 
 export async function POST(request: NextRequest) {

@@ -2,7 +2,8 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getModules } from "@/lib/modules";
 import { getUserProfile, getModuleCompletionsWithDates } from "@/lib/user-profile";
-import { computeUnlockStatuses } from "@/lib/module-unlock";
+import { computeUnlockStatuses, applyPhaseGate, MODULE_DEMARRAGE_SLUG } from "@/lib/module-unlock";
+import { getClientPhase } from "@/lib/offers/queries";
 import { getStreak } from "@/lib/streak";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
@@ -160,7 +161,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   const completedSet = new Set(completionsWithDates.map((c) => c.module_slug));
   const completedCount = completedSet.size;
-  const unlockStatuses = computeUnlockStatuses(slugs, completionsWithDates);
+
+  // Phase de démarrage : en 'demarrage', seul le module de démarrage est accessible.
+  const phase = userId ? await getClientPhase(admin, userId) : "demarree";
+  const enDemarrage = phase === "demarrage";
+  const unlockStatuses = applyPhaseGate(computeUnlockStatuses(slugs, completionsWithDates), phase);
 
   const PROGRAMME_CFG: Record<string, { weeks: number }> = {
     "16_semaines": { weeks: 16 },
@@ -328,8 +333,33 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           )}
         </div>
 
+        {/* Bandeau phase de démarrage — la cliente doit d'abord faire son module de démarrage */}
+        {enDemarrage && (
+          <div style={{ padding: "8px 16px" }}>
+            <Link href={`/modules/${MODULE_DEMARRAGE_SLUG}`} style={{ textDecoration: "none" }}>
+              <div style={{ background: "linear-gradient(135deg, #7C2D12 0%, #B45309 100%)", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.4rem", flexShrink: 0 }}>
+                  🚀
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", margin: 0 }}>
+                    BIENVENUE
+                  </p>
+                  <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#FFFFFF", margin: "2px 0 0" }}>
+                    Fais ton module de démarrage
+                  </p>
+                  <p className="font-body" style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.7)", margin: "3px 0 0" }}>
+                    Ton programme se débloque après ton appel de démarrage.
+                  </p>
+                </div>
+                <span style={{ color: "#FFF", fontSize: "1.1rem", flexShrink: 0 }}>→</span>
+              </div>
+            </Link>
+          </div>
+        )}
+
         {/* Encart Jour de séance — uniquement si séance prévue aujourd'hui ET pas encore validée */}
-        {activeAssignment && isJourDeSeance && !isTodaySeanceValidee && (
+        {activeAssignment && !enDemarrage && isJourDeSeance && !isTodaySeanceValidee && (
           <div style={{ padding: "8px 16px" }}>
             <div style={{ background: "linear-gradient(135deg, #8B0000 0%, #B22222 100%)", borderRadius: 14, padding: "16px 18px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>

@@ -79,6 +79,7 @@ export async function fetchClients(): Promise<{ clients: ClientData[]; error: st
       coach_id: profileMap[u.id]?.coach_id ?? null,
       nutrition_id: profileMap[u.id]?.nutrition_id ?? null,
       offre: offreMap[u.id]?.offre ?? null,
+      phase: offreMap[u.id]?.phase ?? "demarree",
     })),
     error: null,
   };

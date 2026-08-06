@@ -1,6 +1,16 @@
 {
   "modules": [
     {
+      "slug": "module-0",
+      "title": "Module de démarrage",
+      "description": "Ton parcours d'arrivée : présentation, Azeoo, plan alimentaire et questionnaire. À compléter avant ton appel de démarrage.",
+      "category": "Démarrage",
+      "order": 0,
+      "duration": "",
+      "type": "mixed",
+      "emoji": "🚀"
+    },
+    {
       "slug": "module-1",
       "title": "Le Point de Départ",
       "description": "Comprends ta situation actuelle et pose les bases de ta transformation.",

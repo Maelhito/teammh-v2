@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { OFFRE_COLOR, OFFRE_ORDER, type Offre } from "@/lib/offers/types";
-export type { Offre };
+import { OFFRE_COLOR, OFFRE_ORDER, PHASE_COLOR, PHASE_LABEL, type Offre, type Phase } from "@/lib/offers/types";
+export type { Offre, Phase };
 
 export type Statut = "active" | "pause" | "terminee";
 export type ProgrammeType = "N1" | "N2";
@@ -24,6 +24,7 @@ export interface ClientData {
   coach_id: string | null;
   nutrition_id: string | null;
   offre: Offre | null;
+  phase: Phase;
 }
 
 export interface TeamMember {
@@ -102,6 +103,7 @@ function ClientRow({
   onUpdateProgramme,
   onUpdateTeam,
   onUpdateOffre,
+  onUpdatePhase,
 }: {
   client: ClientData;
   teamMembers: TeamMember[];
@@ -111,6 +113,7 @@ function ClientRow({
   onUpdateProgramme: (id: string, type: ProgrammeType, duree: ProgrammeDuree) => Promise<void>;
   onUpdateTeam: (id: string, field: "coach_id" | "nutrition_id", value: string | null) => Promise<void>;
   onUpdateOffre: (id: string, current: Offre | null, next: Offre) => Promise<boolean>;
+  onUpdatePhase: (id: string, next: Phase) => Promise<boolean>;
 }) {
   const [acces, setAcces] = useState(client.acces_app);
   const [loadingAcces, setLoadingAcces] = useState(false);
@@ -124,6 +127,8 @@ function ClientRow({
   const [nutritionId, setNutritionId] = useState<string>(client.nutrition_id ?? "");
   const [offre, setOffre] = useState<Offre | null>(client.offre);
   const [savingOffre, setSavingOffre] = useState(false);
+  const [phase, setPhase] = useState<Phase>(client.phase);
+  const [savingPhase, setSavingPhase] = useState(false);
   const coaches = teamMembers.filter((m) => m.role === "coach");
   const nutritionists = teamMembers.filter((m) => m.role === "nutrition");
 
@@ -171,6 +176,14 @@ function ClientRow({
     const ok = await onUpdateOffre(client.id, offre, val as Offre);
     if (ok) setOffre(val as Offre);
     setSavingOffre(false);
+  }
+
+  async function handlePhaseToggle() {
+    const next: Phase = phase === "demarrage" ? "demarree" : "demarrage";
+    setSavingPhase(true);
+    const ok = await onUpdatePhase(client.id, next);
+    if (ok) setPhase(next);
+    setSavingPhase(false);
   }
 
   const dateDemarrage = client.date_demarrage
@@ -232,27 +245,57 @@ function ClientRow({
         </select>
       </td>
       <td style={{ ...tdStyle }}>
-        <select
-          value={offre ?? ""}
-          onChange={(e) => handleOffreChange(e.target.value)}
-          disabled={savingOffre}
-          style={{
-            backgroundColor: "#0D0D0D",
-            border: `1px solid ${offre ? `${OFFRE_COLOR[offre]}66` : "rgba(255,255,255,0.15)"}`,
-            borderRadius: 6,
-            padding: "4px 8px",
-            color: offre ? OFFRE_COLOR[offre] : "#555",
-            fontSize: 11,
-            fontWeight: 700,
-            cursor: savingOffre ? "not-allowed" : "pointer",
-            outline: "none",
-          }}
-        >
-          <option value="" style={{ backgroundColor: "#1A1A1A" }}>—</option>
-          {OFFRE_ORDER.map((o) => (
-            <option key={o} value={o} style={{ backgroundColor: "#1A1A1A" }}>{o}</option>
-          ))}
-        </select>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-start" }}>
+          <select
+            value={offre ?? ""}
+            onChange={(e) => handleOffreChange(e.target.value)}
+            disabled={savingOffre}
+            style={{
+              backgroundColor: "#0D0D0D",
+              border: `1px solid ${offre ? `${OFFRE_COLOR[offre]}66` : "rgba(255,255,255,0.15)"}`,
+              borderRadius: 6,
+              padding: "4px 8px",
+              color: offre ? OFFRE_COLOR[offre] : "#555",
+              fontSize: 11,
+              fontWeight: 700,
+              cursor: savingOffre ? "not-allowed" : "pointer",
+              outline: "none",
+            }}
+          >
+            <option value="" style={{ backgroundColor: "#1A1A1A" }}>—</option>
+            {OFFRE_ORDER.map((o) => (
+              <option key={o} value={o} style={{ backgroundColor: "#1A1A1A" }}>{o}</option>
+            ))}
+          </select>
+          {/* Phase de démarrage — clic pour basculer démarrage ⇄ démarrée */}
+          <button
+            onClick={handlePhaseToggle}
+            disabled={savingPhase}
+            title={
+              phase === "demarrage"
+                ? "Cliquer pour activer l'accès complet (fin du démarrage)"
+                : "Cliquer pour repasser en phase de démarrage (modules verrouillés)"
+            }
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              backgroundColor: `${PHASE_COLOR[phase]}1A`,
+              border: `1px solid ${PHASE_COLOR[phase]}66`,
+              borderRadius: 6,
+              padding: "3px 8px",
+              color: PHASE_COLOR[phase],
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: savingPhase ? "not-allowed" : "pointer",
+              opacity: savingPhase ? 0.5 : 1,
+              whiteSpace: "nowrap",
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: PHASE_COLOR[phase], display: "inline-block", flexShrink: 0 }} />
+            {savingPhase ? "…" : PHASE_LABEL[phase]}
+          </button>
+        </div>
       </td>
       <td style={{ ...tdStyle, textAlign: "center" }}>
         <AccesDot acces={acces} />
@@ -363,6 +406,23 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
     return false;
   }
 
+  async function handleUpdatePhase(userId: string, next: Phase): Promise<boolean> {
+    try {
+      const res = await fetch("/api/admin/offres", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, phase: next }),
+      });
+      if (res.ok) return true;
+      const d = await res.json().catch(() => ({}));
+      alert(d.error ?? "Erreur : la phase n'a pas pu être changée.");
+      return false;
+    } catch {
+      alert("Erreur réseau : la phase n'a pas pu être changée, réessaie.");
+      return false;
+    }
+  }
+
   return (
     <div style={{ marginTop: 48 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
@@ -437,6 +497,7 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
                   onUpdateProgramme={handleUpdateProgramme}
                   onUpdateTeam={handleUpdateTeam}
                   onUpdateOffre={handleUpdateOffre}
+                  onUpdatePhase={handleUpdatePhase}
                 />
               ))}
             </tbody>
