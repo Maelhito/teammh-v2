@@ -18,6 +18,8 @@ export default async function CalendrierPage() {
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
   const { userId, firstName, isPreview } = await getEffectiveUser(session);
+  // Date du jour côté serveur (anti hydration-mismatch, voir CalendrierClient)
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   let events: object[] = [];
   let completedSeances: { grid_key: string | null; assignment_id: string | null; nom: string | null }[] = [];
@@ -121,7 +123,7 @@ export default async function CalendrierPage() {
       </div>
 
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <CalendrierClient userId={userId} initialEvents={events as any} completedSeances={completedSeances} />
+      <CalendrierClient userId={userId} initialEvents={events as any} completedSeances={completedSeances} todayIso={todayIso} />
 
       <BottomNav />
     </div>

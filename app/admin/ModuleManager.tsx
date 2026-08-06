@@ -78,14 +78,19 @@ function CanvaLinkSection({ label, slug, initialUrl }: { label: string; slug: st
 
   async function save() {
     setSaving(true); setMsg("");
-    const res = await fetch("/api/admin/canva-link", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug, url }),
-    });
-    const data = await res.json();
-    setSaving(false);
-    setMsg(res.ok ? "✓ Sauvegardé" : (data.error ?? "Erreur"));
+    try {
+      const res = await fetch("/api/admin/canva-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, url }),
+      });
+      const data = await res.json();
+      setMsg(res.ok ? "✓ Sauvegardé" : (data.error ?? "Erreur"));
+    } catch {
+      setMsg("Erreur réseau — la sauvegarde n'a pas pu être vérifiée, réessaie.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -145,17 +150,21 @@ function VisioAdminSection() {
   }, []);
 
   async function saveReplayUrl(categorie: string, video_url: string, titre: string | null) {
-    const res = await fetch("/api/admin/visio-replays", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categorie, video_url, titre }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setReplays((p) => [...p, data.replay]);
-      setMsgs((p) => ({ ...p, [categorie]: "✓ Ajouté" }));
-    } else {
-      setMsgs((p) => ({ ...p, [categorie]: data.error ?? "Erreur" }));
+    try {
+      const res = await fetch("/api/admin/visio-replays", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categorie, video_url, titre }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setReplays((p) => [...p, data.replay]);
+        setMsgs((p) => ({ ...p, [categorie]: "✓ Ajouté" }));
+      } else {
+        setMsgs((p) => ({ ...p, [categorie]: data.error ?? "Erreur" }));
+      }
+    } catch {
+      setMsgs((p) => ({ ...p, [categorie]: "Erreur réseau — la vidéo n'a pas été ajoutée, réessaie." }));
     }
   }
 
@@ -164,10 +173,13 @@ function VisioAdminSection() {
     if (!url) return;
     setAdding((p) => ({ ...p, [categorie]: true }));
     setMsgs((p) => ({ ...p, [categorie]: "" }));
-    await saveReplayUrl(categorie, url, newTitres[categorie]?.trim() || null);
-    setNewUrls((p) => ({ ...p, [categorie]: "" }));
-    setNewTitres((p) => ({ ...p, [categorie]: "" }));
-    setAdding((p) => ({ ...p, [categorie]: false }));
+    try {
+      await saveReplayUrl(categorie, url, newTitres[categorie]?.trim() || null);
+      setNewUrls((p) => ({ ...p, [categorie]: "" }));
+      setNewTitres((p) => ({ ...p, [categorie]: "" }));
+    } finally {
+      setAdding((p) => ({ ...p, [categorie]: false }));
+    }
   }
 
   async function uploadVideo(categorie: string, file: File) {
@@ -220,9 +232,19 @@ function VisioAdminSection() {
 
   async function deleteReplay(id: string) {
     setDeleting(id);
-    const res = await fetch(`/api/admin/visio-replays?id=${id}`, { method: "DELETE" });
-    if (res.ok) setReplays((p) => p.filter((r) => r.id !== id));
-    setDeleting(null);
+    try {
+      const res = await fetch(`/api/admin/visio-replays?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setReplays((p) => p.filter((r) => r.id !== id));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? "Erreur : la vidéo n'a pas pu être supprimée.");
+      }
+    } catch {
+      alert("Erreur réseau : la vidéo n'a pas pu être supprimée, réessaie.");
+    } finally {
+      setDeleting(null);
+    }
   }
 
   return (
@@ -698,40 +720,58 @@ function ModuleRow({
     setSavingTitle((p) => { const n = [...p]; n[i] = true; return n; });
     setTitleMsg((p) => { const n = [...p]; n[i] = ""; return n; });
 
-    const field = `video_title_${i + 1}`;
-    const res = await fetch("/api/admin/video-title", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: module.slug, field, title: videoTitles[i] }),
-    });
-    const data = await res.json();
+    try {
+      const field = `video_title_${i + 1}`;
+      const res = await fetch("/api/admin/video-title", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: module.slug, field, title: videoTitles[i] }),
+      });
+      const data = await res.json();
 
-    setSavingTitle((p) => { const n = [...p]; n[i] = false; return n; });
-    setTitleMsg((p) => {
-      const n = [...p];
-      n[i] = res.ok ? "✓ Sauvegardé" : (data.error ?? "Erreur");
-      return n;
-    });
+      setTitleMsg((p) => {
+        const n = [...p];
+        n[i] = res.ok ? "✓ Sauvegardé" : (data.error ?? "Erreur");
+        return n;
+      });
+    } catch {
+      setTitleMsg((p) => {
+        const n = [...p];
+        n[i] = "Erreur réseau — le titre n'a pas été sauvegardé, réessaie.";
+        return n;
+      });
+    } finally {
+      setSavingTitle((p) => { const n = [...p]; n[i] = false; return n; });
+    }
   }
 
   async function saveVideo(i: number) {
     setSavingVideo((p) => { const n = [...p]; n[i] = true; return n; });
     setVideoMsg((p) => { const n = [...p]; n[i] = ""; return n; });
 
-    const field = `video_url_${i + 1}`;
-    const res = await fetch("/api/admin/video", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: module.slug, field, url: videoUrls[i] }),
-    });
-    const data = await res.json();
+    try {
+      const field = `video_url_${i + 1}`;
+      const res = await fetch("/api/admin/video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: module.slug, field, url: videoUrls[i] }),
+      });
+      const data = await res.json();
 
-    setSavingVideo((p) => { const n = [...p]; n[i] = false; return n; });
-    setVideoMsg((p) => {
-      const n = [...p];
-      n[i] = res.ok ? "✓ Sauvegardé" : (data.error ?? "Erreur");
-      return n;
-    });
+      setVideoMsg((p) => {
+        const n = [...p];
+        n[i] = res.ok ? "✓ Sauvegardé" : (data.error ?? "Erreur");
+        return n;
+      });
+    } catch {
+      setVideoMsg((p) => {
+        const n = [...p];
+        n[i] = "Erreur réseau — la vidéo n'a pas été sauvegardée, réessaie.";
+        return n;
+      });
+    } finally {
+      setSavingVideo((p) => { const n = [...p]; n[i] = false; return n; });
+    }
   }
 
   const pdf2Label = MODULE_PDF2_LABEL[module.slug];

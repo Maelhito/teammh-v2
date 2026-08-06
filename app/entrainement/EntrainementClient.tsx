@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 
 const MONTH_NAMES = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -82,12 +82,33 @@ export default function EntrainementClient({
   programme,
   initialEvents,
   abandonedKey,
+  todayIso,
 }: {
   programme: Programme | null;
   initialEvents: CalendarEvent[];
   abandonedKey?: string | null;
+  todayIso: string;
 }) {
-  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
+  // Anti hydration-mismatch : tant que le composant n'est pas monté côté client, on
+  // dérive "aujourd'hui" des accesseurs UTC de `todayIso` (calculée côté serveur) —
+  // ce qui donne les mêmes Y/M/D au premier rendu serveur ET au premier rendu client
+  // (avant hydratation), quel que soit le fuseau du process Node ou du navigateur.
+  // Une fois monté, un useEffect bascule sur new Date() (heure locale réelle) ; cette
+  // mise à jour a lieu après l'hydratation donc n'est jamais comparée au HTML serveur.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  const refDate = mounted ? new Date() : new Date(`${todayIso}T00:00:00.000Z`);
+  const todayY = mounted ? refDate.getFullYear() : refDate.getUTCFullYear();
+  const todayM = mounted ? refDate.getMonth() : refDate.getUTCMonth();
+  const todayD = mounted ? refDate.getDate() : refDate.getUTCDate();
+
+  const today = useMemo(() => {
+    const d = new Date(todayY, todayM, todayD);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [todayY, todayM, todayD]);
+
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [selectedDay, setSelectedDay] = useState<Date | null>(today);

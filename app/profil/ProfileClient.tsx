@@ -161,6 +161,10 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
+  // Passe à true une fois monté côté client (voir calcul de semaineLabel plus bas)
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   // Photo de profil
   const [avatarUrl, setAvatarUrl] = useState(initialProfile?.avatar_url ?? "");
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -386,7 +390,11 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
   let timeProgress = 0;
   let dateFin = "";
 
-  if (dateDemarrage) {
+  // Anti hydration-mismatch : new Date() donne un instant différent au rendu serveur
+  // et au premier rendu client (avant hydratation) → semaineLabel/timeProgress ne sont
+  // calculés qu'une fois le composant monté côté client, pour que le premier rendu
+  // (serveur + client pré-hydratation) reste identique dans les deux cas.
+  if (dateDemarrage && mounted) {
     const start = new Date(dateDemarrage);
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));

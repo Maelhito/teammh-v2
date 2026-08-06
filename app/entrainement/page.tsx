@@ -15,6 +15,8 @@ export default async function EntrainementPage({
 }) {
   const params = searchParams ? await searchParams : {};
   const abandonedKey = params?.abandoned ?? null;
+  // Date du jour côté serveur (anti hydration-mismatch, voir EntrainementClient)
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
@@ -106,7 +108,7 @@ export default async function EntrainementPage({
         </div>
       </div>
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <EntrainementClient programme={programme} initialEvents={calendarEvents as any} abandonedKey={abandonedKey} />
+      <EntrainementClient programme={programme} initialEvents={calendarEvents as any} abandonedKey={abandonedKey} todayIso={todayIso} />
       <BottomNav />
     </div>
   );

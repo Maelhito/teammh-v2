@@ -30,6 +30,7 @@ interface Props {
   userId: string;
   initialEvents: CalendarEvent[];
   completedSeances?: { grid_key: string | null; assignment_id: string | null; nom: string | null }[];
+  todayIso: string;
 }
 
 function isEventOnDay(event: CalendarEvent, day: Date): boolean {
@@ -95,9 +96,24 @@ const RECURRENCE_LABELS: Record<string, string> = {
   monthly: "Mensuel",
 };
 
-export default function CalendrierClient({ userId, initialEvents, completedSeances = [] }: Props) {
+export default function CalendrierClient({ userId, initialEvents, completedSeances = [], todayIso }: Props) {
   void userId;
-  const todayRaw = new Date();
+
+  // Anti hydration-mismatch : tant que le composant n'est pas monté côté client, on
+  // dérive "aujourd'hui" des accesseurs UTC de `todayIso` (calculée côté serveur) —
+  // ce qui donne les mêmes Y/M/D au premier rendu serveur ET au premier rendu client
+  // (avant hydratation), quel que soit le fuseau du process Node ou du navigateur.
+  // Une fois monté, un useEffect bascule sur new Date() (heure locale réelle) ; cette
+  // mise à jour a lieu après l'hydratation donc n'est jamais comparée au HTML serveur.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  const refDate = mounted ? new Date() : new Date(`${todayIso}T00:00:00.000Z`);
+  const todayY = mounted ? refDate.getFullYear() : refDate.getUTCFullYear();
+  const todayM = mounted ? refDate.getMonth() : refDate.getUTCMonth();
+  const todayD = mounted ? refDate.getDate() : refDate.getUTCDate();
+
+  const todayRaw = new Date(todayY, todayM, todayD);
   todayRaw.setHours(0, 0, 0, 0);
 
   const [year, setYear] = useState(todayRaw.getFullYear());

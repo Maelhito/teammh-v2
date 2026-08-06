@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const TIMEZONES = [
   { value: "Australia/Darwin",    label: "Darwin — UTC+9:30" },
@@ -83,29 +83,42 @@ export default function DashboardCoach({
     setTimezone(tz);
     saveTimezone(tz);
   }
-  // Formateur de date LOCAL (évite le décalage UTC de toISOString)
-  const localISO = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  // Anti hydration-mismatch : tant que le composant n'est pas monté côté client,
+  // on dérive la date à afficher des accesseurs UTC de `today` (calculée côté
+  // serveur) — le texte produit est alors STRICTEMENT identique au HTML serveur,
+  // quel que soit le fuseau du process Node ou du navigateur. Une fois monté, un
+  // useEffect bascule sur new Date() (heure locale réelle du navigateur) ; cette
+  // mise à jour a lieu APRÈS l'hydratation donc n'est jamais comparée au HTML
+  // serveur et ne peut pas déclencher d'erreur.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
-  // Aujourd'hui en heure locale du navigateur (pas UTC)
-  const nowClient = new Date();
-  const localToday = localISO(nowClient);
+  const now = mounted ? new Date() : new Date(`${today}T00:00:00.000Z`);
+  const y = mounted ? now.getFullYear() : now.getUTCFullYear();
+  const m = mounted ? now.getMonth() : now.getUTCMonth();
+  const day = mounted ? now.getDate() : now.getUTCDate();
+  const dow = mounted ? now.getDay() : now.getUTCDay();
 
-  // Lundi de la semaine courante calculé côté CLIENT (heure locale)
-  const monday = new Date(nowClient);
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(nowClient.getDate() - ((nowClient.getDay() + 6) % 7));
+  const localISO = (yy: number, mm: number, dd: number) =>
+    `${yy}-${String(mm + 1).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+
+  const localToday = localISO(y, m, day);
+
+  // Lundi de la semaine courante (arithmétique pure sur année/mois/jour : pas de
+  // conversion de fuseau, donc identique serveur/client tant que y/m/day/dow le sont)
+  const monday = new Date(y, m, day);
+  monday.setDate(day - ((dow + 6) % 7));
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
     return {
-      iso: localISO(d),
+      iso: localISO(d.getFullYear(), d.getMonth(), d.getDate()),
       label: JOURS[i],
       labelFull: JOURS_FULL[i],
       day: d.getDate(),
       month: MOIS[d.getMonth()],
-      isToday: localISO(d) === localToday,
+      isToday: localISO(d.getFullYear(), d.getMonth(), d.getDate()) === localToday,
     };
   });
 
@@ -116,10 +129,9 @@ export default function DashboardCoach({
     eventsByDay[ev.date].push(ev);
   }
 
-  // En-tête date : on utilise la date locale du navigateur
-  const nowLocal = new Date();
-  const dayLabel = JOURS_FULL[(nowLocal.getDay() + 6) % 7];
-  const fullDate = `${dayLabel} ${nowLocal.getDate()} ${MOIS[nowLocal.getMonth()]} ${nowLocal.getFullYear()}`;
+  // En-tête date
+  const dayLabel = JOURS_FULL[(dow + 6) % 7];
+  const fullDate = `${dayLabel} ${day} ${MOIS[m]} ${y}`;
 
   return (
     <div>
