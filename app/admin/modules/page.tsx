@@ -2,6 +2,8 @@ import { getModules } from "@/lib/modules";
 import { getAllModulesContent } from "@/lib/modules-content";
 import { parseVideoLabels } from "@/lib/admin/fetchClients";
 import ModuleManager from "../ModuleManager";
+import Module0Admin from "../Module0Admin";
+import { MODULE_DEMARRAGE_SLUG } from "@/lib/module-unlock";
 
 export const dynamic = "force-dynamic";
 
@@ -9,10 +11,13 @@ export default async function AdminModulesPage() {
   const modules = getModules();
   const modulesContent = await getAllModulesContent();
 
-  const modulesWithVideos = modules.map((m) => ({
-    ...m,
-    videoLabels: parseVideoLabels(m.slug),
-  }));
+  // Le module de démarrage a sa propre section (ses 4 points), pas une ligne classique
+  const modulesWithVideos = modules
+    .filter((m) => m.slug !== MODULE_DEMARRAGE_SLUG)
+    .map((m) => ({
+      ...m,
+      videoLabels: parseVideoLabels(m.slug),
+    }));
 
   return (
     <div>
@@ -24,6 +29,7 @@ export default async function AdminModulesPage() {
           📚 Modules
         </h1>
       </div>
+      <Module0Admin contentBySlug={modulesContent} />
       <ModuleManager modules={modulesWithVideos} initialContent={modulesContent} />
     </div>
   );

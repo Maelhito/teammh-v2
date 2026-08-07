@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 
-  const { slug, field, url } = await request.json();
+  const { slug, field, url, silent } = await request.json();
 
   if (!slug || !field) {
     return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
@@ -36,12 +36,13 @@ export async function POST(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  if (url) {
-    const moduleData = getModuleBySlug(slug);
-    const moduleTitle = moduleData?.title ?? slug;
+  // Notification uniquement pour un vrai module de la liste, et jamais si silent.
+  // (les points du module de démarrage ont un slug `module-0:<key>` : pas de push)
+  const moduleData = getModuleBySlug(slug);
+  if (url && !silent && moduleData) {
     await sendPushToAll({
       title: "🎥 Nouvelle vidéo disponible",
-      body: `Une nouvelle vidéo est disponible dans le module "${moduleTitle}".`,
+      body: `Une nouvelle vidéo est disponible dans le module "${moduleData.title}".`,
       url: `/modules/${slug}`,
     }).catch(() => {});
   }
