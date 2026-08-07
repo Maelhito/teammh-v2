@@ -8,6 +8,7 @@ import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import PreviewBanner from "@/components/PreviewBanner";
 import ValidateButton from "../../[slug]/ValidateButton";
+import QuestionnaireDemarrage from "./QuestionnaireDemarrage";
 
 export const dynamic = "force-dynamic";
 
@@ -157,8 +158,15 @@ export default async function Module0StepPage({ params }: PageProps) {
           )
         )}
 
+        {/* Questionnaire de démarrage */}
+        {step.hasQuestionnaire && (
+          <div style={{ marginTop: videos.length ? 14 : 0 }}>
+            <QuestionnaireDemarrage />
+          </div>
+        )}
+
         {/* Aucun contenu encore configuré */}
-        {videos.length === 0 && step.type === "content" && (
+        {videos.length === 0 && step.type === "content" && !step.hasQuestionnaire && (
           <div
             style={{
               padding: "20px",

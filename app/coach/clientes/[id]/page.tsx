@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { decodeProgData, type Grid, type CellItem } from "../../programmes/ProgrammeBuilder";
 import SeanceBuildComp, { type SeanceData } from "../../seances/SeanceBuilder";
+import QuestionnaireCliente from "./QuestionnaireCliente";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Cliente { id: string; email: string; prenom: string | null; nom: string | null; statut: string; date_demarrage: string | null; }
@@ -1197,6 +1198,9 @@ export default function ClienteFichePage() {
           </button>
         </div>
       </div>
+
+      {/* Questionnaire de démarrage de la cliente (au-dessus du calendrier) */}
+      <QuestionnaireCliente clienteId={id} />
 
       {/* Calendrier */}
       <MonthCalendar

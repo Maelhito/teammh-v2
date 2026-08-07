@@ -18,6 +18,8 @@ export interface Module0Step {
   /** "content" = vidéos dans l'app · "external" = lien vers un site externe */
   type: "content" | "external";
   description: string;
+  /** affiche le questionnaire de démarrage sous le contenu */
+  hasQuestionnaire?: boolean;
 }
 
 export const MODULE_0_STEPS: Module0Step[] = [
@@ -29,7 +31,8 @@ export const MODULE_0_STEPS: Module0Step[] = [
     duration: "",
     emoji: "🎬",
     type: "content",
-    description: "Bienvenue chez Time To Move : découvre ton programme et comment il va se dérouler.",
+    description: "Bienvenue chez Time To Move : découvre ton programme, puis fais le point avec le questionnaire.",
+    hasQuestionnaire: true,
   },
   {
     key: "azeoo",
