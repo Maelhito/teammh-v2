@@ -7,7 +7,7 @@ const ADMIN_EMAIL = "mael.ld@hotmail.fr";
 const PUBLIC_PATHS = ["/login", "/auth/confirm", "/auth/set-password", "/acces-suspendu", "/inscription"];
 
 // Routes protégées pour les clientes (vérification statut)
-const CLIENT_PROTECTED = ["/dashboard", "/profil", "/modules", "/calendrier"];
+const CLIENT_PROTECTED = ["/dashboard", "/profil", "/modules", "/calendrier", "/mesures"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -65,7 +65,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Non connecté → /login (en dev, on laisse naviguer sans session pour tester les pages)
-  const PROTECTED = ["/dashboard", "/admin", "/profil", "/modules", "/calendrier", "/coach", "/tts"];
+  const PROTECTED = ["/dashboard", "/admin", "/profil", "/modules", "/calendrier", "/mesures", "/coach", "/tts"];
   if (!isDev && !user && PROTECTED.some((p) => pathname.startsWith(p))) {
     return redirect("/login");
   }
@@ -73,7 +73,7 @@ export async function middleware(request: NextRequest) {
   if (!user) return response;
 
   // Rôle lu depuis la DB à chaque requête → changement immédiat sans reconnexion
-  const NEEDS_ROLE = ["/dashboard", "/admin", "/coach", "/profil", "/modules", "/calendrier", "/tts"];
+  const NEEDS_ROLE = ["/dashboard", "/admin", "/coach", "/profil", "/modules", "/calendrier", "/mesures", "/tts"];
   let role = "cliente";
   if (!isAdmin && NEEDS_ROLE.some((p) => pathname.startsWith(p))) {
     try {
