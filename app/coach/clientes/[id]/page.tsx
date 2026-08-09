@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { decodeProgData, type Grid, type CellItem } from "../../programmes/ProgrammeBuilder";
 import SeanceBuildComp, { type SeanceData } from "../../seances/SeanceBuilder";
 import QuestionnaireCliente from "./QuestionnaireCliente";
+import MesuresCliente from "./MesuresCliente";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Cliente { id: string; email: string; prenom: string | null; nom: string | null; statut: string; date_demarrage: string | null; }
@@ -1201,6 +1202,9 @@ export default function ClienteFichePage() {
 
       {/* Questionnaire de démarrage de la cliente (au-dessus du calendrier) */}
       <QuestionnaireCliente clienteId={id} />
+
+      {/* Suivi des mesures (poids, mensurations, photos) */}
+      <MesuresCliente clienteId={id} />
 
       {/* Calendrier */}
       <MonthCalendar
