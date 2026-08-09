@@ -21,6 +21,8 @@ function labelDate(iso: string) {
   return new Date(iso + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 }
 
+
+
 export default function MesuresClient() {
   const [onglet, setOnglet] = useState<Onglet>("mesures");
   const [mesures, setMesures] = useState<Mesure[]>([]);
@@ -29,6 +31,7 @@ export default function MesuresClient() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [formOuvert, setFormOuvert] = useState(false);
+  const [histoOuvert, setHistoOuvert] = useState(false);
 
   async function charger() {
     try {
@@ -242,13 +245,24 @@ export default function MesuresClient() {
             </div>
           ))}
 
-          {/* Historique */}
+          {/* Historique — repliable */}
           {historique.length > 0 && (
             <div style={carte}>
-              <p className="font-body" style={{ fontSize: "0.8rem", fontWeight: 700, color: "#F5F5F0", margin: "0 0 12px" }}>
-                Historique <span style={{ color: "#6B7280", fontWeight: 400 }}>({historique.length})</span>
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button
+                onClick={() => setHistoOuvert((o) => !o)}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                  background: "none", border: "none", padding: 0, cursor: "pointer",
+                  fontFamily: "inherit", textAlign: "left",
+                }}
+              >
+                <span className="font-body" style={{ fontSize: "0.8rem", fontWeight: 700, color: "#F5F5F0" }}>
+                  Historique <span style={{ color: "#6B7280", fontWeight: 400 }}>({historique.length})</span>
+                </span>
+                <span style={{ fontSize: "0.7rem", color: "#6B7280" }}>{histoOuvert ? "▲" : "▼"}</span>
+              </button>
+
+              <div style={{ display: histoOuvert ? "flex" : "none", flexDirection: "column", gap: 10, marginTop: 12 }}>
                 {historique.map((m) => (
                   <div key={m.id} style={{ borderBottom: "1px solid #1a1a1a", paddingBottom: 10 }}>
                     <p style={{ fontSize: "0.74rem", color: "#9CA3AF", margin: "0 0 4px", fontWeight: 700 }}>

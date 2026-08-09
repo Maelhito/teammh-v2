@@ -14,20 +14,27 @@ export default function MesureChart({
   unite,
   couleur = "#B22222",
   objectif,
+  clair = false,
 }: {
   mesures: Mesure[];
   champ: MesureChamp;
   unite: string;
   couleur?: string;
   objectif?: number | null;
+  /** true = thème clair (portail coach) */
+  clair?: boolean;
 }) {
+  // Couleurs adaptées au fond (sombre côté cliente, clair côté coach)
+  const fondPoint = clair ? "#FFFFFF" : "#0D0D0D";
+  const texteFaible = clair ? "#bbb" : "#4B5563";
+  const texteFort = clair ? "#888" : "#9CA3AF";
   const points = trierParDate(mesures)
     .filter((m) => m[champ] != null)
     .map((m) => ({ date: m.date, valeur: Number(m[champ]) }));
 
   if (points.length < 2) {
     return (
-      <div style={{ padding: "28px 16px", textAlign: "center", color: "#4B5563", fontSize: "0.8rem" }}>
+      <div style={{ padding: "28px 16px", textAlign: "center", color: texteFaible, fontSize: "0.8rem" }}>
         {points.length === 0
           ? "Aucune donnée pour l'instant."
           : "Encore une mesure et ta courbe apparaît ici."}
@@ -94,15 +101,15 @@ export default function MesureChart({
 
         {points.map((p, i) => (
           <circle key={i} cx={x(i)} cy={y(p.valeur)} r={i === points.length - 1 ? 3.5 : 2.5}
-            fill={i === points.length - 1 ? couleur : "#0D0D0D"} stroke={couleur} strokeWidth="1.5" />
+            fill={i === points.length - 1 ? couleur : fondPoint} stroke={couleur} strokeWidth="1.5" />
         ))}
       </svg>
 
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-        <span style={{ fontSize: "0.65rem", color: "#4B5563" }}>
+        <span style={{ fontSize: "0.65rem", color: texteFaible }}>
           {labelDate(premier.date)} · {premier.valeur} {unite}
         </span>
-        <span style={{ fontSize: "0.65rem", color: "#9CA3AF" }}>
+        <span style={{ fontSize: "0.65rem", color: texteFort }}>
           {labelDate(dernier.date)} · {dernier.valeur} {unite}
         </span>
       </div>

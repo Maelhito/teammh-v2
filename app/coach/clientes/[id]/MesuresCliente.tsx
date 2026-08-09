@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ANGLES, CHAMPS, ecarts, formatEcart, trierParDate, type Mesure, type PhotoProgression } from "@/lib/mesures";
+import MesureChart from "@/app/mesures/MesureChart";
 
 function labelDate(iso: string) {
   return new Date(iso + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
@@ -12,6 +13,8 @@ function couleur(v: number | null): string {
   if (v === null || v === 0) return "#888";
   return v < 0 ? "#10B981" : "#F59E0B";
 }
+
+
 
 export default function MesuresCliente({ clienteId }: { clienteId: string }) {
   const [mesures, setMesures] = useState<Mesure[]>([]);
@@ -68,12 +71,12 @@ export default function MesuresCliente({ clienteId }: { clienteId: string }) {
           Suivi des mesures
           {derniere && <span style={{ marginLeft: 8, color: "#888", letterSpacing: 0, fontWeight: 400 }}>dernière le {labelDate(derniere.date)}</span>}
         </p>
-        {(historique.length > 1 || photos.length > 0) && (
+        {(historique.length > 0 || photos.length > 0) && (
           <button
             onClick={() => setShowAll((s) => !s)}
             style={{ padding: "5px 11px", borderRadius: 7, border: "1px solid #e8e8e8", backgroundColor: "#fafafa", color: "#888", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui", flexShrink: 0 }}
           >
-            {showAll ? "Réduire" : "Voir tout"}
+            {showAll ? "Réduire le détail ▲" : "Voir le détail ▼"}
           </button>
         )}
       </div>
@@ -103,6 +106,20 @@ export default function MesuresCliente({ clienteId }: { clienteId: string }) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Courbes — visibles d'emblée : c'est ce qui se lit le plus vite */}
+      {mesures.length >= 2 && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 14 }}>
+          {CHAMPS.filter((c) => c.cle).map(({ champ, label, unite }) => (
+            <div key={champ} style={{ backgroundColor: "#fafafa", borderRadius: 10, padding: "12px 14px" }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: "#888", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 8px", fontFamily: "system-ui" }}>
+                Évolution · {label}
+              </p>
+              <MesureChart mesures={mesures} champ={champ} unite={unite} clair />
+            </div>
+          ))}
         </div>
       )}
 
