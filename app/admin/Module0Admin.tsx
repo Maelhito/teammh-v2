@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { MODULE_0_STEPS, stepCompletionSlug, type Module0Step } from "@/lib/module-0-steps";
 import type { ModuleContent } from "@/lib/modules-content";
+import { QUESTIONNAIRE_GROUPS, TOTAL_QUESTIONS } from "@/lib/questionnaire-demarrage";
 
 /** Nombre d'emplacements vidéo proposés par point */
 const VIDEO_SLOTS = 5;
@@ -31,6 +32,59 @@ function btnStyle(saving: boolean): React.CSSProperties {
     cursor: saving ? "not-allowed" : "pointer",
     whiteSpace: "nowrap",
   };
+}
+
+/**
+ * Aperçu en lecture seule des questions du questionnaire de démarrage.
+ * Les questions sont définies dans lib/questionnaire-demarrage.ts (pas en base) :
+ * cet aperçu sert à vérifier ce qui est demandé aux clientes.
+ */
+function QuestionnairePreview() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div style={{ backgroundColor: "#0D0D0D", border: "1px solid #1F1F1F", borderRadius: 10, marginBottom: 14, overflow: "hidden" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+      >
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", fontFamily: "system-ui", fontWeight: 700, letterSpacing: "0.04em" }}>
+          📋 QUESTIONNAIRE DE DÉMARRAGE
+          <span style={{ marginLeft: 8, fontWeight: 400, color: "#555", letterSpacing: 0 }}>
+            {TOTAL_QUESTIONS} questions · s&apos;affiche sous les vidéos
+          </span>
+        </span>
+        <span style={{ fontSize: "0.7rem", color: "#555", flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div style={{ padding: "0 14px 14px" }}>
+          <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", margin: "0 0 12px", fontFamily: "system-ui", lineHeight: 1.5 }}>
+            Aperçu en lecture seule. Les réponses des clientes apparaissent sur leur fiche, au-dessus du
+            calendrier ; les 4 objectifs sont aussi recopiés dans leur profil.
+          </p>
+
+          {QUESTIONNAIRE_GROUPS.map((group) => (
+            <div key={group.title} style={{ marginBottom: 12 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: "#B45309", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 6px", fontFamily: "system-ui" }}>
+                {group.title}
+              </p>
+              <ul style={{ margin: 0, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 4 }}>
+                {group.questions.map((q) => (
+                  <li key={q.field} style={{ fontSize: 11.5, color: "rgba(255,255,255,0.7)", fontFamily: "system-ui", lineHeight: 1.45 }}>
+                    {q.label}
+                    <span style={{ color: "#555", marginLeft: 6 }}>
+                      {q.kind === "ouinon" ? "(Oui / Non)" : q.kind === "textarea" ? "(texte long)" : "(texte court)"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function StepSection({ step, content }: { step: Module0Step; content: ModuleContent | null }) {
@@ -133,11 +187,7 @@ function StepSection({ step, content }: { step: Module0Step; content: ModuleCont
 
       {open && (
         <div style={{ padding: "0 18px 16px" }}>
-          {step.hasQuestionnaire && (
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", margin: "0 0 12px", fontFamily: "system-ui" }}>
-              ℹ️ Le questionnaire de démarrage s&apos;affiche automatiquement sous les vidéos de ce point.
-            </p>
-          )}
+          {step.hasQuestionnaire && <QuestionnairePreview />}
 
           {/* Lien externe (questionnaire alimentaire) */}
           {step.type === "external" && (
