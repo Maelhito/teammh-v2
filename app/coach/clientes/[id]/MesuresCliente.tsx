@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ANGLES, CHAMPS, ecarts, formatEcart, trierParDate, type Mesure, type PhotoProgression } from "@/lib/mesures";
+import { CHAMPS, ecarts, formatEcart, trierParDate, type Mesure, type PhotoProgression } from "@/lib/mesures";
 import MesureChart from "@/app/mesures/MesureChart";
+import PhotosCliente from "./PhotosCliente";
 
 function labelDate(iso: string) {
   return new Date(iso + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
@@ -13,6 +14,8 @@ function couleur(v: number | null): string {
   if (v === null || v === 0) return "#888";
   return v < 0 ? "#10B981" : "#F59E0B";
 }
+
+
 
 
 
@@ -62,7 +65,6 @@ export default function MesuresCliente({ clienteId }: { clienteId: string }) {
 
   const historique = trierParDate(mesures).slice().reverse();
   const derniere = historique[0];
-  const dernieresPhotos = [...photos].reverse().slice(0, 6);
 
   return (
     <div style={card}>
@@ -148,26 +150,8 @@ export default function MesuresCliente({ clienteId }: { clienteId: string }) {
             </>
           )}
 
-          {/* Photos */}
-          {dernieresPhotos.length > 0 && (
-            <>
-              <p style={{ fontSize: 10, fontWeight: 700, color: "#B45309", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 8px", fontFamily: "system-ui" }}>
-                Photos de progression
-              </p>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8 }}>
-                {dernieresPhotos.map((p) => (
-                  <div key={p.id}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.url} alt={`${p.angle} ${labelDate(p.date)}`}
-                      style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover", borderRadius: 8, display: "block", backgroundColor: "#fafafa", border: "1px solid #efefef" }} />
-                    <p style={{ fontSize: 9, color: "#aaa", margin: "3px 0 0", textAlign: "center", fontFamily: "system-ui" }}>
-                      {ANGLES.find((a) => a.angle === p.angle)?.label} · {labelDate(p.date)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+          {/* Photos : comparateur avant/après + galerie complète groupée par date */}
+          {photos.length > 0 && <PhotosCliente photos={photos} />}
         </div>
       )}
     </div>
