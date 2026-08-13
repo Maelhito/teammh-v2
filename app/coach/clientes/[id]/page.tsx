@@ -100,6 +100,37 @@ function toLocalDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// ─── Programmes multiples ─────────────────────────────────────────────────────
+// Une cliente peut avoir plusieurs programmes "en_cours" en même temps : chacun
+// a sa propre date de début, donc sa propre fenêtre sur le calendrier. C'est ce
+// qui permet au coach de programmer la suite à l'avance.
+interface ProgrammeLayer {
+  /** id de l'assignation (client_programmes.id) */
+  id: string;
+  nom: string;
+  grid: Grid;
+  activeStart: Date;
+  dureeSemaines: number;
+  color: string;
+}
+
+// Couleurs de distinction des programmes sur le calendrier coach
+const PROG_COLORS = ["#F97316", "#0EA5E9", "#EC4899", "#84CC16", "#F59E0B", "#14B8A6"];
+function progColor(index: number): string {
+  return PROG_COLORS[index % PROG_COLORS.length];
+}
+
+function buildLayers(assignments: Assignment[], gridsByAssignment: Record<string, Grid>): ProgrammeLayer[] {
+  return assignments.map((a, i) => ({
+    id: a.id,
+    nom: a.programme?.nom ?? "Programme",
+    grid: gridsByAssignment[a.id] ?? {},
+    activeStart: parseLocalDate(a.date_debut),
+    dureeSemaines: a.programme?.duree_semaines ?? 4,
+    color: progColor(i),
+  }));
+}
+
 // ─── Edit panel ───────────────────────────────────────────────────────────────
 function SeanceEditPanel({ item, cellKey, dureeSemaines, otherInstancesCount, onSave, onDelete, onClose }: {
   item: CellItem; cellKey: string; dureeSemaines: number; otherInstancesCount: number;
@@ -429,17 +460,20 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
 }
 
 // ─── Calendrier mensuel avec drag & drop ──────────────────────────────────────
-function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEditItem, onMoveItem, onAddEvent, onEventClick }: {
-  grid: Grid; activeStart: Date | null; dureeSemaines: number; today: Date;
+function MonthCalendar({ layers, today, events, onEditItem, onMoveItem, onAddEvent, onEventClick }: {
+  /** Un calque par programme actif — chacun avec sa date de début et sa grille */
+  layers: ProgrammeLayer[];
+  today: Date;
   events: CalendarEvent[];
-  onEditItem: (cellKey: string, item: CellItem) => void;
-  onMoveItem: (fromKey: string, itemKey: string, toKey: string) => void;
+  onEditItem: (assignmentId: string, cellKey: string, item: CellItem) => void;
+  onMoveItem: (assignmentId: string, fromKey: string, itemKey: string, toKey: string) => void;
   onAddEvent: (date: Date) => void;
   onEventClick?: (ev: CalendarEvent) => void;
 }) {
   const [monthOffset, setMonthOffset] = useState(0);
+  // Un drop cible une case d'un programme précis → clé "assignmentId|cellKey"
   const [dragOver, setDragOver] = useState<string | null>(null);
-  const dragRef = useRef<{ cellKey: string; itemKey: string } | null>(null);
+  const dragRef = useRef<{ assignmentId: string; cellKey: string; itemKey: string } | null>(null);
 
   const base = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
   const month = base.getMonth();
@@ -463,7 +497,13 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
           <p style={{ fontSize: 15, fontWeight: 800, color: "#1a1a1a", margin: "2px 0 0", fontFamily: "system-ui" }}>{MOIS_LONG[month]} {year}</p>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {Object.entries(EV_LABELS).map(([type, label]) => (
+          {layers.map(layer => (
+            <span key={layer.id} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#666", fontFamily: "system-ui" }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: layer.color, display: "inline-block", flexShrink: 0 }} />
+              {layer.nom}
+            </span>
+          ))}
+          {Object.entries(EV_LABELS).filter(([type]) => type !== "seance").map(([type, label]) => (
             <span key={type} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#666", fontFamily: "system-ui" }}>
               <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: EV_COLORS[type], display: "inline-block", flexShrink: 0 }} />
               {label}
@@ -500,19 +540,38 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
           const isCurrentMonth = day.getMonth() === month;
           const isToday = isSameDay(day, today);
           const isPast = day < today && !isToday;
-          const cellKey = activeStart ? dateToGridKey(day, activeStart, dureeSemaines) : null;
-          const items = getSeancesForKey(grid, cellKey);
-          const isDragTarget = dragOver === cellKey && cellKey !== null;
+          const dayId = toLocalDate(day);
+          // Items de ce jour, tous programmes actifs confondus
+          const dayLayers = layers
+            .map(layer => {
+              const cellKey = dateToGridKey(day, layer.activeStart, layer.dureeSemaines);
+              return { layer, cellKey, items: getSeancesForKey(layer.grid, cellKey) };
+            })
+            .filter(l => l.cellKey !== null);
+          const isDragTarget = dragOver === dayId;
           const dayEvents = events.filter(ev => isEventOnDay(ev, day));
+
+          /** Case cible de ce jour pour le programme de l'item en cours de drag. */
+          const dropTargetKey = (): string | null => {
+            const drag = dragRef.current;
+            if (!drag) return null;
+            const layer = layers.find(l => l.id === drag.assignmentId);
+            if (!layer) return null;
+            return dateToGridKey(day, layer.activeStart, layer.dureeSemaines);
+          };
 
           return (
             <div key={i}
-              onDragOver={e => { e.preventDefault(); e.stopPropagation(); if (cellKey) setDragOver(cellKey); }}
+              onDragOver={e => { e.preventDefault(); e.stopPropagation(); if (dropTargetKey()) setDragOver(dayId); }}
               onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(null); }}
               onDrop={e => {
                 e.preventDefault(); setDragOver(null);
-                if (!cellKey || !dragRef.current || dragRef.current.cellKey === cellKey) return;
-                onMoveItem(dragRef.current.cellKey, dragRef.current.itemKey, cellKey);
+                const drag = dragRef.current;
+                const toKey = dropTargetKey();
+                // Un item reste dans son propre programme : la case cible est
+                // calculée depuis la date de début de CE programme.
+                if (!drag || !toKey || drag.cellKey === toKey) return;
+                onMoveItem(drag.assignmentId, drag.cellKey, drag.itemKey, toKey);
                 dragRef.current = null;
               }}
               style={{
@@ -538,23 +597,26 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
                   <p style={{ fontSize: 8, fontWeight: 700, color: evColor(ev), margin: 0, fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.titre}</p>
                 </div>
               ))}
-              {items.map(item => {
-                const label = item.type === "seance" ? item.seanceName : item.type === "seance_locale" ? item.nom : `🎬 ${item.titre}`;
-                return (
-                  <div key={item._key}
-                    draggable
-                    onDragStart={() => { if (cellKey) dragRef.current = { cellKey, itemKey: item._key }; }}
-                    onDragEnd={() => setDragOver(null)}
-                    onClick={() => { if (cellKey) onEditItem(cellKey, item); }}
-                    title="Cliquer pour modifier · Glisser pour déplacer"
-                    style={{ padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: isPast ? "#f5f5f5" : item.type === "video" ? "rgba(139,92,246,0.06)" : "rgba(249,115,22,0.06)", borderLeft: `2px solid ${isPast ? "#ddd" : item.type === "video" ? "#8B5CF6" : "#F97316"}`, transition: "opacity 0.1s" }}
-                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.opacity = "0.75"}
-                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.opacity = "1"}
-                  >
-                    <p style={{ fontSize: 8, fontWeight: 700, color: isPast ? "#bbb" : item.type === "video" ? "#7c3aed" : "#F97316", margin: 0, fontFamily: "system-ui", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none" }}>{label}</p>
-                  </div>
-                );
-              })}
+              {dayLayers.map(({ layer, cellKey, items }) =>
+                items.map(item => {
+                  const label = item.type === "seance" ? item.seanceName : item.type === "seance_locale" ? item.nom : `🎬 ${item.titre}`;
+                  const color = item.type === "video" ? "#8B5CF6" : layer.color;
+                  return (
+                    <div key={`${layer.id}-${item._key}`}
+                      draggable
+                      onDragStart={() => { if (cellKey) dragRef.current = { assignmentId: layer.id, cellKey, itemKey: item._key }; }}
+                      onDragEnd={() => setDragOver(null)}
+                      onClick={() => { if (cellKey) onEditItem(layer.id, cellKey, item); }}
+                      title={`${layer.nom} · Cliquer pour modifier · Glisser pour déplacer`}
+                      style={{ padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: isPast ? "#f5f5f5" : `${color}0f`, borderLeft: `2px solid ${isPast ? "#ddd" : color}`, transition: "opacity 0.1s" }}
+                      onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.opacity = "0.75"}
+                      onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.opacity = "1"}
+                    >
+                      <p style={{ fontSize: 8, fontWeight: 700, color: isPast ? "#bbb" : color, margin: 0, fontFamily: "system-ui", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none" }}>{label}</p>
+                    </div>
+                  );
+                })
+              )}
             </div>
           );
         })}
@@ -802,14 +864,16 @@ function SeanceListPanel({ grid, dureeSemaines, onEditItem, onClose }: {
 }
 
 // ─── Modal assignation ─────────────────────────────────────────────────────────
-function AssignModal({ clienteId, onAssigned, onPersonnaliser, onClose }: {
-  clienteId: string; onAssigned: () => void; onPersonnaliser: (assignId: string) => void; onClose: () => void;
+function AssignModal({ clienteId, nbActifs, onAssigned, onPersonnaliser, onClose }: {
+  clienteId: string; nbActifs: number; onAssigned: () => void; onPersonnaliser: (assignId: string) => void; onClose: () => void;
 }) {
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [selected, setSelected] = useState("");
   const [dateDebut, setDateDebut] = useState(() => new Date().toISOString().split("T")[0]);
   const [joursSelectionnes, setJoursSelectionnes] = useState<number[]>([]);
   const [joursDansProg, setJoursDansProg] = useState<number[]>([]);
+  // Par défaut on cumule : les programmes déjà assignés restent actifs.
+  const [pauseLesAutres, setPauseLesAutres] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
@@ -842,7 +906,12 @@ function AssignModal({ clienteId, onAssigned, onPersonnaliser, onClose }: {
     setSaving(true); setError("");
     const res = await fetch(`/api/coach/clientes/${clienteId}/programmes`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ programme_id: selected, date_debut: dateDebut, jours_selectionnes: joursSelectionnes }),
+      body: JSON.stringify({
+        programme_id: selected,
+        date_debut: dateDebut,
+        jours_selectionnes: joursSelectionnes,
+        mettre_en_pause_les_autres: pauseLesAutres,
+      }),
     });
     if (res.ok) {
       const { assignment } = await res.json();
@@ -906,6 +975,21 @@ function AssignModal({ clienteId, onAssigned, onPersonnaliser, onClose }: {
                     })}
                   </div>
                   <p style={{ fontSize: 10, color: "#aaa", margin: "6px 0 0", fontFamily: "system-ui" }}>{joursSelectionnes.length}/{joursDansProg.length} sélectionné{joursSelectionnes.length > 1 ? "s" : ""}</p>
+                </div>
+              )}
+              {nbActifs > 0 && (
+                <div style={{ borderRadius: 8, border: "1px solid #eee", backgroundColor: "#fafafa", padding: "10px 12px" }}>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", fontFamily: "system-ui" }}>
+                    <input type="checkbox" checked={pauseLesAutres} onChange={e => setPauseLesAutres(e.target.checked)} style={{ marginTop: 2, cursor: "pointer" }} />
+                    <span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a", display: "block" }}>
+                        Mettre en pause {nbActifs > 1 ? `les ${nbActifs} programmes en cours` : "le programme en cours"}
+                      </span>
+                      <span style={{ fontSize: 11, color: "#888" }}>
+                        Décoché : les programmes se cumulent — utile pour programmer la suite à l&apos;avance.
+                      </span>
+                    </span>
+                  </label>
                 </div>
               )}
               {error && <p style={{ fontSize: 12, color: "#EF4444", margin: 0, fontFamily: "system-ui" }}>{error}</p>}
@@ -1022,8 +1106,9 @@ export default function ClienteFichePage() {
   const router = useRouter();
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [gridData, setGridData] = useState<Grid>({});
-  const [editTarget, setEditTarget] = useState<{ cellKey: string; item: CellItem } | null>(null);
+  // Une grille par assignation active (plusieurs programmes peuvent tourner ensemble)
+  const [gridsByAssignment, setGridsByAssignment] = useState<Record<string, Grid>>({});
+  const [editTarget, setEditTarget] = useState<{ assignmentId: string; cellKey: string; item: CellItem } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [today] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [calEvents, setCalEvents] = useState<CalendarEvent[]>([]);
@@ -1045,11 +1130,12 @@ export default function ClienteFichePage() {
     const d = await res.json();
     const list: Assignment[] = d.assignments ?? [];
     setAssignments(list);
-    const active = list.find(a => a.statut === "en_cours");
-    if (active) {
-      const src = active.grid_data?.startsWith("{") ? active.grid_data : active.programme?.description;
-      setGridData(decodeGrid(src ?? null));
+    const grids: Record<string, Grid> = {};
+    for (const a of list.filter(a => a.statut === "en_cours")) {
+      const src = a.grid_data?.startsWith("{") ? a.grid_data : a.programme?.description;
+      grids[a.id] = decodeGrid(src ?? null);
     }
+    setGridsByAssignment(grids);
   }, [id]);
 
   useEffect(() => {
@@ -1058,38 +1144,45 @@ export default function ClienteFichePage() {
     loadCalEvents();
   }, [id, loadAssignments, loadCalEvents]);
 
-  const enCours = assignments.find(a => a.statut === "en_cours") ?? null;
+  // Tous les programmes actifs, du plus ancien au plus récent (ordre = couleurs)
+  const actifs = assignments
+    .filter(a => a.statut === "en_cours")
+    .sort((a, b) => a.date_debut.localeCompare(b.date_debut));
   const termines = assignments.filter(a => a.statut === "termine");
-  const activeStart = enCours ? parseLocalDate(enCours.date_debut) : null;
-  const dureeSemaines = enCours?.programme?.duree_semaines ?? 0;
-  const totalSeancesPrevues = Object.values(gridData).reduce((a, items) => a + items.length, 0);
+  const layers = buildLayers(actifs, gridsByAssignment);
 
-  async function patchGrid(newGrid: Grid) {
-    if (!enCours) return;
-    const src = enCours.grid_data?.startsWith("{") ? enCours.grid_data : enCours.programme?.description ?? "{}";
+  function totalSeancesPrevues(assignId: string): number {
+    return Object.values(gridsByAssignment[assignId] ?? {}).reduce((a, items) => a + items.length, 0);
+  }
+
+  async function patchGrid(assignId: string, newGrid: Grid) {
+    const target = actifs.find(a => a.id === assignId);
+    if (!target) return;
+    const src = target.grid_data?.startsWith("{") ? target.grid_data : target.programme?.description ?? "{}";
     const parsed = JSON.parse(src);
     const newGridData = JSON.stringify({ ...parsed, grid: newGrid });
-    await fetch(`/api/coach/clientes/${id}/programmes/${enCours.id}`, {
+    await fetch(`/api/coach/clientes/${id}/programmes/${assignId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ grid_data: newGridData }),
     });
-    setGridData(newGrid);
+    setGridsByAssignment(prev => ({ ...prev, [assignId]: newGrid }));
   }
 
-  function handleMoveItem(fromKey: string, itemKey: string, toKey: string) {
-    const item = (gridData[fromKey] ?? []).find(i => i._key === itemKey);
+  function handleMoveItem(assignId: string, fromKey: string, itemKey: string, toKey: string) {
+    const grid = gridsByAssignment[assignId] ?? {};
+    const item = (grid[fromKey] ?? []).find(i => i._key === itemKey);
     if (!item) return;
-    const newGrid = { ...gridData };
+    const newGrid = { ...grid };
     newGrid[fromKey] = (newGrid[fromKey] ?? []).filter(i => i._key !== itemKey);
     if (!newGrid[fromKey].length) delete newGrid[fromKey];
     newGrid[toKey] = [...(newGrid[toKey] ?? []), { ...item, _key: nk() }];
-    patchGrid(newGrid);
+    patchGrid(assignId, newGrid);
   }
 
   function handleEditSave(updatedItem: CellItem, newCellKey: string, applyToAll: boolean) {
     if (!editTarget) return;
-    const { cellKey: oldKey } = editTarget;
-    const newGrid = { ...gridData };
+    const { assignmentId, cellKey: oldKey } = editTarget;
+    const newGrid = { ...(gridsByAssignment[assignmentId] ?? {}) };
 
     if (applyToAll) {
       const name = getItemName(editTarget.item);
@@ -1119,17 +1212,17 @@ export default function ClienteFichePage() {
       newGrid[newCellKey] = [...(newGrid[newCellKey] ?? []), updatedItem];
     }
 
-    patchGrid(newGrid);
+    patchGrid(assignmentId, newGrid);
     setEditTarget(null);
   }
 
   function handleDeleteItem() {
     if (!editTarget) return;
-    const { cellKey, item } = editTarget;
-    const newGrid = { ...gridData };
+    const { assignmentId, cellKey, item } = editTarget;
+    const newGrid = { ...(gridsByAssignment[assignmentId] ?? {}) };
     newGrid[cellKey] = (newGrid[cellKey] ?? []).filter(i => i._key !== item._key);
     if (!newGrid[cellKey].length) delete newGrid[cellKey];
-    patchGrid(newGrid);
+    patchGrid(assignmentId, newGrid);
     setEditTarget(null);
   }
 
@@ -1204,42 +1297,70 @@ export default function ClienteFichePage() {
 
       {/* Calendrier */}
       <MonthCalendar
-        grid={gridData} activeStart={activeStart} dureeSemaines={dureeSemaines} today={today}
+        layers={layers} today={today}
         events={calEvents}
-        onEditItem={(cellKey, item) => setEditTarget({ cellKey, item })}
+        onEditItem={(assignmentId, cellKey, item) => setEditTarget({ assignmentId, cellKey, item })}
         onMoveItem={handleMoveItem}
         onAddEvent={(date) => { setAddEvDate(toLocalDate(date)); setShowAddEv(true); }}
         onEventClick={(ev) => setEditEvent(ev)}
       />
 
-      {/* Programme en cours */}
+      {/* Programmes en cours — plusieurs peuvent coexister (programmation à l'avance) */}
       <div style={{ backgroundColor: "#fff", borderRadius: 14, border: "1px solid #efefef", padding: "18px", marginBottom: 12 }}>
-        <p style={{ ...lbl10, marginBottom: 12 }}>Programme en cours</p>
-        {!enCours ? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8 }}>
+          <p style={{ ...lbl10, margin: 0 }}>
+            {actifs.length > 1 ? `Programmes en cours (${actifs.length})` : "Programme en cours"}
+          </p>
+          {actifs.length > 0 && (
+            <button onClick={() => setShowModal(true)} style={{ padding: "5px 11px", borderRadius: 7, border: "1px solid #e8e8e8", background: "#fafafa", color: "#666", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>
+              + Ajouter un programme
+            </button>
+          )}
+        </div>
+        {actifs.length === 0 ? (
           <div style={{ textAlign: "center", padding: "24px 0" }}>
             <p style={{ fontSize: 13, color: "#bbb", fontFamily: "system-ui" }}>Aucun programme assigné</p>
             <button onClick={() => setShowModal(true)} style={{ marginTop: 8, padding: "8px 16px", borderRadius: 8, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>+ Assigner un programme</button>
           </div>
         ) : (
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <p style={{ fontSize: 15, fontWeight: 800, color: "#1a1a1a", margin: "0 0 4px", fontFamily: "system-ui" }}>{enCours.programme.nom}</p>
-              <p style={{ fontSize: 11, color: "#aaa", margin: "0 0 10px", fontFamily: "system-ui" }}>{NIV[enCours.programme.niveau] ?? enCours.programme.niveau} · {enCours.programme.duree_semaines} semaines · début le {new Date(enCours.date_debut).toLocaleDateString("fr-FR")}</p>
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 10, color: "#888", fontFamily: "system-ui" }}>Séances effectuées</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#1a1a1a", fontFamily: "system-ui" }}>{enCours.seances_effectuees} / {totalSeancesPrevues}</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {actifs.map((a, i) => {
+              const total = totalSeancesPrevues(a.id);
+              const debut = parseLocalDate(a.date_debut);
+              const aVenir = debut > today;
+              const color = progColor(i);
+              return (
+                <div key={a.id} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", borderLeft: `3px solid ${color}`, paddingLeft: 12 }}>
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                      <p style={{ fontSize: 15, fontWeight: 800, color: "#1a1a1a", margin: 0, fontFamily: "system-ui" }}>{a.programme.nom}</p>
+                      {aVenir && (
+                        <span style={{ fontSize: 9, fontWeight: 700, color: "#0EA5E9", padding: "2px 7px", borderRadius: 99, border: "1px solid rgba(14,165,233,0.2)", backgroundColor: "rgba(14,165,233,0.07)", fontFamily: "system-ui" }}>
+                          Programmé
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ fontSize: 11, color: "#aaa", margin: "0 0 10px", fontFamily: "system-ui" }}>
+                      {NIV[a.programme.niveau] ?? a.programme.niveau} · {a.programme.duree_semaines} semaines · {aVenir ? "démarre" : "début"} le {debut.toLocaleDateString("fr-FR")}
+                    </p>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontSize: 10, color: "#888", fontFamily: "system-ui" }}>Séances effectuées</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#1a1a1a", fontFamily: "system-ui" }}>{a.seances_effectuees} / {total}</span>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 99, backgroundColor: "#f0f0f0", overflow: "hidden" }}>
+                        <div style={{ height: "100%", borderRadius: 99, backgroundColor: color, width: total > 0 ? `${Math.min(100, (a.seances_effectuees / total) * 100)}%` : "0%" }} />
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => goToEditor(a.id)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✏️ Modifier les séances</button>
+                    <button onClick={() => handleSeanceFaite(a.id, a.seances_effectuees)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#10B981", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✓ Séance faite</button>
+                    <button onClick={() => handleTerminer(a.id)} style={{ padding: "7px 14px", borderRadius: 7, border: "1px solid #e0e0e0", background: "#fafafa", color: "#888", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>Marquer terminé</button>
+                  </div>
                 </div>
-                <div style={{ height: 6, borderRadius: 99, backgroundColor: "#f0f0f0", overflow: "hidden" }}>
-                  <div style={{ height: "100%", borderRadius: 99, backgroundColor: "#B22222", width: totalSeancesPrevues > 0 ? `${Math.min(100, (enCours.seances_effectuees / totalSeancesPrevues) * 100)}%` : "0%" }} />
-                </div>
-              </div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-              <button onClick={() => enCours && goToEditor(enCours.id)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✏️ Modifier les séances</button>
-              <button onClick={() => handleSeanceFaite(enCours.id, enCours.seances_effectuees)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#10B981", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✓ Séance faite</button>
-              <button onClick={() => handleTerminer(enCours.id)} style={{ padding: "7px 14px", borderRadius: 7, border: "1px solid #e0e0e0", background: "#fafafa", color: "#888", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>Marquer terminé</button>
-            </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -1251,12 +1372,12 @@ export default function ClienteFichePage() {
       <JournalSeances clienteId={id} />
 
       {/* Edit panel */}
-      {editTarget && enCours && (
+      {editTarget && (
         <SeanceEditPanel
           item={editTarget.item}
           cellKey={editTarget.cellKey}
-          dureeSemaines={dureeSemaines}
-          otherInstancesCount={Object.entries(gridData)
+          dureeSemaines={actifs.find(a => a.id === editTarget.assignmentId)?.programme?.duree_semaines ?? 0}
+          otherInstancesCount={Object.entries(gridsByAssignment[editTarget.assignmentId] ?? {})
             .filter(([k]) => k !== editTarget.cellKey)
             .reduce((acc, [, items]) => acc + items.filter(i => getItemName(i) === getItemName(editTarget.item)).length, 0)}
           onSave={handleEditSave}
@@ -1265,13 +1386,13 @@ export default function ClienteFichePage() {
         />
       )}
 
-      {showModal && <AssignModal clienteId={id} onAssigned={loadAssignments} onPersonnaliser={goToEditor} onClose={() => setShowModal(false)} />}
+      {showModal && <AssignModal clienteId={id} nbActifs={actifs.length} onAssigned={loadAssignments} onPersonnaliser={goToEditor} onClose={() => setShowModal(false)} />}
 
-      {showSeanceList && enCours && (
+      {showSeanceList && actifs[0] && (
         <SeanceListPanel
-          grid={gridData}
-          dureeSemaines={dureeSemaines}
-          onEditItem={(cellKey, item) => { setEditTarget({ cellKey, item }); setShowSeanceList(false); }}
+          grid={gridsByAssignment[actifs[0].id] ?? {}}
+          dureeSemaines={actifs[0].programme?.duree_semaines ?? 0}
+          onEditItem={(cellKey, item) => { setEditTarget({ assignmentId: actifs[0].id, cellKey, item }); setShowSeanceList(false); }}
           onClose={() => setShowSeanceList(false)}
         />
       )}

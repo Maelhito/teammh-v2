@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   const { id } = await params;
 
-  const { programme_id, date_debut, jours_selectionnes } = await req.json();
+  const { programme_id, date_debut, jours_selectionnes, mettre_en_pause_les_autres } = await req.json();
   if (!programme_id || !date_debut)
     return NextResponse.json({ error: "programme_id et date_debut requis." }, { status: 400 });
 
@@ -69,8 +69,12 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
   }
 
-  // Mettre les précédents en_cours en pause
-  await admin.from("client_programmes").update({ statut: "pause" }).eq("user_id", id).eq("statut", "en_cours");
+  // Plusieurs programmes peuvent être "en_cours" simultanément (programmation à
+  // l'avance : chaque assignation a sa propre date_debut, donc sa propre fenêtre).
+  // On ne met les autres en pause que si le coach le demande explicitement.
+  if (mettre_en_pause_les_autres) {
+    await admin.from("client_programmes").update({ statut: "pause" }).eq("user_id", id).eq("statut", "en_cours");
+  }
 
   const { data, error } = await admin
     .from("client_programmes")

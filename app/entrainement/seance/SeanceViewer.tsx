@@ -669,7 +669,7 @@ export default function SeanceViewer({
                   ▶ Continuer la séance
                 </button>
                 <button
-                  onClick={() => router.push(`/entrainement?abandoned=${encodeURIComponent(gridKey)}`)}
+                  onClick={() => router.push(`/entrainement?abandoned=${encodeURIComponent(`${assignmentId}:${gridKey}`)}`)}
                   style={{ width: "100%", padding: "14px", backgroundColor: "transparent", color: "#555", border: "1px solid #2a2a2a", borderRadius: 12, fontSize: "0.85rem", fontWeight: 600, cursor: "pointer" }}
                 >
                   ✕ Abandonner la séance

@@ -2,6 +2,12 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import {
+  type DecodedProgramme,
+  type PlannedItem,
+  gridKeyFor,
+  itemsForDate,
+} from "@/lib/programme-planning";
 
 const MONTH_NAMES = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const DAY_NAMES = ["L", "M", "M", "J", "V", "S", "D"];
@@ -26,17 +32,8 @@ interface CalendarEvent {
   target_user_id: string | null;
 }
 
-interface Programme {
-  id: string;
-  nom: string;
-  niveau: string;
-  date_debut: string | null;
-  semaine_courante: number;
-  duree_semaines: number;
-  note: string;
-  grid: Record<string, unknown[]>;
-  seancesTerminees: string[];
-}
+type Programme = DecodedProgramme & { semaine_courante: number };
+type DayItem = PlannedItem<CellItem>;
 
 function isEventOnDay(event: CalendarEvent, day: Date): boolean {
   const eventDate = new Date(event.date + "T00:00:00");
@@ -66,26 +63,19 @@ function itemDuree(item: CellItem): number | null {
   return item.type !== "video" ? item.duree : null;
 }
 
-function dateToGridKey(date: Date, dateDebut: Date): string | null {
-  const diffDays = Math.floor((date.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return null;
-  const semaine = Math.floor(diffDays / 7) + 1;
-  const jourSemaine = ((date.getDay() + 6) % 7) + 1;
-  return `S${semaine}_J${jourSemaine}`;
-}
-
 function toLocalDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export default function EntrainementClient({
-  programme,
+  programmes,
   initialEvents,
   abandonedKey,
   todayIso,
 }: {
-  programme: Programme | null;
+  programmes: Programme[];
   initialEvents: CalendarEvent[];
+  /** format "assignmentId:gridKey" (ancien format : gridKey seul) */
   abandonedKey?: string | null;
   todayIso: string;
 }) {
@@ -114,7 +104,9 @@ export default function EntrainementClient({
   const [selectedDay, setSelectedDay] = useState<Date | null>(today);
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [decalerMode, setDecalerMode] = useState(false);
-  const [decalerFrom, setDecalerFrom] = useState<string | null>(null);
+  // Décaler s'applique à une case d'un programme précis (plusieurs peuvent
+  // proposer une séance le même jour).
+  const [decalerFrom, setDecalerFrom] = useState<{ assignmentId: string; gridKey: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Modal ajout event
@@ -123,21 +115,38 @@ export default function EntrainementClient({
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
-  const dateDebut = programme?.date_debut ? new Date(programme.date_debut) : null;
+  // Séance abandonnée : "assignmentId:gridKey" (on tolère l'ancien format sans id)
+  const abandoned = useMemo(() => {
+    if (!abandonedKey) return null;
+    const sep = abandonedKey.lastIndexOf(":");
+    if (sep === -1) return { assignmentId: null as string | null, gridKey: abandonedKey };
+    return { assignmentId: abandonedKey.slice(0, sep), gridKey: abandonedKey.slice(sep + 1) };
+  }, [abandonedKey]);
 
-  function getDayItems(date: Date): CellItem[] {
-    if (!programme || !dateDebut) return [];
-    const key = dateToGridKey(date, dateDebut);
-    if (!key) return [];
-    return (programme.grid[key] ?? []) as CellItem[];
+  function getDayItems(date: Date): DayItem[] {
+    return itemsForDate<CellItem>(programmes, date);
   }
 
   function getDayEvents(date: Date): CalendarEvent[] {
     return events.filter((e) => isEventOnDay(e, date));
   }
 
+  /** Items du jour regroupés par programme (un bandeau par programme actif). */
+  function groupByProgramme(items: DayItem[]): { programme: Programme; gridKey: string; items: DayItem[] }[] {
+    const groups: { programme: Programme; gridKey: string; items: DayItem[] }[] = [];
+    for (const entry of items) {
+      const last = groups[groups.length - 1];
+      if (last && last.programme.id === entry.programme.id) last.items.push(entry);
+      else groups.push({ programme: entry.programme as Programme, gridKey: entry.gridKey, items: [entry] });
+    }
+    return groups;
+  }
+
   const todayItems = getDayItems(today);
-  const isJourDeSeance = todayItems.length > 0;
+  const todayGroups = groupByProgramme(todayItems.filter((e) => e.item.type !== "video"));
+  /** Programmes dont la fenêtre couvre aujourd'hui (même s'ils n'ont pas de séance). */
+  const programmesDuJour = programmes.filter((p) => gridKeyFor(p, today) !== null);
+  const isJourDeSeance = todayGroups.length > 0;
   const selectedDayItems = selectedDay ? getDayItems(selectedDay) : [];
   const selectedDayEvents = selectedDay ? getDayEvents(selectedDay) : [];
 
@@ -151,15 +160,17 @@ export default function EntrainementClient({
   }
 
   async function handleDecaler(targetDate: Date) {
-    if (!programme || !dateDebut || !decalerFrom) return;
-    const toKey = dateToGridKey(targetDate, dateDebut);
-    if (!toKey || toKey === decalerFrom) { setDecalerMode(false); setDecalerFrom(null); return; }
+    if (!decalerFrom) return;
+    const prog = programmes.find((p) => p.id === decalerFrom.assignmentId);
+    // La cible doit tomber dans la fenêtre du programme concerné.
+    const toKey = prog ? gridKeyFor(prog, targetDate) : null;
+    if (!toKey || toKey === decalerFrom.gridKey) { setDecalerMode(false); setDecalerFrom(null); return; }
     setSaving(true);
     try {
       const res = await fetch("/api/entrainement/decaler", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignmentId: programme.id, fromKey: decalerFrom, toKey }),
+        body: JSON.stringify({ assignmentId: decalerFrom.assignmentId, fromKey: decalerFrom.gridKey, toKey }),
       });
       if (res.ok) window.location.reload();
     } finally {
@@ -202,37 +213,37 @@ export default function EntrainementClient({
   return (
     <div style={{ padding: "0 16px 24px", maxWidth: 480, margin: "0 auto" }}>
 
-      {/* Banner séance du jour / repos / pas de programme */}
-      {programme ? (
-        <div style={{ marginBottom: 16 }}>
-          {isJourDeSeance ? (() => {
-            const todayKey = dateDebut ? dateToGridKey(today, dateDebut) : null;
-            const isTerminee = todayKey ? programme.seancesTerminees.includes(todayKey) : false;
-            const isAbandonnee = todayKey ? abandonedKey === todayKey : false;
+      {/* Banner séances du jour (un bandeau par programme) / repos / pas de programme */}
+      {programmes.length > 0 ? (
+        <div style={{ marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+          {isJourDeSeance ? todayGroups.map(({ programme, gridKey: todayKey, items: groupItems }) => {
+            const isTerminee = programme.seancesTerminees.includes(todayKey);
+            const isAbandonnee =
+              !isTerminee &&
+              abandoned?.gridKey === todayKey &&
+              (abandoned.assignmentId === null || abandoned.assignmentId === programme.id);
 
             if (isTerminee) {
               // Séance terminée → carte noire + bordure verte
               return (
-                <div style={{ backgroundColor: "#0a0a0a", border: "1px solid rgba(251,146,60,0.35)", borderRadius: 14, padding: "16px 18px" }}>
+                <div key={programme.id} style={{ backgroundColor: "#0a0a0a", border: "1px solid rgba(251,146,60,0.35)", borderRadius: 14, padding: "16px 18px" }}>
                   <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(251,146,60,0.6)", letterSpacing: "0.1em", margin: "0 0 8px" }}>
                     {programme.nom.toUpperCase()} · SÉANCE DU JOUR
                   </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {todayItems.filter((i) => i.type !== "video").map((item, idx) => (
-                      <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {groupItems.map(({ item, itemIndex }) => (
+                      <div key={itemIndex} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{ fontSize: "1rem", color: "#FB923C" }}>✓</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#FB923C", margin: 0 }}>{itemNom(item)}</p>
                           {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(251,146,60,0.45)", margin: "1px 0 0" }}>{itemDuree(item)} min</p>}
                         </div>
-                        {todayKey && (
-                          <Link
-                            href={`/entrainement/seance?assignmentId=${programme!.id}&gridKey=${todayKey}&itemIndex=${idx}`}
-                            style={{ padding: "8px 14px", backgroundColor: "rgba(251,146,60,0.08)", border: "1px solid rgba(251,146,60,0.25)", borderRadius: 9, color: "#FB923C", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
-                          >
-                            ↺ Redémarrer
-                          </Link>
-                        )}
+                        <Link
+                          href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${todayKey}&itemIndex=${itemIndex}`}
+                          style={{ padding: "8px 14px", backgroundColor: "rgba(251,146,60,0.08)", border: "1px solid rgba(251,146,60,0.25)", borderRadius: 9, color: "#FB923C", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                        >
+                          ↺ Redémarrer
+                        </Link>
                       </div>
                     ))}
                   </div>
@@ -246,26 +257,24 @@ export default function EntrainementClient({
             if (isAbandonnee) {
               // Séance abandonnée → carte rouge sombre + ✕
               return (
-                <div style={{ backgroundColor: "#120000", border: "1px solid rgba(178,34,34,0.4)", borderRadius: 14, padding: "16px 18px" }}>
+                <div key={programme.id} style={{ backgroundColor: "#120000", border: "1px solid rgba(178,34,34,0.4)", borderRadius: 14, padding: "16px 18px" }}>
                   <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(178,34,34,0.6)", letterSpacing: "0.1em", margin: "0 0 8px" }}>
                     {programme.nom.toUpperCase()} · SÉANCE ABANDONNÉE
                   </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {todayItems.filter((i) => i.type !== "video").map((item, idx) => (
-                      <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {groupItems.map(({ item, itemIndex }) => (
+                      <div key={itemIndex} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{ fontSize: "1rem" }}>✕</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#B22222", margin: 0 }}>{itemNom(item)}</p>
                           {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(178,34,34,0.45)", margin: "1px 0 0" }}>{itemDuree(item)} min</p>}
                         </div>
-                        {todayKey && (
-                          <Link
-                            href={`/entrainement/seance?assignmentId=${programme!.id}&gridKey=${todayKey}&itemIndex=${idx}`}
-                            style={{ padding: "8px 14px", backgroundColor: "rgba(178,34,34,0.1)", border: "1px solid rgba(178,34,34,0.3)", borderRadius: 9, color: "#B22222", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
-                          >
-                            ↺ Redémarrer
-                          </Link>
-                        )}
+                        <Link
+                          href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${todayKey}&itemIndex=${itemIndex}`}
+                          style={{ padding: "8px 14px", backgroundColor: "rgba(178,34,34,0.1)", border: "1px solid rgba(178,34,34,0.3)", borderRadius: 9, color: "#B22222", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                        >
+                          ↺ Redémarrer
+                        </Link>
                       </div>
                     ))}
                   </div>
@@ -275,38 +284,38 @@ export default function EntrainementClient({
 
             // État normal : séance active à faire
             return (
-              <div style={{ background: "linear-gradient(135deg, #8B0000 0%, #B22222 100%)", borderRadius: 14, padding: "16px 18px" }}>
+              <div key={programme.id} style={{ background: "linear-gradient(135deg, #8B0000 0%, #B22222 100%)", borderRadius: 14, padding: "16px 18px" }}>
                 <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.1em", margin: "0 0 8px" }}>
                   {programme.nom.toUpperCase()} · SÉANCE DU JOUR
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {todayItems.filter((i) => i.type !== "video").map((item, idx) => (
-                    <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {groupItems.map(({ item, itemIndex }) => (
+                    <div key={itemIndex} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <span style={{ fontSize: "1rem" }}>💪</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#FFF", margin: 0 }}>{itemNom(item)}</p>
                         {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.55)", margin: "1px 0 0" }}>{itemDuree(item)} min</p>}
                       </div>
-                      {todayKey && (
-                        <Link
-                          href={`/entrainement/seance?assignmentId=${programme!.id}&gridKey=${todayKey}&itemIndex=${idx}`}
-                          style={{ padding: "8px 14px", backgroundColor: "rgba(0,0,0,0.3)", borderRadius: 9, color: "#FFF", fontSize: "0.75rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
-                        >
-                          ▶ Démarrer
-                        </Link>
-                      )}
+                      <Link
+                        href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${todayKey}&itemIndex=${itemIndex}`}
+                        style={{ padding: "8px 14px", backgroundColor: "rgba(0,0,0,0.3)", borderRadius: 9, color: "#FFF", fontSize: "0.75rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                      >
+                        ▶ Démarrer
+                      </Link>
                     </div>
                   ))}
                 </div>
               </div>
             );
-          })() : (
+          }) : (
             <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "20px 18px", display: "flex", alignItems: "center", gap: 16 }}>
               <div style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.8rem", flexShrink: 0 }}>
                 📅
               </div>
               <div>
-                <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.08em", margin: "0 0 4px" }}>{programme.nom.toUpperCase()}</p>
+                <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.08em", margin: "0 0 4px" }}>
+                  {(programmesDuJour.length > 0 ? programmesDuJour : programmes).map((p) => p.nom).join(" · ").toUpperCase()}
+                </p>
                 <p className="font-title" style={{ fontSize: "1.2rem", color: "#F5F5F0", margin: 0, letterSpacing: "0.04em" }}>REPOS</p>
                 <p className="font-body" style={{ fontSize: "0.72rem", color: "#444", margin: "3px 0 0" }}>Récupération active</p>
               </div>
@@ -326,7 +335,9 @@ export default function EntrainementClient({
       {decalerMode && (
         <div style={{ backgroundColor: "#1a1000", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <p className="font-body" style={{ fontSize: "0.78rem", color: "#FCD34D", fontWeight: 600, margin: 0 }}>
-            {saving ? "Déplacement en cours…" : "Sélectionne le nouveau jour"}
+            {saving
+              ? "Déplacement en cours…"
+              : `Sélectionne le nouveau jour${decalerFrom ? ` — ${programmes.find((p) => p.id === decalerFrom.assignmentId)?.nom ?? ""}` : ""}`}
           </p>
           <button onClick={() => { setDecalerMode(false); setDecalerFrom(null); }} style={{ background: "none", border: "none", color: "#FCD34D", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700 }}>
             Annuler
@@ -368,8 +379,10 @@ export default function EntrainementClient({
           const hasSeance = dayItems.length > 0;
           const hasEvent = dayEvts.length > 0;
           const isPast = dayDate < today && !isToday;
-          const dayKey = dateDebut ? dateToGridKey(dayDate, dateDebut) : null;
-          const isTerminee = dayKey ? (programme?.seancesTerminees ?? []).includes(dayKey) : false;
+          // ✓ seulement si TOUTES les séances du jour (tous programmes) sont validées
+          const isTerminee =
+            hasSeance &&
+            dayItems.every(({ programme, gridKey }) => programme.seancesTerminees.includes(gridKey));
 
           const handleClick = () => {
             if (decalerMode) {
@@ -450,24 +463,22 @@ export default function EntrainementClient({
             </button>
           </div>
 
-          {/* Séances du programme */}
-          {selectedDayItems.length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <p className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: "#B22222", letterSpacing: "0.08em", margin: 0 }}>SÉANCES</p>
-                {(() => {
-                  const dk = dateDebut ? dateToGridKey(selectedDay!, dateDebut) : null;
-                  const term = dk ? (programme?.seancesTerminees ?? []).includes(dk) : false;
-                  return term ? (
+          {/* Séances — regroupées par programme (plusieurs peuvent tomber le même jour) */}
+          {groupByProgramme(selectedDayItems).map(({ programme, gridKey, items: groupItems }) => {
+            const isTerm = programme.seancesTerminees.includes(gridKey);
+            return (
+              <div key={programme.id} style={{ marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                  <p className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: "#B22222", letterSpacing: "0.08em", margin: 0 }}>
+                    {programme.nom.toUpperCase()}
+                  </p>
+                  {isTerm && (
                     <span className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: "#FB923C", letterSpacing: "0.06em" }}>✓ TERMINÉE</span>
-                  ) : null;
-                })()}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {selectedDayItems.map((item, idx) => {
-                  const dayKey = dateDebut ? dateToGridKey(selectedDay!, dateDebut) : null;
-                  return (
-                    <div key={idx} style={{ backgroundColor: "#0D0D0D", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, border: "1px solid #1a1a1a" }}>
+                  )}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {groupItems.map(({ item, itemIndex }) => (
+                    <div key={itemIndex} style={{ backgroundColor: "#0D0D0D", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, border: "1px solid #1a1a1a" }}>
                       <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: item.type === "video" ? "#0a0a1a" : "#1a0505", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", flexShrink: 0 }}>
                         {item.type === "video" ? "▶" : "💪"}
                       </div>
@@ -475,35 +486,30 @@ export default function EntrainementClient({
                         <p className="font-body" style={{ fontWeight: 700, fontSize: "0.86rem", color: "#F5F5F0", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{itemNom(item)}</p>
                         {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "#555", margin: "2px 0 0" }}>{itemDuree(item)} min</p>}
                       </div>
-                      {item.type !== "video" && dayKey && programme && (() => {
-                        const isTerm = (programme?.seancesTerminees ?? []).includes(dayKey);
-                        return (
-                          <Link
-                            href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${dayKey}&itemIndex=${idx}`}
-                            style={{ padding: "7px 12px", backgroundColor: isTerm ? "rgba(251,146,60,0.15)" : "#B22222", border: isTerm ? "1px solid rgba(251,146,60,0.4)" : "none", borderRadius: 8, color: isTerm ? "#FB923C" : "#FFF", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
-                          >
-                            {isTerm ? "↺" : "▶"}
-                          </Link>
-                        );
-                      })()}
+                      {item.type !== "video" && (
+                        <Link
+                          href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${gridKey}&itemIndex=${itemIndex}`}
+                          style={{ padding: "7px 12px", backgroundColor: isTerm ? "rgba(251,146,60,0.15)" : "#B22222", border: isTerm ? "1px solid rgba(251,146,60,0.4)" : "none", borderRadius: 8, color: isTerm ? "#FB923C" : "#FFF", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                        >
+                          {isTerm ? "↺" : "▶"}
+                        </Link>
+                      )}
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+                <button
+                  onClick={() => {
+                    setDecalerFrom({ assignmentId: programme.id, gridKey });
+                    setDecalerMode(true);
+                    setSelectedDay(null);
+                  }}
+                  style={{ marginTop: 8, width: "100%", padding: "9px", backgroundColor: "transparent", border: "1px solid #2a2a2a", borderRadius: 9, color: "#555", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", letterSpacing: "0.04em" }}
+                >
+                  Décaler {groupItems.length > 1 ? "ces séances" : "cette séance"} →
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  const key = dateDebut ? dateToGridKey(selectedDay, dateDebut) : null;
-                  if (!key) return;
-                  setDecalerFrom(key);
-                  setDecalerMode(true);
-                  setSelectedDay(null);
-                }}
-                style={{ marginTop: 8, width: "100%", padding: "9px", backgroundColor: "transparent", border: "1px solid #2a2a2a", borderRadius: 9, color: "#555", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", letterSpacing: "0.04em" }}
-              >
-                Décaler cette séance →
-              </button>
-            </div>
-          )}
+            );
+          })}
 
           {/* Événements calendrier */}
           {selectedDayEvents.length > 0 && (

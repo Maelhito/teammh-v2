@@ -156,39 +156,47 @@ async function checkAndSendSeanceDuJour(
   dateStr: string,
   logs: string[]
 ) {
-  const { data: assignment } = await admin
+  // Une cliente peut avoir plusieurs programmes en cours en même temps
+  const { data: assignments } = await admin
     .from("client_programmes")
     .select("id, date_debut, grid_data, programme:programmes(nom)")
     .eq("user_id", userId)
     .eq("statut", "en_cours")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("date_debut", { ascending: true });
 
-  if (!assignment?.date_debut) return;
+  type SeanceItem = { type: string; seanceName?: string; nom?: string; duree?: number | null };
+  const duJour: { nom: string; duree?: number | null; nomProg: string }[] = [];
 
-  const key = todayGridKey(assignment.date_debut, dateStr);
-  if (!key) return;
+  for (const assignment of assignments ?? []) {
+    if (!assignment.date_debut) continue;
+    const key = todayGridKey(assignment.date_debut, dateStr);
+    if (!key) continue;
 
-  let grid: Record<string, { type: string; seanceName?: string; nom?: string; duree?: number | null }[]> = {};
-  try {
-    const src = assignment.grid_data ?? "";
-    if (src.startsWith("{")) grid = JSON.parse(src).grid ?? {};
-  } catch { return; }
+    let grid: Record<string, SeanceItem[]> = {};
+    try {
+      const src = assignment.grid_data ?? "";
+      if (src.startsWith("{")) grid = JSON.parse(src).grid ?? {};
+    } catch { continue; }
 
-  const items = (grid[key] ?? []).filter((i) => i.type !== "video");
-  if (!items.length) return;
+    const nomProg = (assignment.programme as { nom?: string } | null)?.nom ?? "";
+    for (const item of (grid[key] ?? []).filter((i) => i.type !== "video")) {
+      duJour.push({ nom: item.seanceName ?? item.nom ?? "Séance", duree: item.duree, nomProg });
+    }
+  }
 
-  const nomSeance = items[0].seanceName ?? items[0].nom ?? "Séance";
-  const duree = items[0].duree;
-  const nomProg = (assignment.programme as { nom?: string } | null)?.nom ?? "";
+  if (!duJour.length) return;
+
+  const body =
+    duJour.length === 1
+      ? `${duJour[0].nom}${duJour[0].duree ? ` · ${duJour[0].duree} min` : ""}${duJour[0].nomProg ? ` — ${duJour[0].nomProg}` : ""} · C'est parti !`
+      : `${duJour.length} séances aujourd'hui : ${duJour.map((s) => s.nom).join(", ")} · C'est parti !`;
 
   await sendPushToUser(userId, {
-    title: "💪 Séance du jour",
-    body: `${nomSeance}${duree ? ` · ${duree} min` : ""}${nomProg ? ` — ${nomProg}` : ""} · C'est parti !`,
+    title: duJour.length > 1 ? "💪 Séances du jour" : "💪 Séance du jour",
+    body,
     url: `/entrainement`,
   });
-  logs.push(`[seance] notif envoyée → ${userId} (${nomSeance})`);
+  logs.push(`[seance] notif envoyée → ${userId} (${duJour.map((s) => s.nom).join(", ")})`);
 }
 
 // ─── Visio de groupe ──────────────────────────────────────────────────────────
@@ -255,39 +263,43 @@ async function sendRappelSeance(
   dateStr: string,
   logs: string[]
 ) {
-  const { data: assignment } = await admin
+  const { data: assignments } = await admin
     .from("client_programmes")
     .select("id, date_debut, grid_data")
     .eq("user_id", userId)
     .eq("statut", "en_cours")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("date_debut", { ascending: true });
 
-  if (!assignment?.date_debut) return;
+  // On rappelle dès qu'AU MOINS une séance du jour n'est pas validée,
+  // tous programmes en cours confondus.
+  let resteUneSeance = false;
 
-  const key = todayGridKey(assignment.date_debut, dateStr);
-  if (!key) return;
+  for (const assignment of assignments ?? []) {
+    if (!assignment.date_debut) continue;
+    const key = todayGridKey(assignment.date_debut, dateStr);
+    if (!key) continue;
 
-  let grid: Record<string, { type: string }[]> = {};
-  try {
-    const src = assignment.grid_data ?? "";
-    if (src.startsWith("{")) grid = JSON.parse(src).grid ?? {};
-  } catch { return; }
+    let grid: Record<string, { type: string }[]> = {};
+    try {
+      const src = assignment.grid_data ?? "";
+      if (src.startsWith("{")) grid = JSON.parse(src).grid ?? {};
+    } catch { continue; }
 
-  const hasSeance = (grid[key] ?? []).some((i) => i.type !== "video");
-  if (!hasSeance) return;
+    if (!(grid[key] ?? []).some((i) => i.type !== "video")) continue;
 
-  // Vérifier si déjà validée aujourd'hui
-  const { data: log } = await admin
-    .from("seances_log")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("assignment_id", assignment.id)
-    .eq("grid_key", key)
-    .limit(1);
+    // Vérifier si déjà validée aujourd'hui
+    const { data: log } = await admin
+      .from("seances_log")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("assignment_id", assignment.id)
+      .eq("grid_key", key)
+      .limit(1);
 
-  if (log?.length) return; // déjà faite
+    if (!log?.length) { resteUneSeance = true; break; }
+  }
+
+  if (!resteUneSeance) return;
 
   await sendPushToUser(userId, {
     title: "🔥 Ta séance t'attend !",
