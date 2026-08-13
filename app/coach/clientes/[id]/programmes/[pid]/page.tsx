@@ -9,6 +9,9 @@ export default function EditAssignmentPage() {
   const router = useRouter();
   const { id: clienteId, pid } = useParams() as { id: string; pid: string };
   const [data, setData] = useState<ProgrammeData | null>(null);
+  // grid_data brut à l'ouverture : il porte aussi la progression de la cliente
+  // (seances_terminees, taches_done) qu'il ne faut pas écraser en sauvegardant.
+  const [gridDataBrut, setGridDataBrut] = useState<Record<string, unknown>>({});
   const [nomCliente, setNomCliente] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -37,6 +40,10 @@ export default function EditAssignmentPage() {
         : assignment.programme;
       setData(decodeProgData(src));
 
+      try {
+        setGridDataBrut(assignment.grid_data?.startsWith("{") ? JSON.parse(assignment.grid_data) : {});
+      } catch { setGridDataBrut({}); }
+
       const cliente = (clientes ?? []).find((c: { id: string; prenom: string | null; nom: string | null; email: string }) => c.id === clienteId);
       if (cliente) setNomCliente([cliente.prenom, cliente.nom].filter(Boolean).join(" ") || cliente.email);
     } catch (e) {
@@ -52,7 +59,12 @@ export default function EditAssignmentPage() {
     const res = await fetch(`/api/coach/clientes/${clienteId}/programmes/${pid}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ grid_data: encodeProgData(data) }),
+      body: JSON.stringify({
+        grid_data: JSON.stringify({
+          ...gridDataBrut,
+          ...JSON.parse(encodeProgData(data)),
+        }),
+      }),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));

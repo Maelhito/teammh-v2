@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { sendPushToUser } from "@/lib/push";
+import { decodeAssignments } from "@/lib/programme-planning";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -36,14 +37,19 @@ function inHourWindow(hour: number, targetHour: number): boolean {
   return hour === targetHour;
 }
 
-/** Calcule le grid_key d'aujourd'hui pour un programme donné */
-function todayGridKey(dateDebutStr: string, localDateStr: string): string | null {
+/**
+ * Calcule le grid_key d'aujourd'hui pour un programme donné.
+ * `dureeSemaines` borne la fenêtre : au-delà, le programme est terminé pour
+ * cette cliente et ne doit plus déclencher de notification.
+ */
+function todayGridKey(dateDebutStr: string, localDateStr: string, dureeSemaines?: number): string | null {
   try {
     const start = new Date(dateDebutStr + "T00:00:00");
     const today = new Date(localDateStr + "T00:00:00");
     const diffDays = Math.floor((today.getTime() - start.getTime()) / 86400000);
     if (diffDays < 0) return null;
     const semaine = Math.floor(diffDays / 7) + 1;
+    if (dureeSemaines && semaine > dureeSemaines) return null;
     const jourSemaine = ((today.getDay() + 6) % 7) + 1; // lun=1…dim=7
     return `S${semaine}_J${jourSemaine}`;
   } catch { return null; }
@@ -157,9 +163,9 @@ async function checkAndSendSeanceDuJour(
   logs: string[]
 ) {
   // Une cliente peut avoir plusieurs programmes en cours en même temps
-  const { data: assignments } = await admin
+  const { data: rows } = await admin
     .from("client_programmes")
-    .select("id, date_debut, grid_data, programme:programmes(nom)")
+    .select("id, date_debut, grid_data, programme:programmes(nom, duree_semaines, description)")
     .eq("user_id", userId)
     .eq("statut", "en_cours")
     .order("date_debut", { ascending: true });
@@ -167,20 +173,14 @@ async function checkAndSendSeanceDuJour(
   type SeanceItem = { type: string; seanceName?: string; nom?: string; duree?: number | null };
   const duJour: { nom: string; duree?: number | null; nomProg: string }[] = [];
 
-  for (const assignment of assignments ?? []) {
+  for (const assignment of decodeAssignments(rows)) {
     if (!assignment.date_debut) continue;
-    const key = todayGridKey(assignment.date_debut, dateStr);
+    const key = todayGridKey(assignment.date_debut, dateStr, assignment.duree_semaines);
     if (!key) continue;
 
-    let grid: Record<string, SeanceItem[]> = {};
-    try {
-      const src = assignment.grid_data ?? "";
-      if (src.startsWith("{")) grid = JSON.parse(src).grid ?? {};
-    } catch { continue; }
-
-    const nomProg = (assignment.programme as { nom?: string } | null)?.nom ?? "";
-    for (const item of (grid[key] ?? []).filter((i) => i.type !== "video")) {
-      duJour.push({ nom: item.seanceName ?? item.nom ?? "Séance", duree: item.duree, nomProg });
+    const items = (assignment.grid[key] ?? []) as SeanceItem[];
+    for (const item of items.filter((i) => i.type !== "video")) {
+      duJour.push({ nom: item.seanceName ?? item.nom ?? "Séance", duree: item.duree, nomProg: assignment.nom });
     }
   }
 
@@ -263,9 +263,9 @@ async function sendRappelSeance(
   dateStr: string,
   logs: string[]
 ) {
-  const { data: assignments } = await admin
+  const { data: rows } = await admin
     .from("client_programmes")
-    .select("id, date_debut, grid_data")
+    .select("id, date_debut, grid_data, programme:programmes(nom, duree_semaines, description)")
     .eq("user_id", userId)
     .eq("statut", "en_cours")
     .order("date_debut", { ascending: true });
@@ -274,18 +274,13 @@ async function sendRappelSeance(
   // tous programmes en cours confondus.
   let resteUneSeance = false;
 
-  for (const assignment of assignments ?? []) {
+  for (const assignment of decodeAssignments(rows)) {
     if (!assignment.date_debut) continue;
-    const key = todayGridKey(assignment.date_debut, dateStr);
+    const key = todayGridKey(assignment.date_debut, dateStr, assignment.duree_semaines);
     if (!key) continue;
 
-    let grid: Record<string, { type: string }[]> = {};
-    try {
-      const src = assignment.grid_data ?? "";
-      if (src.startsWith("{")) grid = JSON.parse(src).grid ?? {};
-    } catch { continue; }
-
-    if (!(grid[key] ?? []).some((i) => i.type !== "video")) continue;
+    const items = (assignment.grid[key] ?? []) as { type: string }[];
+    if (!items.some((i) => i.type !== "video")) continue;
 
     // Vérifier si déjà validée aujourd'hui
     const { data: log } = await admin

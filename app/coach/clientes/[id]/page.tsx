@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { decodeProgData, type Grid, type CellItem } from "../../programmes/ProgrammeBuilder";
 import SeanceBuildComp, { type SeanceData } from "../../seances/SeanceBuilder";
 import QuestionnaireCliente from "./QuestionnaireCliente";
+import { adapterCles, adapterGrille, joursDeLaGrille, type MappingJours } from "@/lib/programme-planning";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Cliente { id: string; email: string; prenom: string | null; nom: string | null; statut: string; date_demarrage: string | null; }
@@ -120,13 +121,28 @@ function progColor(index: number): string {
   return PROG_COLORS[index % PROG_COLORS.length];
 }
 
+/**
+ * Durée retenue pour CETTE cliente. Le coach peut raccourcir un programme de
+ * 4 semaines à 2 sans toucher au template : la valeur vit dans grid_data.
+ */
+function dureeAssignment(a: Assignment): number {
+  const src = a.grid_data?.startsWith("{") ? a.grid_data : a.programme?.description;
+  if (src?.startsWith("{")) {
+    try {
+      const d = JSON.parse(src).duree_semaines;
+      if (typeof d === "number" && d >= 1) return d;
+    } catch {}
+  }
+  return a.programme?.duree_semaines ?? 4;
+}
+
 function buildLayers(assignments: Assignment[], gridsByAssignment: Record<string, Grid>): ProgrammeLayer[] {
   return assignments.map((a, i) => ({
     id: a.id,
     nom: a.programme?.nom ?? "Programme",
     grid: gridsByAssignment[a.id] ?? {},
     activeStart: parseLocalDate(a.date_debut),
-    dureeSemaines: a.programme?.duree_semaines ?? 4,
+    dureeSemaines: dureeAssignment(a),
     color: progColor(i),
   }));
 }
@@ -751,7 +767,7 @@ function HistoriqueAccordion({ assignments, clienteId, onDeleted }: {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "#333", margin: 0, fontFamily: "system-ui", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.programme.nom}</p>
                   <p style={{ fontSize: 10, color: "#bbb", margin: 0, fontFamily: "system-ui" }}>
-                    Début {parseLocalDate(a.date_debut).toLocaleDateString("fr-FR")} · {a.programme.duree_semaines} sem.
+                    Début {parseLocalDate(a.date_debut).toLocaleDateString("fr-FR")} · {dureeAssignment(a)} sem.
                   </p>
                 </div>
                 <span style={{ fontSize: 9, fontWeight: 700, color: st.color, padding: "2px 7px", borderRadius: 99, border: `1px solid ${st.color}22`, backgroundColor: `${st.color}11`, flexShrink: 0, fontFamily: "system-ui" }}>
@@ -863,6 +879,217 @@ function SeanceListPanel({ grid, dureeSemaines, onEditItem, onClose }: {
   );
 }
 
+// ─── Réglage durée / séances par semaine ──────────────────────────────────────
+// Bloc réutilisé à l'assignation ET après coup : il ne travaille jamais sur le
+// template, seulement sur la copie de la cliente.
+
+interface LigneJour {
+  /** jour d'origine dans la grille (1-7) */
+  source: number;
+  /** jour où la séance doit tomber pour cette cliente (1-7) */
+  cible: number;
+  garde: boolean;
+  libelle: string;
+}
+
+/** Construit une ligne par jour occupé de la grille, avec le nom des séances. */
+function lignesDepuisGrille(grid: Grid): LigneJour[] {
+  return joursDeLaGrille(grid).map(source => {
+    const noms = new Set<string>();
+    for (const [key, items] of Object.entries(grid)) {
+      if (parseInt(key.match(/^S\d+_J(\d+)$/)?.[1] ?? "0") !== source) continue;
+      for (const item of items) noms.add(getItemName(item));
+    }
+    const liste = [...noms];
+    return {
+      source,
+      cible: source,
+      garde: true,
+      libelle: liste.slice(0, 2).join(" · ") + (liste.length > 2 ? ` +${liste.length - 2}` : ""),
+    };
+  });
+}
+
+function ReglageProgrammation({ lignes, setLignes, duree, setDuree, dureeTemplate }: {
+  lignes: LigneJour[]; setLignes: (l: LigneJour[]) => void;
+  duree: number; setDuree: (d: number) => void;
+  dureeTemplate: number;
+}) {
+  const gardees = lignes.filter(l => l.garde);
+  const doublons = gardees.length !== new Set(gardees.map(l => l.cible)).size;
+
+  const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#888", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5, fontFamily: "system-ui" };
+  const JOURS_LABELS = ["—","Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+
+  function maj(source: number, patch: Partial<LigneJour>) {
+    setLignes(lignes.map(l => l.source === source ? { ...l, ...patch } : l));
+  }
+
+  return (
+    <>
+      <div>
+        <label style={lbl}>Durée pour cette cliente</label>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <input
+            type="number" min={1} max={52} value={duree}
+            onChange={e => setDuree(Math.min(52, Math.max(1, parseInt(e.target.value) || 1)))}
+            style={{ width: 72, padding: "10px 12px", borderRadius: 8, border: "1px solid #ddd", fontSize: 13, fontFamily: "system-ui", outline: "none", textAlign: "center", color: "#1a1a1a", backgroundColor: "#fff" }}
+          />
+          <span style={{ fontSize: 13, color: "#555", fontFamily: "system-ui" }}>semaine{duree > 1 ? "s" : ""}</span>
+          {duree !== dureeTemplate && (
+            <button
+              onClick={() => setDuree(dureeTemplate)}
+              style={{ padding: "5px 10px", borderRadius: 7, border: "1px solid #e8e8e8", background: "#fafafa", color: "#666", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}
+            >
+              ↺ Durée du programme ({dureeTemplate})
+            </button>
+          )}
+        </div>
+        {duree < dureeTemplate && (
+          <p style={{ fontSize: 10, color: "#888", margin: "6px 0 0", fontFamily: "system-ui" }}>
+            Les semaines {duree + 1} à {dureeTemplate} sont masquées pour la cliente — pas supprimées : remets la durée d&apos;origine pour les retrouver.
+          </p>
+        )}
+      </div>
+
+      {lignes.length > 0 && (
+        <div>
+          <label style={lbl}>
+            Séances par semaine
+            <span style={{ color: "#B22222", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
+              {" "}— {gardees.length} sur {lignes.length}
+            </span>
+          </label>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {lignes.map(l => (
+              <div key={l.source} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, border: "1px solid #eee", backgroundColor: l.garde ? "#fff" : "#fafafa", opacity: l.garde ? 1 : 0.55 }}>
+                <input
+                  type="checkbox" checked={l.garde}
+                  onChange={e => maj(l.source, { garde: e.target.checked })}
+                  style={{ cursor: "pointer", flexShrink: 0 }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a", margin: 0, fontFamily: "system-ui", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {l.libelle || "Séance"}
+                  </p>
+                  <p style={{ fontSize: 10, color: "#bbb", margin: 0, fontFamily: "system-ui" }}>
+                    {JOURS_LONG[l.source]} dans le programme
+                  </p>
+                </div>
+                <select
+                  value={l.cible} disabled={!l.garde}
+                  onChange={e => maj(l.source, { cible: parseInt(e.target.value) })}
+                  style={{ padding: "6px 8px", borderRadius: 7, border: "1px solid #ddd", fontSize: 12, fontFamily: "system-ui", cursor: l.garde ? "pointer" : "not-allowed", color: "#1a1a1a", backgroundColor: "#fff", flexShrink: 0 }}
+                >
+                  {[1,2,3,4,5,6,7].map(j => <option key={j} value={j}>{JOURS_LABELS[j]}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+          {gardees.length === 0 && (
+            <p style={{ fontSize: 11, color: "#EF4444", margin: "6px 0 0", fontFamily: "system-ui" }}>
+              Garde au moins une séance.
+            </p>
+          )}
+          {doublons && (
+            <p style={{ fontSize: 10, color: "#F59E0B", margin: "6px 0 0", fontFamily: "system-ui" }}>
+              ⚠️ Plusieurs séances tomberont le même jour.
+            </p>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Mapping jour source → jour cible à partir des lignes gardées. */
+function mappingDepuisLignes(lignes: LigneJour[]): MappingJours {
+  return Object.fromEntries(lignes.filter(l => l.garde).map(l => [l.source, l.cible]));
+}
+
+// ─── Modal « Durée & séances » (après assignation) ─────────────────────────────
+function AdjustModal({ clienteId, assignment, grid, onSaved, onClose }: {
+  clienteId: string; assignment: Assignment; grid: Grid;
+  onSaved: () => void; onClose: () => void;
+}) {
+  const dureeTemplate = assignment.programme?.duree_semaines ?? 4;
+  const [duree, setDuree] = useState(() => dureeAssignment(assignment));
+  const [lignes, setLignes] = useState<LigneJour[]>(() => lignesDepuisGrille(grid));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSave() {
+    if (!lignes.some(l => l.garde)) { setError("Garde au moins une séance."); return; }
+    setSaving(true); setError("");
+
+    const src = assignment.grid_data?.startsWith("{") ? assignment.grid_data : assignment.programme?.description ?? "{}";
+    let parsed: Record<string, unknown> = {};
+    try { parsed = JSON.parse(src); } catch {}
+
+    const mapping = mappingDepuisLignes(lignes);
+    const terminees = Array.isArray(parsed.seances_terminees) ? (parsed.seances_terminees as string[]) : [];
+
+    const res = await fetch(`/api/coach/clientes/${clienteId}/programmes/${assignment.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grid_data: JSON.stringify({
+          ...parsed,
+          grid: adapterGrille(grid, mapping),
+          duree_semaines: duree,
+          seances_terminees: adapterCles(terminees, mapping),
+        }),
+      }),
+    });
+
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? "Erreur");
+      setSaving(false);
+      return;
+    }
+    onSaved();
+    onClose();
+  }
+
+  const retirees = lignes.filter(l => !l.garde).length;
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 200, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto", backgroundColor: "#fff", borderRadius: 14, padding: 24, boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
+        <h3 style={{ fontSize: "1rem", fontWeight: 800, margin: "0 0 4px", color: "#1a1a1a", fontFamily: "system-ui" }}>
+          ⚙️ Durée &amp; séances
+        </h3>
+        <p style={{ fontSize: 12, color: "#888", margin: "0 0 20px", fontFamily: "system-ui" }}>
+          {assignment.programme?.nom} — ces réglages ne concernent que cette cliente, le programme d&apos;origine n&apos;est pas modifié.
+        </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <ReglageProgrammation
+            lignes={lignes} setLignes={setLignes}
+            duree={duree} setDuree={setDuree}
+            dureeTemplate={dureeTemplate}
+          />
+
+          {retirees > 0 && (
+            <p style={{ fontSize: 11, color: "#EF4444", margin: 0, fontFamily: "system-ui" }}>
+              {retirees} séance{retirees > 1 ? "s" : ""}/semaine {retirees > 1 ? "seront retirées" : "sera retirée"} de la programmation de cette cliente.
+            </p>
+          )}
+
+          {error && <p style={{ fontSize: 12, color: "#EF4444", margin: 0, fontFamily: "system-ui" }}>{error}</p>}
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: "11px", borderRadius: 8, border: "1px solid #eee", background: "#fafafa", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "system-ui" }}>Annuler</button>
+            <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: "11px", borderRadius: 8, border: "none", backgroundColor: saving ? "#eee" : "#B22222", color: saving ? "#aaa" : "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
+              {saving ? "Enregistrement…" : "✅ Appliquer"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Modal assignation ─────────────────────────────────────────────────────────
 function AssignModal({ clienteId, nbActifs, onAssigned, onPersonnaliser, onClose }: {
   clienteId: string; nbActifs: number; onAssigned: () => void; onPersonnaliser: (assignId: string) => void; onClose: () => void;
@@ -870,8 +1097,10 @@ function AssignModal({ clienteId, nbActifs, onAssigned, onPersonnaliser, onClose
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [selected, setSelected] = useState("");
   const [dateDebut, setDateDebut] = useState(() => new Date().toISOString().split("T")[0]);
-  const [joursSelectionnes, setJoursSelectionnes] = useState<number[]>([]);
-  const [joursDansProg, setJoursDansProg] = useState<number[]>([]);
+  // Réglages propres à cette cliente (durée + séances gardées / déplacées)
+  const [lignes, setLignes] = useState<LigneJour[]>([]);
+  const [duree, setDuree] = useState(4);
+  const [dureeTemplate, setDureeTemplate] = useState(4);
   // Par défaut on cumule : les programmes déjà assignés restent actifs.
   const [pauseLesAutres, setPauseLesAutres] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -886,30 +1115,25 @@ function AssignModal({ clienteId, nbActifs, onAssigned, onPersonnaliser, onClose
     setSelected(id); setError("");
     const prog = programmes.find(p => p.id === id);
     if (!prog) return;
-    const grid = decodeGrid(prog.description);
-    const days = Array.from(new Set(Object.keys(grid).map(k => parseInt(k.match(/_J(\d+)$/)?.[1] ?? "0")).filter(j => j > 0))).sort((a,b) => a - b);
-    setJoursDansProg(days);
-    setJoursSelectionnes([...days]);
-  }
-
-  function toggleJour(j: number) {
-    setJoursSelectionnes(prev => {
-      if (prev.includes(j)) return prev.filter(x => x !== j);
-      if (prev.length >= joursDansProg.length) return prev;
-      return [...prev, j].sort((a, b) => a - b);
-    });
+    // On part de la grille du template, qu'on n'écrira jamais : seule la copie
+    // envoyée dans grid_data est adaptée.
+    setLignes(lignesDepuisGrille(decodeGrid(prog.description)));
+    const d = decodeProgData({ ...prog } as unknown as Record<string, unknown>).duree_semaines;
+    setDuree(d);
+    setDureeTemplate(d);
   }
 
   async function handleSave() {
     if (!selected) { setError("Sélectionne un programme."); return; }
-    if (joursSelectionnes.length !== joursDansProg.length) { setError(`Sélectionne exactement ${joursDansProg.length} jour${joursDansProg.length > 1 ? "s" : ""}.`); return; }
+    if (!lignes.some(l => l.garde)) { setError("Garde au moins une séance."); return; }
     setSaving(true); setError("");
     const res = await fetch(`/api/coach/clientes/${clienteId}/programmes`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         programme_id: selected,
         date_debut: dateDebut,
-        jours_selectionnes: joursSelectionnes,
+        jours_mapping: mappingDepuisLignes(lignes),
+        duree_semaines: duree,
         mettre_en_pause_les_autres: pauseLesAutres,
       }),
     });
@@ -923,11 +1147,10 @@ function AssignModal({ clienteId, nbActifs, onAssigned, onPersonnaliser, onClose
 
   const inp: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #ddd", fontSize: 13, fontFamily: "system-ui", outline: "none", boxSizing: "border-box", color: "#1a1a1a", backgroundColor: "#fff" };
   const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#888", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5, fontFamily: "system-ui" };
-  const JOURS_LABELS = ["—","Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
 
   return (
     <div onClick={done ? undefined : onClose} style={{ position: "fixed", inset: 0, zIndex: 200, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} >
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, backgroundColor: "#fff", borderRadius: 14, padding: "24px", boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto", backgroundColor: "#fff", borderRadius: 14, padding: "24px", boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
 
         {/* ── Écran de succès ── */}
         {done ? (
@@ -965,17 +1188,12 @@ function AssignModal({ clienteId, nbActifs, onAssigned, onPersonnaliser, onClose
                 <label style={lbl}>Date de début</label>
                 <input type="date" style={inp} value={dateDebut} onChange={e => setDateDebut(e.target.value)} />
               </div>
-              {selected && joursDansProg.length > 0 && (
-                <div>
-                  <label style={lbl}>Jours d'entraînement <span style={{ color: "#B22222", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>— {joursDansProg.length} jour{joursDansProg.length > 1 ? "s" : ""}</span></label>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {[1,2,3,4,5,6,7].map(j => {
-                      const isOn = joursSelectionnes.includes(j);
-                      return <button key={j} onClick={() => toggleJour(j)} style={{ padding: "7px 11px", borderRadius: 8, border: isOn ? "2px solid #B22222" : "1px solid #ddd", backgroundColor: isOn ? "rgba(178,34,34,0.06)" : "#fafafa", color: isOn ? "#B22222" : "#555", fontSize: 12, fontWeight: isOn ? 700 : 400, cursor: "pointer", fontFamily: "system-ui" }}>{JOURS_LABELS[j]}</button>;
-                    })}
-                  </div>
-                  <p style={{ fontSize: 10, color: "#aaa", margin: "6px 0 0", fontFamily: "system-ui" }}>{joursSelectionnes.length}/{joursDansProg.length} sélectionné{joursSelectionnes.length > 1 ? "s" : ""}</p>
-                </div>
+              {selected && (
+                <ReglageProgrammation
+                  lignes={lignes} setLignes={setLignes}
+                  duree={duree} setDuree={setDuree}
+                  dureeTemplate={dureeTemplate}
+                />
               )}
               {nbActifs > 0 && (
                 <div style={{ borderRadius: 8, border: "1px solid #eee", backgroundColor: "#fafafa", padding: "10px 12px" }}>
@@ -1110,6 +1328,7 @@ export default function ClienteFichePage() {
   const [gridsByAssignment, setGridsByAssignment] = useState<Record<string, Grid>>({});
   const [editTarget, setEditTarget] = useState<{ assignmentId: string; cellKey: string; item: CellItem } | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [adjustTarget, setAdjustTarget] = useState<Assignment | null>(null);
   const [today] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [calEvents, setCalEvents] = useState<CalendarEvent[]>([]);
   const [showAddEv, setShowAddEv] = useState(false);
@@ -1151,8 +1370,13 @@ export default function ClienteFichePage() {
   const termines = assignments.filter(a => a.statut === "termine");
   const layers = buildLayers(actifs, gridsByAssignment);
 
-  function totalSeancesPrevues(assignId: string): number {
-    return Object.values(gridsByAssignment[assignId] ?? {}).reduce((a, items) => a + items.length, 0);
+  /** Séances réellement programmées : on ignore les semaines hors de la durée retenue. */
+  function totalSeancesPrevues(assign: Assignment): number {
+    const duree = dureeAssignment(assign);
+    return Object.entries(gridsByAssignment[assign.id] ?? {}).reduce((total, [key, items]) => {
+      const semaine = parseInt(key.match(/^S(\d+)_J\d+$/)?.[1] ?? "0");
+      return semaine >= 1 && semaine <= duree ? total + items.length : total;
+    }, 0);
   }
 
   async function patchGrid(assignId: string, newGrid: Grid) {
@@ -1325,10 +1549,14 @@ export default function ClienteFichePage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {actifs.map((a, i) => {
-              const total = totalSeancesPrevues(a.id);
+              const total = totalSeancesPrevues(a);
               const debut = parseLocalDate(a.date_debut);
               const aVenir = debut > today;
               const color = progColor(i);
+              const duree = dureeAssignment(a);
+              const dureeTemplate = a.programme?.duree_semaines ?? duree;
+              const grid = gridsByAssignment[a.id] ?? {};
+              const nbJours = joursDeLaGrille(grid).length;
               return (
                 <div key={a.id} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", borderLeft: `3px solid ${color}`, paddingLeft: 12 }}>
                   <div style={{ flex: 1, minWidth: 200 }}>
@@ -1341,7 +1569,12 @@ export default function ClienteFichePage() {
                       )}
                     </div>
                     <p style={{ fontSize: 11, color: "#aaa", margin: "0 0 10px", fontFamily: "system-ui" }}>
-                      {NIV[a.programme.niveau] ?? a.programme.niveau} · {a.programme.duree_semaines} semaines · {aVenir ? "démarre" : "début"} le {debut.toLocaleDateString("fr-FR")}
+                      {NIV[a.programme.niveau] ?? a.programme.niveau} · {duree} semaine{duree > 1 ? "s" : ""}
+                      {duree !== dureeTemplate && (
+                        <span style={{ color: "#F59E0B" }}> (adapté, template : {dureeTemplate})</span>
+                      )}
+                      {nbJours > 0 && ` · ${nbJours} séance${nbJours > 1 ? "s" : ""}/semaine`}
+                      {" · "}{aVenir ? "démarre" : "début"} le {debut.toLocaleDateString("fr-FR")}
                     </p>
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -1354,6 +1587,7 @@ export default function ClienteFichePage() {
                     </div>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => setAdjustTarget(a)} style={{ padding: "7px 14px", borderRadius: 7, border: "1px solid #B22222", backgroundColor: "#fff", color: "#B22222", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>⚙️ Durée & séances</button>
                     <button onClick={() => goToEditor(a.id)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✏️ Modifier les séances</button>
                     <button onClick={() => handleSeanceFaite(a.id, a.seances_effectuees)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#10B981", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✓ Séance faite</button>
                     <button onClick={() => handleTerminer(a.id)} style={{ padding: "7px 14px", borderRadius: 7, border: "1px solid #e0e0e0", background: "#fafafa", color: "#888", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>Marquer terminé</button>
@@ -1376,7 +1610,7 @@ export default function ClienteFichePage() {
         <SeanceEditPanel
           item={editTarget.item}
           cellKey={editTarget.cellKey}
-          dureeSemaines={actifs.find(a => a.id === editTarget.assignmentId)?.programme?.duree_semaines ?? 0}
+          dureeSemaines={(() => { const a = actifs.find(a => a.id === editTarget.assignmentId); return a ? dureeAssignment(a) : 0; })()}
           otherInstancesCount={Object.entries(gridsByAssignment[editTarget.assignmentId] ?? {})
             .filter(([k]) => k !== editTarget.cellKey)
             .reduce((acc, [, items]) => acc + items.filter(i => getItemName(i) === getItemName(editTarget.item)).length, 0)}
@@ -1388,10 +1622,20 @@ export default function ClienteFichePage() {
 
       {showModal && <AssignModal clienteId={id} nbActifs={actifs.length} onAssigned={loadAssignments} onPersonnaliser={goToEditor} onClose={() => setShowModal(false)} />}
 
+      {adjustTarget && (
+        <AdjustModal
+          clienteId={id}
+          assignment={adjustTarget}
+          grid={gridsByAssignment[adjustTarget.id] ?? {}}
+          onSaved={loadAssignments}
+          onClose={() => setAdjustTarget(null)}
+        />
+      )}
+
       {showSeanceList && actifs[0] && (
         <SeanceListPanel
           grid={gridsByAssignment[actifs[0].id] ?? {}}
-          dureeSemaines={actifs[0].programme?.duree_semaines ?? 0}
+          dureeSemaines={dureeAssignment(actifs[0])}
           onEditItem={(cellKey, item) => { setEditTarget({ assignmentId: actifs[0].id, cellKey, item }); setShowSeanceList(false); }}
           onClose={() => setShowSeanceList(false)}
         />

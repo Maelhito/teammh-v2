@@ -6,19 +6,28 @@
 // début et sa propre grille ; c'est la date de début qui décide du jour réel de
 // chaque case `S{semaine}_J{jour}`.
 
+export interface ProgrammeTemplateRow {
+  id?: string;
+  nom?: string | null;
+  niveau?: string | null;
+  duree_semaines?: number | null;
+  description?: string | null;
+}
+
 export interface AssignmentRow {
   id: string;
   date_debut: string | null;
   grid_data: string | null;
   statut?: string | null;
   seances_effectuees?: number | null;
-  programme?: {
-    id?: string;
-    nom?: string | null;
-    niveau?: string | null;
-    duree_semaines?: number | null;
-    description?: string | null;
-  } | null;
+  /** supabase-js type la jointure tantôt en objet, tantôt en tableau */
+  programme?: ProgrammeTemplateRow | ProgrammeTemplateRow[] | null;
+}
+
+function templateDe(row: AssignmentRow): ProgrammeTemplateRow | null {
+  const p = row.programme;
+  if (!p) return null;
+  return Array.isArray(p) ? p[0] ?? null : p;
 }
 
 export interface DecodedProgramme {
@@ -27,13 +36,13 @@ export interface DecodedProgramme {
   nom: string;
   niveau: string;
   date_debut: string | null;
-  duree_semaines: number;
   /**
-   * Nombre de semaines réellement occupées par la grille — au moins
-   * `duree_semaines`, plus si le coach a ajouté des séances au-delà. C'est cette
-   * valeur qui borne la fenêtre du programme dans le calendrier.
+   * Durée retenue pour CETTE cliente (peut être plus courte que celle du
+   * template). Elle borne la fenêtre du programme : les semaines au-delà sont
+   * masquées partout, sans être supprimées de la grille — remettre la durée
+   * d'origine les fait réapparaître.
    */
-  fenetreSemaines: number;
+  duree_semaines: number;
   note: string;
   grid: Record<string, unknown[]>;
   seancesTerminees: string[];
@@ -61,8 +70,9 @@ function safeParse(src: string | null | undefined): Record<string, unknown> {
 
 /** Normalise une ligne `client_programmes` (+ son template) en programme exploitable. */
 export function decodeAssignment(row: AssignmentRow): DecodedProgramme {
+  const template = templateDe(row);
   const fromGrid = safeParse(row.grid_data);
-  const fromTemplate = safeParse(row.programme?.description ?? null);
+  const fromTemplate = safeParse(template?.description ?? null);
 
   // grid_data est la copie personnalisée pour cette cliente ; on retombe sur le
   // template tant qu'aucune grille n'y a été enregistrée.
@@ -71,24 +81,21 @@ export function decodeAssignment(row: AssignmentRow): DecodedProgramme {
     (fromTemplate.grid as Record<string, unknown[]> | undefined) ??
     {};
 
+  // La durée de l'assignation prime sur celle du template : le coach peut
+  // raccourcir un programme de 4 semaines à 2 pour une cliente donnée sans
+  // toucher au programme d'origine.
   const duree_semaines =
     (fromGrid.duree_semaines as number | undefined) ??
-    row.programme?.duree_semaines ??
+    template?.duree_semaines ??
     (fromTemplate.duree_semaines as number | undefined) ??
     4;
 
-  const maxSemaineGrille = Object.keys(grid).reduce((max, key) => {
-    const m = key.match(/^S(\d+)_J\d+$/);
-    return m && (grid[key] ?? []).length ? Math.max(max, parseInt(m[1])) : max;
-  }, 0);
-
   return {
     id: row.id,
-    nom: row.programme?.nom ?? "Mon programme",
-    niveau: row.programme?.niveau ?? "",
+    nom: template?.nom ?? "Mon programme",
+    niveau: template?.niveau ?? "",
     date_debut: row.date_debut,
     duree_semaines,
-    fenetreSemaines: Math.max(duree_semaines, maxSemaineGrille),
     note: (fromGrid.note as string | undefined) ?? (fromTemplate.note as string | undefined) ?? "",
     grid,
     seancesTerminees: Array.isArray(fromGrid.seances_terminees) ? (fromGrid.seances_terminees as string[]) : [],
@@ -138,7 +145,76 @@ export function gridKeyToDate(key: string, dateDebut: Date): Date | null {
 /** Clé de grille d'un programme pour la date du jour, ou null hors fenêtre. */
 export function gridKeyFor(programme: DecodedProgramme, date: Date): string | null {
   if (!programme.date_debut) return null;
-  return dateToGridKey(date, parseLocalDate(programme.date_debut), programme.fenetreSemaines);
+  return dateToGridKey(date, parseLocalDate(programme.date_debut), programme.duree_semaines);
+}
+
+/** Numéro de semaine d'une clé `S{n}_J{j}` (0 si la clé est invalide). */
+export function semaineDeCle(key: string): number {
+  return parseInt(key.match(/^S(\d+)_J\d+$/)?.[1] ?? "0");
+}
+
+/** Jour (1-7) d'une clé `S{n}_J{j}` (0 si la clé est invalide). */
+export function jourDeCle(key: string): number {
+  return parseInt(key.match(/^S\d+_J(\d+)$/)?.[1] ?? "0");
+}
+
+/** Les jours de la semaine (1-7) occupés par la grille, triés. */
+export function joursDeLaGrille(grid: Record<string, unknown[]>): number[] {
+  const jours = new Set<number>();
+  for (const [key, items] of Object.entries(grid)) {
+    const j = jourDeCle(key);
+    if (j > 0 && (items ?? []).length) jours.add(j);
+  }
+  return [...jours].sort((a, b) => a - b);
+}
+
+/**
+ * Mapping "jour source → jour cible" appliqué à une grille.
+ * Un jour source ABSENT du mapping voit ses séances retirées : c'est ainsi
+ * qu'on passe un programme de 3 séances/semaine à 2 pour une cliente.
+ */
+export type MappingJours = Record<number, number>;
+
+/** Mapping neutre : chaque jour reste à sa place. */
+export function mappingIdentite(jours: number[]): MappingJours {
+  return Object.fromEntries(jours.map((j) => [j, j]));
+}
+
+/**
+ * Ré-agence une grille selon un mapping de jours. Ne touche jamais au template :
+ * la grille passée est toujours la copie personnalisée de la cliente.
+ */
+export function adapterGrille<T>(
+  grid: Record<string, T[]>,
+  mapping: MappingJours,
+): Record<string, T[]> {
+  const out: Record<string, T[]> = {};
+  for (const [key, items] of Object.entries(grid)) {
+    const semaine = semaineDeCle(key);
+    const jour = jourDeCle(key);
+    if (!semaine || !jour) continue;
+
+    const jourCible = mapping[jour];
+    if (jourCible === undefined) continue; // séance retirée pour cette cliente
+
+    const nouvelleCle = `S${semaine}_J${jourCible}`;
+    out[nouvelleCle] = [...(out[nouvelleCle] ?? []), ...(items ?? [])];
+  }
+  return out;
+}
+
+/** Applique le même mapping à une liste de clés (ex. `seances_terminees`). */
+export function adapterCles(cles: string[], mapping: MappingJours): string[] {
+  const out = new Set<string>();
+  for (const cle of cles) {
+    const semaine = semaineDeCle(cle);
+    const jour = jourDeCle(cle);
+    if (!semaine || !jour) continue;
+    const jourCible = mapping[jour];
+    if (jourCible === undefined) continue;
+    out.add(`S${semaine}_J${jourCible}`);
+  }
+  return [...out];
 }
 
 export interface PlannedItem<T = unknown> {
