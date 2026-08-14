@@ -451,6 +451,21 @@ function RichTextEditor({ initialHtml, onHtmlChange, onVideoClick }: {
       range.collapse(false);
     }
 
+    // Si le curseur atterrit à l'intérieur d'un span contenteditable=false
+    // (exercice existant), on décale juste après ce span pour éviter d'y insérer dedans
+    {
+      let node: Node | null = range.startContainer;
+      while (node && node !== div) {
+        if (node.nodeType === Node.ELEMENT_NODE && (node as Element).getAttribute("contenteditable") === "false") {
+          range = document.createRange();
+          range.setStartAfter(node);
+          range.collapse(true);
+          break;
+        }
+        node = node.parentNode;
+      }
+    }
+
     // Crée le span exercice (non éditable, rouge/gras)
     const span = document.createElement("span");
     span.setAttribute("contenteditable", "false");
