@@ -58,17 +58,20 @@ export async function POST(req: NextRequest) {
 
   // Insère les exercices si présents
   if (exercices?.length) {
+    // `ordre` encode le bloc (bloc * 10000 + position) : l'écraser par l'index
+    // du tableau renvoie tous les exercices dans le premier bloc à la relecture.
     const rows = exercices.map((ex: Record<string, unknown>, i: number) => ({
       seance_id: seance.id,
       exercise_id: ex.exercise_id,
-      ordre: i,
+      ordre: typeof ex.ordre === "number" ? ex.ordre : i,
       series: ex.series || null,
       repetitions: ex.repetitions || null,
       duree_secondes: ex.duree_secondes || null,
       temps_repos: ex.temps_repos ?? 60,
       notes: ex.notes || null,
     }));
-    await admin.from("seance_exercices").insert(rows);
+    const { error: exError } = await admin.from("seance_exercices").insert(rows);
+    if (exError) return NextResponse.json({ error: `Séance créée mais exercices non enregistrés : ${exError.message}` }, { status: 500 });
   }
 
   return NextResponse.json({ seance }, { status: 201 });

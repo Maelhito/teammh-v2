@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { redirect } from "next/navigation";
+import { decodeSeance } from "@/lib/seance-format";
 import SeanceViewer from "./SeanceViewer";
 
 export const dynamic = "force-dynamic";
@@ -60,35 +61,11 @@ export default async function SeancePage({ searchParams }: { searchParams: Promi
       ]);
 
       if (seanceRes.data) {
-        seanceData = {
-          nom: seanceRes.data.nom,
-          categorie: seanceRes.data.type_format ?? "full_body",
-          niveau: "debutant",
-          duree_estimee: String(seanceRes.data.duree_estimee ?? ""),
-          note: seanceRes.data.description ?? "",
-          blocs: [{
-            _key: "b1",
-            type: "corps",
-            nom: "Exercices",
-            format: "classique",
-            instructions: "",
-            type_score: "",
-            note_bloc: "",
-            tabata_work: "20", tabata_rest: "10", tabata_tours: "8",
-            tabata_exercices: [],
-            emom_rounds: "10", emom_interval_min: "1", emom_interval_sec: "0",
-            amrap_duree: "10", for_time_limit: "20",
-            rich_exercices: (exercicesRes.data ?? []).map((ex) => ({
-              _key: ex.id,
-              exercise: ex.exercise,
-              series: ex.series,
-              repetitions: ex.repetitions,
-              duree_secondes: ex.duree_secondes,
-              temps_repos: ex.temps_repos,
-              notes: ex.notes,
-            })),
-          }],
-        };
+        // La structure réelle (blocs, descriptions, mouvements) est stockée en
+        // JSON dans seances.description. L'ancienne version la jetait et
+        // reconstruisait un bloc unique depuis seance_exercices : la cliente ne
+        // voyait ni les descriptions ni les exercices non-tabata.
+        seanceData = decodeSeance(seanceRes.data, exercicesRes.data ?? []);
       }
     }
   } catch {

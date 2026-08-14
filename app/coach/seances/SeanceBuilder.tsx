@@ -1,34 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
+import {
+  newKey, ytThumb, defaultBloc, encodeSeance, decodeSeance,
+  type Exercise, type TabataItem, type RichExercise, type BlocType, type Bloc, type SeanceData,
+} from "@/lib/seance-format";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-export interface Exercise {
-  id: string; nom: string; groupe_musculaire: string; materiel: string;
-  video_url: string | null; miniature_url: string | null;
-  type_format?: string | null;
-}
-export interface TabataItem {
-  _key: string; exercise_id: string; exercise: Exercise;
-  series: string; tabata_work: string; tabata_rest: string; notes: string;
-}
-export interface RichExercise { _key: string; exercise: Exercise; }
-export type BlocType = "echauffement" | "corps" | "finisher";
-export interface Bloc {
-  _key: string; type: BlocType; nom: string; format: string;
-  instructions: string;
-  type_score: string;
-  note_bloc: string;
-  tabata_work: string; tabata_rest: string; tabata_tours: string;
-  tabata_exercices: TabataItem[];
-  emom_rounds: string; emom_interval_min: string; emom_interval_sec: string;
-  amrap_duree: string; for_time_limit: string;
-  rich_exercices: RichExercise[];
-}
-export interface SeanceData {
-  nom: string; categorie: string; niveau: string; duree_estimee: string; note: string;
-  blocs: Bloc[];
-}
+// Le format d'encodage vit dans lib/seance-format.ts (module pur, lisible côté
+// serveur par app/entrainement). On le ré-exporte pour les imports existants.
+export { newKey, defaultBloc, encodeSeance, decodeSeance };
+export type { Exercise, TabataItem, RichExercise, BlocType, Bloc, SeanceData };
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 export const FORMATS = [
@@ -79,143 +60,9 @@ const BLOC_LABELS: Record<BlocType, string> = {
   finisher:     "COOL DOWN",
 };
 
-let _k = 0;
-export function newKey() { return `k${++_k}_${Date.now()}`; }
-
-function ytThumb(url: string | null) {
-  if (!url) return null;
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
-  return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
-}
 function ytEmbed(url: string) {
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
   return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=1` : null;
-}
-
-export function defaultBloc(type: BlocType, i = 1): Bloc {
-  return {
-    _key: newKey(), type,
-    nom: type === "echauffement" ? "Échauffement" : type === "finisher" ? "Finisher" : `Bloc ${i}`,
-    format: "classique", instructions: "",
-    type_score: "", note_bloc: "",
-    tabata_work: "20", tabata_rest: "10", tabata_tours: "8", tabata_exercices: [],
-    emom_rounds: "10", emom_interval_min: "1", emom_interval_sec: "0",
-    amrap_duree: "10", for_time_limit: "20",
-    rich_exercices: [],
-  };
-}
-
-// ─── Encode / Decode ──────────────────────────────────────────────────────────
-export function encodeSeance(d: SeanceData): { description: string; flat_exercices: object[] } {
-  const description = JSON.stringify({
-    categorie: d.categorie, niveau: d.niveau,
-    blocs: d.blocs.map(b => ({
-      key: b._key, type: b.type, nom: b.nom, format: b.format,
-      instructions: b.instructions,
-      ts: b.type_score,
-      nb: b.note_bloc,
-      tw: b.tabata_work, tr: b.tabata_rest, tt: b.tabata_tours,
-      er: b.emom_rounds, eim: b.emom_interval_min, eis: b.emom_interval_sec,
-      ad: b.amrap_duree, ftl: b.for_time_limit,
-      rich: b.rich_exercices.map(re => ({
-        key: re._key,
-        exId: re.exercise.id, exNom: re.exercise.nom,
-        exGroupe: re.exercise.groupe_musculaire,
-        exVideo: re.exercise.video_url,
-        exThumb: re.exercise.miniature_url || ytThumb(re.exercise.video_url),
-      })),
-    })),
-    note: d.note,
-  });
-
-  const flat_exercices = d.blocs.flatMap((b, bi) => {
-    if (b.format !== "tabata") return [];
-    return b.tabata_exercices.map((ex, ei) => ({
-      exercise_id: ex.exercise_id,
-      ordre: bi * 10000 + ei,
-      series: ex.series ? parseInt(ex.series) : null,
-      duree_secondes: ex.tabata_work ? parseInt(ex.tabata_work) : null,
-      temps_repos: ex.tabata_rest ? parseInt(ex.tabata_rest) : null,
-      notes: ex.notes || null,
-    }));
-  });
-
-  return { description, flat_exercices };
-}
-
-export function decodeSeance(
-  seance: Record<string, unknown>,
-  exercices: Record<string, unknown>[],
-): SeanceData {
-  let meta: Record<string, unknown> = {};
-  try {
-    if ((seance.description as string)?.startsWith("{"))
-      meta = JSON.parse(seance.description as string);
-  } catch {}
-
-  const blocs_meta = (meta.blocs as Record<string, unknown>[] | undefined) ?? [];
-  const exByBlocIdx: Record<number, Record<string, unknown>[]> = {};
-  for (const ex of exercices) {
-    const bi = Math.floor(((ex.ordre as number) ?? 0) / 10000);
-    if (!exByBlocIdx[bi]) exByBlocIdx[bi] = [];
-    exByBlocIdx[bi].push(ex);
-  }
-
-  const blocs: Bloc[] = blocs_meta.length
-    ? blocs_meta.map((bm, bi) => {
-        const richRaw =
-          (bm.rich as {
-            key: string; exId: string; exNom: string; exGroupe: string;
-            exVideo: string | null; exThumb: string | null;
-          }[]) ?? [];
-        const tabata_exercices = (exByBlocIdx[bi] ?? []).map(ex => {
-          const exercise = ex.exercise as Exercise;
-          return {
-            _key: newKey(),
-            exercise_id: exercise?.id ?? (ex.exercise_id as string),
-            exercise,
-            series: (ex.series as number | null)?.toString() ?? "",
-            tabata_work: (ex.duree_secondes as number | null)?.toString() ?? "20",
-            tabata_rest: (ex.temps_repos as number)?.toString() ?? "10",
-            notes: (ex.notes as string | null) ?? "",
-          };
-        });
-        return {
-          _key: (bm.key as string) || newKey(),
-          type: bm.type as BlocType,
-          nom: (bm.nom as string) || "",
-          format: (bm.format as string) || "classique",
-          instructions: (bm.instructions as string) || "",
-          type_score: (bm.ts as string) || "",
-          note_bloc: (bm.nb as string) || "",
-          tabata_work: (bm.tw as string) || "20",
-          tabata_rest: (bm.tr as string) || "10",
-          tabata_tours: (bm.tt as string) || "8",
-          tabata_exercices,
-          emom_rounds: (bm.er as string) || "10",
-          emom_interval_min: (bm.eim as string) || "1",
-          emom_interval_sec: (bm.eis as string) || "0",
-          amrap_duree: (bm.ad as string) || "10",
-          for_time_limit: (bm.ftl as string) || "20",
-          rich_exercices: richRaw.map(r => ({
-            _key: r.key || newKey(),
-            exercise: {
-              id: r.exId, nom: r.exNom, groupe_musculaire: r.exGroupe,
-              materiel: "", video_url: r.exVideo, miniature_url: r.exThumb,
-            },
-          })),
-        };
-      })
-    : [defaultBloc("echauffement"), defaultBloc("corps", 1)];
-
-  return {
-    nom: (seance.nom as string) || "",
-    categorie: (meta.categorie as string) || "full_body",
-    niveau: (meta.niveau as string) || "debutant",
-    duree_estimee: (seance.duree_estimee as number | null)?.toString() || "45",
-    note: (meta.note as string) || "",
-    blocs,
-  };
 }
 
 // ─── Video Modal ──────────────────────────────────────────────────────────────
@@ -261,7 +108,11 @@ function extractExercisesFromHtml(html: string): Exercise[] {
 }
 
 export interface RichTextEditorHandle {
-  removeExercise: (nom: string) => void;
+  /** Retourne le HTML après suppression (null si l'éditeur n'est pas monté).
+   *  Ne déclenche PAS onHtmlChange : l'appelant doit écrire instructions +
+   *  exercices dans un SEUL onBlocChange, sinon la 2ᵉ écriture (basée sur un
+   *  `data` périmé) écrase la 1ʳᵉ et la description perd ses exercices. */
+  removeExercise: (nom: string) => string | null;
 }
 
 // ─── Rich Text Editor ─────────────────────────────────────────────────────────
@@ -270,7 +121,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
   onHtmlChange: (html: string) => void;
   onVideoClick: (url: string, nom: string) => void;
   placeholder?: string;
-  onExerciseDrop?: (ex: Exercise) => void;
+  onExerciseDrop?: (ex: Exercise, html: string) => void;
 }>(function RichTextEditor({ initialHtml, onHtmlChange, onVideoClick, placeholder, onExerciseDrop }, ref) {
   const divRef = useRef<HTMLDivElement>(null);
 
@@ -284,17 +135,18 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
   useImperativeHandle(ref, () => ({
     removeExercise(nom: string) {
       const div = divRef.current;
-      if (!div) return;
+      if (!div) return null;
       div.querySelectorAll(`[data-ex-nom]`).forEach(s => {
         if (s.getAttribute("data-ex-nom") === nom) s.remove();
       });
-      onHtmlChange(div.innerHTML);
+      return div.innerHTML;
     },
   }));
 
-  function insertExerciseAtDrop(e: React.DragEvent, ex: Exercise) {
+  /** Insère le span rouge et retourne le nouveau HTML (null si non monté). */
+  function insertExerciseAtDrop(e: React.DragEvent, ex: Exercise): string | null {
     const div = divRef.current;
-    if (!div) return;
+    if (!div) return null;
     let range: Range | null = null;
     if (document.caretRangeFromPoint) {
       range = document.caretRangeFromPoint(e.clientX, e.clientY);
@@ -324,7 +176,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
     after.setStartAfter(span); after.collapse(true);
     sel?.removeAllRanges(); sel?.addRange(after);
     div.focus();
-    onHtmlChange(div.innerHTML);
+    return div.innerHTML;
   }
 
   const ph = placeholder || "Tape tes consignes… Glisse un exercice pour l'insérer en rouge et dans Mouvements.";
@@ -344,8 +196,11 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
           if (e.dataTransfer.getData("source") !== "bank") return;
           try {
             const ex = JSON.parse(e.dataTransfer.getData("exerciseData")) as Exercise;
-            insertExerciseAtDrop(e, ex); // toujours insérer en rouge dans la description
-            onExerciseDrop?.(ex);        // tabata : ajoute aussi dans Mouvements
+            const html = insertExerciseAtDrop(e, ex); // insère en rouge dans la description
+            if (html === null) return;
+            // Une seule remontée : le parent écrit instructions + exercices ensemble.
+            if (onExerciseDrop) onExerciseDrop(ex, html);
+            else onHtmlChange(html);
           } catch {}
         }}
         onClick={e => {
@@ -634,7 +489,7 @@ function ForTimeTimer({ limitMin }: { limitMin: number }) {
 
 // ─── Bloc Card (style Azeoo) ───────────────────────────────────────────────────
 function BlocCard({
-  bloc, blocNum, corpsTotal, onBlocChange, onBlocRemove, isActive, onDrop,
+  bloc, blocNum, corpsTotal, onBlocChange, onBlocRemove, isActive, onDrop, onActivate,
 }: {
   bloc: Bloc;
   blocNum: number;
@@ -643,10 +498,32 @@ function BlocCard({
   onBlocRemove: (key: string) => void;
   isActive: boolean;
   onDrop: (e: React.DragEvent) => void;
+  onActivate: () => void;
 }) {
   const [showMovements, setShowMovements] = useState(true);
   const [videoUrl, setVideoUrl] = useState<{ url: string; nom: string } | null>(null);
   const editorRef = useRef<RichTextEditorHandle>(null);
+
+  /** Recalcule Mouvements à partir du HTML de la description.
+   *  Dédoublonné : deux fois le même exercice dans le texte donnaient deux
+   *  entrées avec la même clé React (une des deux disparaissait). */
+  function richFromHtml(html: string): RichExercise[] {
+    const exes = extractExercisesFromHtml(html);
+    const fromDesc: RichExercise[] = [];
+    const seen = new Set<string>();
+    for (const e of exes) {
+      const k = `desc_${e.id || e.nom}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      fromDesc.push({ _key: k, exercise: e });
+    }
+    const fromDescNoms = new Set(exes.map(e => e.nom));
+    // Garde les exercices ajoutés directement dans Mouvements (pas via description)
+    const directOnly = bloc.rich_exercices.filter(
+      re => !fromDescNoms.has(re.exercise.nom) && !re._key.startsWith("desc_")
+    );
+    return [...fromDesc, ...directOnly];
+  }
 
   // Sync Description → Mouvements : quand le HTML change, on recalcule rich_exercices
   function handleDescriptionChange(html: string) {
@@ -654,17 +531,7 @@ function BlocCard({
       onBlocChange(bloc._key, { instructions: html });
       return;
     }
-    const exes = extractExercisesFromHtml(html);
-    const fromDescNoms = new Set(exes.map(e => e.nom));
-    // Garde les exercices ajoutés directement dans Mouvements (pas via description)
-    const directOnly = bloc.rich_exercices.filter(
-      re => !fromDescNoms.has(re.exercise.nom) && !re._key.startsWith("desc_")
-    );
-    const newRich = [
-      ...exes.map(e => ({ _key: `desc_${e.id || e.nom}`, exercise: e })),
-      ...directOnly,
-    ];
-    onBlocChange(bloc._key, { instructions: html, rich_exercices: newRich });
+    onBlocChange(bloc._key, { instructions: html, rich_exercices: richFromHtml(html) });
   }
 
   const color = BCOLORS[bloc.type];
@@ -691,6 +558,8 @@ function BlocCard({
     <div
       onDragOver={e => e.preventDefault()}
       onDrop={e => { e.preventDefault(); if (e.dataTransfer.getData("source") !== "bank") return; onDrop(e); }}
+      onMouseDown={onActivate}
+      onFocusCapture={onActivate}
       style={{
         width: 370, flexShrink: 0,
         backgroundColor: "#fff",
@@ -799,12 +668,17 @@ function BlocCard({
             onHtmlChange={handleDescriptionChange}
             onVideoClick={(url, nom) => setVideoUrl({ url, nom })}
             placeholder="Redigez la description… Glisse un exercice pour l’insérer en rouge et dans Mouvements."
-            onExerciseDrop={bloc.format === "tabata"
-              ? (ex) => {
-                  const item: TabataItem = { _key: newKey(), exercise_id: ex.id, exercise: ex, series: "", tabata_work: bloc.tabata_work, tabata_rest: bloc.tabata_rest, notes: "" };
-                  onBlocChange(bloc._key, { tabata_exercices: [...bloc.tabata_exercices, item] });
-                }
-              : undefined}
+            onExerciseDrop={(ex, html) => {
+              // UNE seule écriture : description + Mouvements dans le même
+              // onBlocChange, sinon la seconde (issue d'un `data` périmé)
+              // annule la première et l'exercice disparaît de la description.
+              if (bloc.format === "tabata") {
+                const item: TabataItem = { _key: newKey(), exercise_id: ex.id, exercise: ex, series: "", tabata_work: bloc.tabata_work, tabata_rest: bloc.tabata_rest, notes: "" };
+                onBlocChange(bloc._key, { instructions: html, tabata_exercices: [...bloc.tabata_exercices, item] });
+              } else {
+                onBlocChange(bloc._key, { instructions: html, rich_exercices: richFromHtml(html) });
+              }
+            }}
           />
         </div>
 
@@ -858,12 +732,22 @@ function BlocCard({
                     </div>
                     <button
                       onClick={() => {
+                        const nom = re.exercise?.nom ?? "";
                         if (bloc.format === "tabata") {
-                          onBlocChange(bloc._key, { tabata_exercices: bloc.tabata_exercices.filter(t => t._key !== re._key) });
+                          const nextTabata = bloc.tabata_exercices.filter(t => t._key !== re._key);
+                          // Ne retire le span que si l'exercice ne reste pas ailleurs dans le bloc
+                          const html = nextTabata.some(t => t.exercise?.nom === nom)
+                            ? null : editorRef.current?.removeExercise(nom) ?? null;
+                          onBlocChange(bloc._key, html !== null
+                            ? { instructions: html, tabata_exercices: nextTabata }
+                            : { tabata_exercices: nextTabata });
                         } else {
-                          // Sync bidirectionnel : supprime aussi du span dans la description
-                          editorRef.current?.removeExercise(re.exercise.nom);
-                          onBlocChange(bloc._key, { rich_exercices: bloc.rich_exercices.filter(r => r._key !== re._key) });
+                          // Sync bidirectionnel : supprime aussi le span dans la description
+                          const html = editorRef.current?.removeExercise(nom) ?? null;
+                          const nextRich = bloc.rich_exercices.filter(r => r._key !== re._key);
+                          onBlocChange(bloc._key, html !== null
+                            ? { instructions: html, rich_exercices: nextRich }
+                            : { rich_exercices: nextRich });
                         }
                       }}
                       style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: 12, padding: 2 }}>✕</button>
@@ -950,13 +834,17 @@ export default function SeanceBuilder({ data, onChange }: SeanceBuilderProps) {
   }
 
   function addExToBloc(blocKey: string, ex: Exercise) {
-    const bloc = data.blocs.find(b => b._key === blocKey);
+    // Repli si le bloc actif a été supprimé entre-temps : sans ça l'exercice
+    // était ajouté nulle part (il « disparaissait » au clic).
+    const bloc = data.blocs.find(b => b._key === blocKey)
+      ?? data.blocs.find(b => b.type === "corps")
+      ?? data.blocs[0];
     if (!bloc) return;
     if (bloc.format === "tabata") {
       const item: TabataItem = { _key: newKey(), exercise_id: ex.id, exercise: ex, series: "", tabata_work: bloc.tabata_work, tabata_rest: bloc.tabata_rest, notes: "" };
-      updateBloc(blocKey, { tabata_exercices: [...bloc.tabata_exercices, item] });
+      updateBloc(bloc._key, { tabata_exercices: [...bloc.tabata_exercices, item] });
     } else {
-      updateBloc(blocKey, { rich_exercices: [...bloc.rich_exercices, { _key: newKey(), exercise: ex }] });
+      updateBloc(bloc._key, { rich_exercices: [...bloc.rich_exercices, { _key: newKey(), exercise: ex }] });
     }
   }
 
@@ -1062,6 +950,7 @@ export default function SeanceBuilder({ data, onChange }: SeanceBuilderProps) {
                     onBlocRemove={removeBloc}
                     isActive={activeBlocKey === bloc._key}
                     onDrop={e => handleDropOnBloc(e, bloc._key)}
+                    onActivate={() => setActiveBlocKey(bloc._key)}
                   />
                 </div>
               );
