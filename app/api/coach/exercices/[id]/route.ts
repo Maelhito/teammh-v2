@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { checkCoachAccess } from "@/lib/check-coach-access";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
-
-async function checkCoachAccess() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const role = user.user_metadata?.role ?? "cliente";
-  if (role !== "coach" && role !== "admin" && user.email !== "mael.ld@hotmail.fr") return null;
-  return user;
-}
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await checkCoachAccess();

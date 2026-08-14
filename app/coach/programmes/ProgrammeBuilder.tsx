@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { NIVEAUX, CATEGORIES, defaultBloc, type SeanceData } from "../seances/SeanceBuilder";
+import { NIVEAUX, CATEGORIES, defaultBloc, decodeSeance, type SeanceData } from "../seances/SeanceBuilder";
 import SeanceBuildComp from "../seances/SeanceBuilder";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -305,12 +305,332 @@ function AddMenu({ seances, onAdd, onCreateSeance, onClose }: {
   );
 }
 
+// ─── Éditeur de séance inline (modification + gestion semaines) ──────────────
+function InlineSeanceEditor({ seanceData: initialData, jourLabel, semaine, jour, duree_semaines, grid, itemNom, onSaved, onClose }: {
+  seanceData: SeanceData;
+  jourLabel: string;
+  semaine: number;
+  jour: number;
+  duree_semaines: number;
+  grid: Grid;
+  itemNom: string;
+  onSaved: (seanceData: SeanceData, selectedWeeks: number[], selectedJour: number) => void;
+  onClose: () => void;
+}) {
+  const [seanceData, setSeanceData] = useState<SeanceData>(initialData);
+  const [step, setStep] = useState<1|2|3>(2);
+  const [error, setError] = useState("");
+  const [selectedJour, setSelectedJour] = useState(jour);
+
+  // Semaines où cette séance existe déjà (même nom, même jour)
+  const initialWeeks = Array.from({ length: duree_semaines }, (_, i) => i + 1).filter(s => {
+    const key = gridKey(s, jour);
+    return (grid[key] ?? []).some(i => i.type === "seance_locale" && i.nom === itemNom);
+  });
+  const [selectedWeeks, setSelectedWeeks] = useState<number[]>(initialWeeks.length > 0 ? initialWeeks : [semaine]);
+
+  const inp: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #2a2a2a", backgroundColor: "#161616", fontSize: 13, color: "#F5F5F0", fontFamily: "system-ui", outline: "none", boxSizing: "border-box" };
+  const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#666", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, fontFamily: "system-ui" };
+
+  const totalExercices = seanceData.blocs.reduce((a, b) =>
+    a + (b.format === "tabata" ? b.tabata_exercices?.length ?? 0 : b.rich_exercices?.length ?? 0), 0);
+
+  const STEPS = [{n:1,l:"Infos"},{n:2,l:"Blocs & exercices"},{n:3,l:"Planification"}];
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 500, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", alignItems: "stretch", justifyContent: "flex-end" }}>
+      <div style={{ width: "min(900px, 95vw)", backgroundColor: "#0D0D0D", display: "flex", flexDirection: "column", boxShadow: "-4px 0 40px rgba(0,0,0,0.4)" }}>
+
+        {/* Header */}
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div>
+            <p style={{ fontSize: 10, color: "#F59E0B", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 2px", fontFamily: "system-ui" }}>
+              Modifier · {jourLabel}
+            </p>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#F5F5F0", margin: 0, fontFamily: "system-ui" }}>
+              {seanceData.nom || "Sans titre"}
+            </h2>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 7, color: "#888", fontSize: 16, cursor: "pointer", padding: "6px 12px", fontFamily: "system-ui" }}>✕ Fermer</button>
+        </div>
+
+        {/* Stepper */}
+        <div style={{ padding: "10px 20px", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", flexShrink: 0 }}>
+          {STEPS.map(({n,l},i) => (
+            <div key={n} style={{ display: "flex", alignItems: "center" }}>
+              {i > 0 && <div style={{ width: 30, height: 2, backgroundColor: step > i ? "#F59E0B" : "#222" }} />}
+              <div style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }} onClick={() => setStep(n as 1|2|3)}>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: step >= n ? "#F59E0B" : "#1a1a1a", color: step >= n ? "#fff" : "#555", fontSize: 10, fontWeight: 700, fontFamily: "system-ui" }}>{n}</div>
+                <span style={{ fontSize: 11, fontWeight: step === n ? 700 : 400, color: step === n ? "#F5F5F0" : "#555", fontFamily: "system-ui" }}>{l}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Contenu */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
+
+          {/* Étape 1 : Infos */}
+          {step === 1 && (
+            <div style={{ maxWidth: 480, display: "flex", flexDirection: "column", gap: 18 }}>
+              <div>
+                <label style={lbl}>Nom de la séance *</label>
+                <input style={inp} value={seanceData.nom} onChange={e => setSeanceData(d => ({ ...d, nom: e.target.value }))} autoFocus />
+              </div>
+              {error && <p style={{ fontSize: 12, color: "#EF4444", margin: 0, fontFamily: "system-ui" }}>{error}</p>}
+              <button onClick={() => { if (!seanceData.nom.trim()) { setError("Nom obligatoire."); return; } setStep(2); }}
+                style={{ padding: "12px", borderRadius: 9, border: "none", backgroundColor: "#F59E0B", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>
+                Suivant → Modifier les blocs
+              </button>
+            </div>
+          )}
+
+          {/* Étape 2 : Builder */}
+          {step === 2 && (
+            <div>
+              <SeanceBuildComp data={seanceData} onChange={setSeanceData} />
+              {error && <p style={{ fontSize: 12, color: "#EF4444", margin: "10px 0 0", fontFamily: "system-ui" }}>{error}</p>}
+              <button onClick={() => setStep(3)}
+                style={{ marginTop: 12, width: "100%", padding: "13px", borderRadius: 9, border: "none", backgroundColor: "#F59E0B", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>
+                Suivant → Gérer la planification
+              </button>
+            </div>
+          )}
+
+          {/* Étape 3 : Planification */}
+          {step === 3 && (
+            <PlanningStep
+              duree_semaines={duree_semaines}
+              semaine={semaine}
+              selectedWeeks={selectedWeeks}
+              setSelectedWeeks={setSelectedWeeks}
+              selectedJour={selectedJour}
+              setSelectedJour={setSelectedJour}
+              color="#F59E0B"
+              onSave={() => { if (!seanceData.nom.trim()) { setError("Nom obligatoire."); return; } onSaved(seanceData, selectedWeeks, selectedJour); }}
+              saveLabel="✅ Sauvegarder les modifications"
+              error={error}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── PlanningStep (sélecteur jour + semaines partagé) ────────────────────────
+function PlanningStep({ duree_semaines, semaine, selectedWeeks, setSelectedWeeks, selectedJour, setSelectedJour, color, onSave, saveLabel, error }: {
+  duree_semaines: number;
+  semaine: number;
+  selectedWeeks: number[];
+  setSelectedWeeks: (w: number[]) => void;
+  selectedJour: number;
+  setSelectedJour: (j: number) => void;
+  color: string;
+  onSave: () => void;
+  saveLabel: string;
+  error?: string;
+}) {
+  const allWeeks = Array.from({ length: duree_semaines }, (_, i) => i + 1);
+  const allSelected = selectedWeeks.length === duree_semaines;
+  function toggleWeek(s: number) {
+    setSelectedWeeks(selectedWeeks.includes(s)
+      ? (selectedWeeks.length > 1 ? selectedWeeks.filter(w => w !== s) : selectedWeeks)
+      : [...selectedWeeks, s].sort((a, b) => a - b));
+  }
+  const JOURS_SHORT = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+  return (
+    <div style={{ maxWidth: 560 }}>
+      <p style={{ fontSize: 10, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px", fontFamily: "system-ui" }}>Jour de la semaine</p>
+      <div style={{ display: "flex", gap: 6, marginBottom: 24, flexWrap: "wrap" }}>
+        {JOURS_SHORT.map((j, i) => {
+          const on = selectedJour === i + 1;
+          return (
+            <button key={i} onClick={() => setSelectedJour(i + 1)}
+              style={{ padding: "8px 14px", borderRadius: 8, border: `2px solid ${on ? color : "#2a2a2a"}`, backgroundColor: on ? `${color}20` : "#111", color: on ? color : "#555", fontSize: 12, fontWeight: on ? 800 : 400, cursor: "pointer", fontFamily: "system-ui", transition: "all 0.12s" }}>
+              {j}
+            </button>
+          );
+        })}
+      </div>
+
+      <p style={{ fontSize: 10, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px", fontFamily: "system-ui" }}>Semaines</p>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <button onClick={() => setSelectedWeeks(allWeeks)}
+          style={{ padding: "6px 14px", borderRadius: 7, border: `1px solid ${allSelected ? color : "#2a2a2a"}`, backgroundColor: allSelected ? `${color}20` : "transparent", color: allSelected ? color : "#888", fontSize: 11, cursor: "pointer", fontFamily: "system-ui", fontWeight: 700 }}>
+          Toutes ({duree_semaines})
+        </button>
+        <button onClick={() => setSelectedWeeks([semaine])}
+          style={{ padding: "6px 14px", borderRadius: 7, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#888", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>
+          Sem. {semaine} seulement
+        </button>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+        {allWeeks.map(s => {
+          const on = selectedWeeks.includes(s);
+          return (
+            <button key={s} onClick={() => toggleWeek(s)}
+              style={{ width: 46, height: 46, borderRadius: 9, border: `2px solid ${on ? color : "#2a2a2a"}`, backgroundColor: on ? `${color}20` : "#111", color: on ? color : "#555", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "system-ui", transition: "all 0.12s" }}>
+              {s}
+            </button>
+          );
+        })}
+      </div>
+      <p style={{ fontSize: 11, color: "#555", margin: "0 0 20px", fontFamily: "system-ui" }}>
+        {selectedWeeks.length} semaine{selectedWeeks.length > 1 ? "s" : ""} · {JOURS_SHORT[selectedJour - 1]} · sem. {selectedWeeks.join(", ")}
+      </p>
+      {error && <p style={{ fontSize: 12, color: "#EF4444", margin: "0 0 12px", fontFamily: "system-ui" }}>{error}</p>}
+      <button onClick={onSave}
+        style={{ width: "100%", padding: "13px", borderRadius: 9, border: "none", backgroundColor: color, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>
+        {saveLabel}
+      </button>
+    </div>
+  );
+}
+
+// ─── Éditeur séances DB (copie locale) ───────────────────────────────────────
+function InlineDbSeanceEditor({ item, semaine, jour, duree_semaines, onSaved, onClose }: {
+  item: CellItem & { type: "seance" };
+  semaine: number;
+  jour: number;
+  duree_semaines: number;
+  onSaved: (seanceData: SeanceData, selectedWeeks: number[], selectedJour: number) => void;
+  onClose: () => void;
+}) {
+  const [seanceData, setSeanceData] = useState<SeanceData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [step, setStep] = useState<1|2|3>(2);
+  const [error, setError] = useState("");
+  const [selectedWeeks, setSelectedWeeks] = useState<number[]>([semaine]);
+  const [selectedJour, setSelectedJour] = useState(jour);
+
+  useEffect(() => {
+    fetch(`/api/coach/seances/${item.seanceId}`)
+      .then(r => r.json())
+      .then(d => {
+        setSeanceData(d.seance
+          ? decodeSeance(d.seance, d.exercices ?? [])
+          : { nom: item.seanceName, categorie: "full_body", niveau: "debutant", duree_estimee: item.duree?.toString() ?? "45", note: "", blocs: [defaultBloc("echauffement"), defaultBloc("corps", 1)] }
+        );
+        setLoading(false);
+      })
+      .catch(() => {
+        setSeanceData({ nom: item.seanceName, categorie: "full_body", niveau: "debutant", duree_estimee: item.duree?.toString() ?? "45", note: "", blocs: [defaultBloc("echauffement"), defaultBloc("corps", 1)] });
+        setLoading(false);
+      });
+  }, [item.seanceId, item.seanceName, item.duree]);
+
+  const inp: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #2a2a2a", backgroundColor: "#161616", fontSize: 13, color: "#F5F5F0", fontFamily: "system-ui", outline: "none", boxSizing: "border-box" };
+  const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#666", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, fontFamily: "system-ui" };
+  const totalEx = seanceData?.blocs.reduce((a, b) => a + (b.format === "tabata" ? b.tabata_exercices?.length ?? 0 : b.rich_exercices?.length ?? 0), 0) ?? 0;
+  const STEPS = [{n:1,l:"Infos"},{n:2,l:"Blocs & exercices"},{n:3,l:"Planification"}];
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 500, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", alignItems: "stretch", justifyContent: "flex-end" }}>
+      <div style={{ width: "min(900px, 95vw)", backgroundColor: "#0D0D0D", display: "flex", flexDirection: "column", boxShadow: "-4px 0 40px rgba(0,0,0,0.4)" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div>
+            <p style={{ fontSize: 10, color: "#3B82F6", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 2px", fontFamily: "system-ui" }}>Modifier (copie locale) · {JOURS[jour - 1]}</p>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#F5F5F0", margin: 0, fontFamily: "system-ui" }}>{item.seanceName}</h2>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 7, color: "#888", fontSize: 16, cursor: "pointer", padding: "6px 12px", fontFamily: "system-ui" }}>✕ Fermer</button>
+        </div>
+        <div style={{ padding: "10px 20px", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", flexShrink: 0 }}>
+          {STEPS.map(({n,l},i) => (
+            <div key={n} style={{ display: "flex", alignItems: "center" }}>
+              {i > 0 && <div style={{ width: 30, height: 2, backgroundColor: step > i ? "#3B82F6" : "#222" }} />}
+              <div style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }} onClick={() => !loading && setStep(n as 1|2|3)}>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: step >= n ? "#3B82F6" : "#1a1a1a", color: step >= n ? "#fff" : "#555", fontSize: 10, fontWeight: 700, fontFamily: "system-ui" }}>{n}</div>
+                <span style={{ fontSize: 11, fontWeight: step === n ? 700 : 400, color: step === n ? "#F5F5F0" : "#555", fontFamily: "system-ui" }}>{l}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
+          {loading && <p style={{ fontSize: 13, color: "#555", fontFamily: "system-ui" }}>Chargement de la séance…</p>}
+          {!loading && seanceData && step === 1 && (
+            <div style={{ maxWidth: 480, display: "flex", flexDirection: "column", gap: 18 }}>
+              <div><label style={lbl}>Nom *</label><input style={inp} value={seanceData.nom} onChange={e => setSeanceData(d => d ? { ...d, nom: e.target.value } : d)} /></div>
+              <p style={{ fontSize: 11, color: "#555", margin: 0, fontFamily: "system-ui" }}>⚠ Les modifications ne toucheront pas la séance originale — une copie locale sera créée dans ce programme.</p>
+              <button onClick={() => setStep(2)} style={{ padding: "12px", borderRadius: 9, border: "none", backgroundColor: "#3B82F6", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>Suivant → Modifier les blocs</button>
+            </div>
+          )}
+          {!loading && seanceData && step === 2 && (
+            <div>
+              <SeanceBuildComp data={seanceData} onChange={d => setSeanceData(d)} />
+              <button onClick={() => setStep(3)} style={{ marginTop: 12, width: "100%", padding: "13px", borderRadius: 9, border: "none", backgroundColor: "#3B82F6", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>
+                Suivant → Planification ({totalEx} exercice{totalEx > 1 ? "s" : ""})
+              </button>
+            </div>
+          )}
+          {!loading && seanceData && step === 3 && (
+            <PlanningStep
+              duree_semaines={duree_semaines} semaine={semaine}
+              selectedWeeks={selectedWeeks} setSelectedWeeks={setSelectedWeeks}
+              selectedJour={selectedJour} setSelectedJour={setSelectedJour}
+              color="#3B82F6"
+              onSave={() => { if (!seanceData.nom.trim()) { setError("Nom obligatoire."); return; } onSaved(seanceData, selectedWeeks, selectedJour); }}
+              saveLabel="✅ Enregistrer la copie locale"
+              error={error}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Planificateur vidéo ──────────────────────────────────────────────────────
+function InlineVideoPlannerPanel({ item, semaine, jour, duree_semaines, onSaved, onClose }: {
+  item: CellItem & { type: "video" };
+  semaine: number;
+  jour: number;
+  duree_semaines: number;
+  onSaved: (selectedWeeks: number[], selectedJour: number) => void;
+  onClose: () => void;
+}) {
+  const [selectedWeeks, setSelectedWeeks] = useState<number[]>([semaine]);
+  const [selectedJour, setSelectedJour] = useState(jour);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 500, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", alignItems: "stretch", justifyContent: "flex-end" }}>
+      <div style={{ width: "min(520px, 95vw)", backgroundColor: "#0D0D0D", display: "flex", flexDirection: "column", boxShadow: "-4px 0 40px rgba(0,0,0,0.4)" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div>
+            <p style={{ fontSize: 10, color: "#8B5CF6", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 2px", fontFamily: "system-ui" }}>Planifier la vidéo</p>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#F5F5F0", margin: 0, fontFamily: "system-ui" }}>{item.titre}</h2>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 7, color: "#888", fontSize: 16, cursor: "pointer", padding: "6px 12px", fontFamily: "system-ui" }}>✕</button>
+        </div>
+        {item.thumb && (
+          <div style={{ margin: "14px 20px 0", borderRadius: 10, overflow: "hidden", flexShrink: 0 }}>
+            <img src={item.thumb} alt="" style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }} />
+          </div>
+        )}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
+          <PlanningStep
+            duree_semaines={duree_semaines} semaine={semaine}
+            selectedWeeks={selectedWeeks} setSelectedWeeks={setSelectedWeeks}
+            selectedJour={selectedJour} setSelectedJour={setSelectedJour}
+            color="#8B5CF6"
+            onSave={() => onSaved(selectedWeeks, selectedJour)}
+            saveLabel="✅ Planifier la vidéo"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Cellule jour ─────────────────────────────────────────────────────────────
-function DayCell({ semaine, jour, items, seances, onAdd, onRemove, onCreateSeance }: {
+function DayCell({ semaine, jour, items, seances, onAdd, onRemove, onCreateSeance, onEditSeance, onEditDbSeance, onEditVideo }: {
   semaine: number; jour: number; items: CellItem[]; seances: SeanceRef[];
   onAdd: (item: CellItem) => void;
   onRemove: (key: string) => void;
   onCreateSeance: (semaine: number, jour: number) => void;
+  onEditSeance: (item: CellItem & { type: "seance_locale" }, semaine: number, jour: number) => void;
+  onEditDbSeance: (item: CellItem & { type: "seance" }, semaine: number, jour: number) => void;
+  onEditVideo: (item: CellItem & { type: "video" }, semaine: number, jour: number) => void;
 }) {
   const [hover, setHover] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -334,20 +654,26 @@ function DayCell({ semaine, jour, items, seances, onAdd, onRemove, onCreateSeanc
           <div key={item._key} style={{ marginBottom: 3 }}>
             {item.type === "seance" && (
               <div style={{ padding: "4px 6px 4px 8px", borderRadius: 5, backgroundColor: "#f5f9ff", border: "1px solid #dbeafe", borderLeft: "3px solid #3B82F6", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 4 }}>
-                <div>
+                <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => onEditDbSeance(item as CellItem & { type: "seance" }, semaine, jour)}>
                   <p style={{ fontSize: 10, fontWeight: 700, color: "#1e40af", margin: 0, fontFamily: "system-ui", lineHeight: 1.3 }}>{item.seanceName}</p>
                   {item.duree && <p style={{ fontSize: 8, color: "#93c5fd", margin: "1px 0 0", fontFamily: "system-ui" }}>⏱ {item.duree} min</p>}
                 </div>
-                <button onClick={() => onRemove(item._key)} style={{ background: "none", border: "none", color: "#bfdbfe", cursor: "pointer", fontSize: 11, padding: 0, flexShrink: 0 }}>✕</button>
+                <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+                  <button onClick={() => onEditDbSeance(item as CellItem & { type: "seance" }, semaine, jour)} style={{ background: "none", border: "none", color: "#3B82F6", cursor: "pointer", fontSize: 11, padding: "0 3px" }} title="Modifier">✏</button>
+                  <button onClick={() => onRemove(item._key)} style={{ background: "none", border: "none", color: "#bfdbfe", cursor: "pointer", fontSize: 11, padding: 0 }}>✕</button>
+                </div>
               </div>
             )}
             {item.type === "seance_locale" && (
               <div style={{ padding: "4px 6px 4px 8px", borderRadius: 5, backgroundColor: "#fffbeb", border: "1px solid #fde68a", borderLeft: "3px solid #F59E0B", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 4 }}>
-                <div>
+                <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => onEditSeance(item as CellItem & { type: "seance_locale" }, semaine, jour)}>
                   <p style={{ fontSize: 10, fontWeight: 700, color: "#92400e", margin: 0, fontFamily: "system-ui", lineHeight: 1.3 }}>⚡ {item.nom}</p>
                   {item.duree && <p style={{ fontSize: 8, color: "#b45309", margin: "1px 0 0", fontFamily: "system-ui" }}>⏱ {item.duree} min</p>}
                 </div>
-                <button onClick={() => onRemove(item._key)} style={{ background: "none", border: "none", color: "#fcd34d", cursor: "pointer", fontSize: 11, padding: 0, flexShrink: 0 }}>✕</button>
+                <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+                  <button onClick={() => onEditSeance(item as CellItem & { type: "seance_locale" }, semaine, jour)} style={{ background: "none", border: "none", color: "#b45309", cursor: "pointer", fontSize: 11, padding: "0 3px" }} title="Modifier">✏</button>
+                  <button onClick={() => onRemove(item._key)} style={{ background: "none", border: "none", color: "#fcd34d", cursor: "pointer", fontSize: 11, padding: 0 }}>✕</button>
+                </div>
               </div>
             )}
             {item.type === "video" && (
@@ -359,11 +685,14 @@ function DayCell({ semaine, jour, items, seances, onAdd, onRemove, onCreateSeanc
                   </div>
                 )}
                 <div style={{ padding: "3px 6px", backgroundColor: "#faf5ff", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 9, fontWeight: 700, color: "#7c3aed", margin: 0, fontFamily: "system-ui" }}>{item.titre}</p>
                     <p style={{ fontSize: 8, color: "#c4b5fd", margin: 0, fontFamily: "system-ui" }}>{item.categorie}</p>
                   </div>
-                  <button onClick={() => onRemove(item._key)} style={{ background: "none", border: "none", color: "#c4b5fd", cursor: "pointer", fontSize: 11, padding: 0 }}>✕</button>
+                  <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+                    <button onClick={() => onEditVideo(item as CellItem & { type: "video" }, semaine, jour)} style={{ background: "none", border: "none", color: "#8B5CF6", cursor: "pointer", fontSize: 11, padding: "0 3px" }} title="Planifier">✏</button>
+                    <button onClick={() => onRemove(item._key)} style={{ background: "none", border: "none", color: "#c4b5fd", cursor: "pointer", fontSize: 11, padding: 0 }}>✕</button>
+                  </div>
                 </div>
               </div>
             )}
@@ -427,10 +756,13 @@ function SeancesPanel({ seances, onRefresh }: { seances: SeanceRef[]; onRefresh:
 }
 
 // ─── Grille ───────────────────────────────────────────────────────────────────
-function ProgrammeGrid({ data, seances, onChange, onCreateSeance }: {
+function ProgrammeGrid({ data, seances, onChange, onCreateSeance, onEditSeance, onEditDbSeance, onEditVideo }: {
   data: ProgrammeData; seances: SeanceRef[];
   onChange: (grid: Grid) => void;
   onCreateSeance: (s: number, j: number) => void;
+  onEditSeance: (item: CellItem & { type: "seance_locale" }, semaine: number, jour: number) => void;
+  onEditDbSeance: (item: CellItem & { type: "seance" }, semaine: number, jour: number) => void;
+  onEditVideo: (item: CellItem & { type: "video" }, semaine: number, jour: number) => void;
 }) {
   const weeks = Array.from({ length: data.duree_semaines }, (_, i) => i + 1);
   function addToCell(s: number, j: number, item: CellItem) {
@@ -465,6 +797,9 @@ function ProgrammeGrid({ data, seances, onChange, onCreateSeance }: {
               onAdd={item => addToCell(s, j + 1, item)}
               onRemove={key => removeFromCell(s, j + 1, key)}
               onCreateSeance={onCreateSeance}
+              onEditSeance={onEditSeance}
+              onEditDbSeance={onEditDbSeance}
+              onEditVideo={onEditVideo}
             />
           ))}
         </div>
@@ -482,6 +817,9 @@ export interface ProgrammeBuilderProps {
 export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderProps) {
   const [seances, setSeances] = useState<SeanceRef[]>([]);
   const [creatorTarget, setCreatorTarget] = useState<{ semaine: number; jour: number } | null>(null);
+  const [editTarget, setEditTarget] = useState<{ item: CellItem & { type: "seance_locale" }; semaine: number; jour: number } | null>(null);
+  const [dbEditTarget, setDbEditTarget] = useState<{ item: CellItem & { type: "seance" }; semaine: number; jour: number } | null>(null);
+  const [videoEditTarget, setVideoEditTarget] = useState<{ item: CellItem & { type: "video" }; semaine: number; jour: number } | null>(null);
 
   const loadSeances = useCallback(() => {
     fetch("/api/coach/seances").then(r => r.json()).then(d => {
@@ -499,6 +837,64 @@ export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderPro
   useEffect(() => { loadSeances(); }, [loadSeances]);
 
   const totalItems = Object.values(data.grid).reduce((a, items) => a + items.length, 0);
+
+  function handleSeanceSaved(seanceData: SeanceData, selectedWeeks: number[], selectedJour: number) {
+    if (!editTarget) return;
+    const { item, jour: originalJour } = editTarget;
+    const newGrid = { ...data.grid };
+    for (let s = 1; s <= data.duree_semaines; s++) {
+      const key = gridKey(s, originalJour);
+      if (!newGrid[key]) continue;
+      newGrid[key] = newGrid[key].filter(i => !(i.type === "seance_locale" && (i._key === item._key || i.nom === item.nom)));
+      if (newGrid[key].length === 0) delete newGrid[key];
+    }
+    for (const s of selectedWeeks) {
+      const key = gridKey(s, selectedJour);
+      newGrid[key] = [...(newGrid[key] ?? []), { _key: nk(), type: "seance_locale" as const, nom: seanceData.nom, duree: parseInt(seanceData.duree_estimee) || null, seanceData }];
+    }
+    onChange({ ...data, grid: newGrid });
+    setEditTarget(null);
+  }
+
+  function handleDbSeanceSaved(seanceData: SeanceData, selectedWeeks: number[], selectedJour: number) {
+    if (!dbEditTarget) return;
+    const { item, jour: originalJour } = dbEditTarget;
+    const newGrid = { ...data.grid };
+    // Supprimer l'item original (seance DB) de sa cellule d'origine
+    for (let s = 1; s <= data.duree_semaines; s++) {
+      const key = gridKey(s, originalJour);
+      if (!newGrid[key]) continue;
+      newGrid[key] = newGrid[key].filter(i => i._key !== item._key);
+      if (newGrid[key].length === 0) delete newGrid[key];
+    }
+    // Ajouter comme seance_locale aux nouvelles positions
+    for (const s of selectedWeeks) {
+      const key = gridKey(s, selectedJour);
+      newGrid[key] = [...(newGrid[key] ?? []), { _key: nk(), type: "seance_locale" as const, nom: seanceData.nom, duree: parseInt(seanceData.duree_estimee) || null, seanceData }];
+    }
+    onChange({ ...data, grid: newGrid });
+    setDbEditTarget(null);
+  }
+
+  function handleVideoSaved(selectedWeeks: number[], selectedJour: number) {
+    if (!videoEditTarget) return;
+    const { item, jour: originalJour } = videoEditTarget;
+    const newGrid = { ...data.grid };
+    // Supprimer l'item vidéo de sa position d'origine
+    for (let s = 1; s <= data.duree_semaines; s++) {
+      const key = gridKey(s, originalJour);
+      if (!newGrid[key]) continue;
+      newGrid[key] = newGrid[key].filter(i => i._key !== item._key);
+      if (newGrid[key].length === 0) delete newGrid[key];
+    }
+    // Ajouter aux nouvelles positions
+    for (const s of selectedWeeks) {
+      const key = gridKey(s, selectedJour);
+      newGrid[key] = [...(newGrid[key] ?? []), { ...item, _key: nk() }];
+    }
+    onChange({ ...data, grid: newGrid });
+    setVideoEditTarget(null);
+  }
 
   function handleSeanceCreated(seanceData: SeanceData, repetitions: number) {
     if (!creatorTarget) return;
@@ -540,6 +936,9 @@ export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderPro
             data={data} seances={seances}
             onChange={grid => onChange({ ...data, grid })}
             onCreateSeance={(s, j) => setCreatorTarget({ semaine: s, jour: j })}
+            onEditSeance={(item, semaine, jour) => setEditTarget({ item, semaine, jour })}
+            onEditDbSeance={(item, semaine, jour) => setDbEditTarget({ item, semaine, jour })}
+            onEditVideo={(item, semaine, jour) => setVideoEditTarget({ item, semaine, jour })}
           />
         </div>
       </div>
@@ -551,6 +950,42 @@ export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderPro
           semaine_debut={creatorTarget?.semaine ?? 1}
           onCreated={handleSeanceCreated}
           onClose={() => setCreatorTarget(null)}
+        />
+      )}
+
+      {editTarget && (
+        <InlineSeanceEditor
+          seanceData={editTarget.item.seanceData}
+          jourLabel={`${JOURS[editTarget.jour - 1]}`}
+          semaine={editTarget.semaine}
+          jour={editTarget.jour}
+          duree_semaines={data.duree_semaines}
+          grid={data.grid}
+          itemNom={editTarget.item.nom}
+          onSaved={handleSeanceSaved}
+          onClose={() => setEditTarget(null)}
+        />
+      )}
+
+      {dbEditTarget && (
+        <InlineDbSeanceEditor
+          item={dbEditTarget.item}
+          semaine={dbEditTarget.semaine}
+          jour={dbEditTarget.jour}
+          duree_semaines={data.duree_semaines}
+          onSaved={handleDbSeanceSaved}
+          onClose={() => setDbEditTarget(null)}
+        />
+      )}
+
+      {videoEditTarget && (
+        <InlineVideoPlannerPanel
+          item={videoEditTarget.item}
+          semaine={videoEditTarget.semaine}
+          jour={videoEditTarget.jour}
+          duree_semaines={data.duree_semaines}
+          onSaved={handleVideoSaved}
+          onClose={() => setVideoEditTarget(null)}
         />
       )}
     </>

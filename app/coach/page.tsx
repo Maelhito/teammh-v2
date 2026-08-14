@@ -4,10 +4,19 @@ import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
+const DEV_SESSION = { user: { id: "dev", email: "mael.ld@hotmail.fr", user_metadata: { prenom: "Maël" } } };
+
 export default async function CoachPage() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) redirect("/login");
+  let session: typeof DEV_SESSION | null = null;
+
+  if (process.env.NODE_ENV === "development") {
+    session = DEV_SESSION;
+  } else {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.auth.getSession();
+    session = data.session as unknown as typeof DEV_SESSION;
+    if (!session) redirect("/login");
+  }
 
   const prenom = session.user.user_metadata?.prenom
     ?? session.user.email?.split("@")[0]
