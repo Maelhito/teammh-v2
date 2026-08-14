@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+#
+# pre-push — dernier rempart avant la prod.
+#
+# Bloque tout push vers main qui :
+#   - est un force-push (écraserait l'historique et le travail des autres)
+#   - n'a pas passé le build
+#
+# Activé par : git config core.hooksPath .githooks
+#
+set -uo pipefail
+
+BRANCHE_PROTEGEE="refs/heads/main"
+ZERO="0000000000000000000000000000000000000000"
+
+rouge() { printf '\033[31m%s\033[0m\n' "$*" >&2; }
+vert()  { printf '\033[32m%s\033[0m\n' "$*" >&2; }
+
+GITDIR=$(git rev-parse --git-dir)
+
+while read -r ref_local sha_local ref_distant sha_distant; do
+  [ "$ref_distant" != "$BRANCHE_PROTEGEE" ] && continue
+  [ "$sha_local" = "$ZERO" ] && {
+    rouge ""
+    rouge "  ✖ SUPPRESSION DE main REFUSÉE"
+    rouge ""
+    exit 1
+  }
+
+  # ── Force-push : refus catégorique ──────────────────────────────────────────
+  if [ "$sha_distant" != "$ZERO" ] && ! git merge-base --is-ancestor "$sha_distant" "$sha_local" 2>/dev/null; then
+    rouge ""
+    rouge "  ══════════════════════════════════════════════"
+    rouge "  ✖ FORCE-PUSH SUR main REFUSÉ"
+    rouge "  ══════════════════════════════════════════════"
+    rouge ""
+    rouge "  Ce push effacerait des commits déjà présents dans main."
+    rouge "  C'est exactement ce qui fait disparaître du travail."
+    rouge ""
+    rouge "  À faire à la place :"
+    rouge "    npm run ship"
+    rouge ""
+    exit 1
+  fi
+
+  # ── Le build doit avoir été validé pour CE commit précis ────────────────────
+  STAMP="$GITDIR/ship-build-ok"
+  if [ -f "$STAMP" ] && [ "$(cat "$STAMP" 2>/dev/null)" = "$sha_local" ]; then
+    vert "  ✓ build déjà validé pour ce commit"
+    continue
+  fi
+
+  rouge ""
+  rouge "  Push direct vers main détecté — vérification du build..."
+  rouge ""
+
+  RACINE=$(git rev-parse --show-toplevel)
+  cd "$RACINE" || exit 1
+
+  if [ ! -d node_modules ]; then
+    rouge "  installation des dépendances..."
+    npm ci --silent >&2 || { rouge "  ✖ npm ci a échoué"; exit 1; }
+  fi
+
+  if ! npm run build >&2; then
+    rouge ""
+    rouge "  ══════════════════════════════════════════════"
+    rouge "  ✖ PUSH REFUSÉ — LE BUILD NE PASSE PAS"
+    rouge "  ══════════════════════════════════════════════"
+    rouge ""
+    rouge "  main déploie directement en prod : ce code la casserait."
+    rouge "  Corrige l'erreur ci-dessus, puis :  npm run ship"
+    rouge ""
+    exit 1
+  fi
+
+  echo "$sha_local" > "$STAMP"
+  vert "  ✓ build OK — push autorisé"
+done
+
+exit 0

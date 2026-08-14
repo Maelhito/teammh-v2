@@ -1,0 +1,44 @@
+name: CI
+
+# Deuxième filet, côté serveur : il s'applique même si un hook local
+# a été contourné (--no-verify) ou si le push vient d'une autre machine.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Vérifier les types TypeScript
+        run: npx tsc --noEmit
+        continue-on-error: true
+
+      - name: Build de production
+        run: npm run build
+        env:
+          # Valeurs de remplacement : le build doit compiler sans secret réel.
+          # Les vraies valeurs vivent dans les variables d'environnement Vercel.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://exemple.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'cle-factice-pour-le-build' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'cle-factice-pour-le-build' }}

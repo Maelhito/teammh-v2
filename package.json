@@ -5,7 +5,14 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "ship": "bash scripts/ship.sh",
+    "check": "next build",
+    "typecheck": "tsc --noEmit",
+    "status": "bash scripts/status.sh",
+    "worktrees:clean": "bash scripts/worktrees-clean.sh",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
+    "rescue": "bash scripts/rescue.sh"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.15.0",

@@ -6,7 +6,33 @@
       "mcp__Claude_Preview__preview_console_logs",
       "mcp__Claude_Preview__preview_resize",
       "mcp__Claude_Preview__preview_click",
-      "mcp__ccd_session_mgmt__search_session_transcripts"
+      "mcp__ccd_session_mgmt__search_session_transcripts",
+      "Bash(npm run ship:*)",
+      "Bash(npm run status:*)",
+      "Bash(npm run check:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run worktrees:clean:*)"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git push --no-verify:*)",
+      "Bash(git commit --no-verify:*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/session-check.sh 2>/dev/null || true",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
