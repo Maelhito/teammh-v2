@@ -173,6 +173,23 @@ echo "$(git rev-parse HEAD)" > "$GITDIR/ship-build-ok"
 # ── 5. Push fast-forward strict ───────────────────────────────────────────────
 etape "5/6  Envoi vers $BRANCHE_CIBLE"
 
+# On note le déploiement de prod actuel : le nouveau sera celui qui apparaîtra
+# au-dessus. `vercel ls` ne montre PAS la colonne statut quand sa sortie est
+# redirigée — d'où l'URL ici, et `vercel inspect` plus bas pour le statut.
+lien_vercel_local() {
+  [ -f .vercel/project.json ] && return 0
+  local principal
+  principal=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+  if [ -n "$principal" ] && [ -f "$principal/.vercel/project.json" ]; then
+    mkdir -p .vercel && cp "$principal/.vercel/project.json" .vercel/project.json
+  fi
+  [ -f .vercel/project.json ]
+}
+PROD_AVANT=""
+if command -v vercel >/dev/null 2>&1 && lien_vercel_local; then
+  PROD_AVANT=$(vercel ls --prod 2>/dev/null | grep -oE 'https://[^ ]+' | head -1)
+fi
+
 # Pas de --force : si main a bougé pendant le build, git refuse et on recommence.
 SORTIE_PUSH=$(git push "$REMOTE" "HEAD:$BRANCHE_CIBLE" 2>&1)
 CODE_PUSH=$?
@@ -235,46 +252,46 @@ etape "6/6  Déploiement (déclenché par le push)"
 
 DEPLOYE=0
 
-if ! command -v vercel >/dev/null 2>&1; then
-  jaune "  Vercel CLI absent — suivi impossible depuis le terminal."
+if ! command -v vercel >/dev/null 2>&1 || ! lien_vercel_local; then
+  jaune "  Suivi impossible depuis ce terminal (Vercel CLI absent ou projet non lié)."
   echo "  Le déploiement tourne quand même : https://vercel.com/dashboard"
 else
-  # `.vercel/` est gitignoré donc absent des worktrees : on emprunte le lien du
-  # dépôt principal, uniquement pour CONSULTER l'état (aucun déploiement lancé).
-  if [ ! -f .vercel/project.json ]; then
-    PRINCIPAL=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
-    if [ -n "$PRINCIPAL" ] && [ -f "$PRINCIPAL/.vercel/project.json" ]; then
-      mkdir -p .vercel
-      cp "$PRINCIPAL/.vercel/project.json" .vercel/project.json
+  echo "  Vercel construit le commit qui vient d'être poussé."
+  printf "  attente"
+
+  # 1) repérer le nouveau déploiement : c'est celui qui n'était pas là avant.
+  NOUVEAU=""
+  for _ in $(seq 1 20); do
+    printf "."
+    sleep 6
+    COURANT=$(vercel ls --prod 2>/dev/null | grep -oE 'https://[^ ]+' | head -1)
+    if [ -n "$COURANT" ] && [ "$COURANT" != "$PROD_AVANT" ]; then
+      NOUVEAU="$COURANT"; break
     fi
-  fi
+  done
 
-  if [ ! -f .vercel/project.json ]; then
-    jaune "  Projet Vercel non lié ici — suivi impossible."
-    echo "  Le déploiement tourne quand même : https://vercel.com/dashboard"
-  else
-    echo "  Vercel construit le commit qui vient d'être poussé."
-    printf "  attente"
-
-    for _ in $(seq 1 40); do
+  # 2) attendre son issue. `vercel inspect` affiche bien "status ● Ready".
+  if [ -n "$NOUVEAU" ]; then
+    for _ in $(seq 1 30); do
+      ETAT=$(vercel inspect "$NOUVEAU" 2>&1 | grep -m1 -oE '● [A-Za-z]+')
+      case "$ETAT" in
+        *Ready*)    DEPLOYE=1; break ;;
+        *Error*|*Canceled*) DEPLOYE=2; break ;;
+      esac
       printf "."
       sleep 6
-      LIGNE=$(vercel ls --prod 2>/dev/null | grep -E "https://" | head -1)
-      case "$LIGNE" in
-        *Ready*)   DEPLOYE=1; break ;;
-        *Error*)   DEPLOYE=2; break ;;
-      esac
     done
-    echo ""
-
-    case "$DEPLOYE" in
-      1) vert "  ✓ déploiement terminé" ;;
-      2) rouge "  ✖ Le déploiement Vercel a échoué."
-         echo "  Ton code est en sécurité dans $BRANCHE_CIBLE."
-         echo "  Voir les logs : https://vercel.com/dashboard" ;;
-      *) jaune "  Toujours en cours après 4 min — suivi : https://vercel.com/dashboard" ;;
-    esac
   fi
+  echo ""
+
+  case "$DEPLOYE" in
+    1) vert "  ✓ déploiement terminé"
+       echo "    $NOUVEAU" ;;
+    2) rouge "  ✖ Le déploiement Vercel a échoué."
+       echo "  Ton code est en sécurité dans $BRANCHE_CIBLE."
+       echo "  Logs : $NOUVEAU" ;;
+    *) jaune "  Toujours en cours — suivi : https://vercel.com/dashboard" ;;
+  esac
 fi
 
 echo ""
