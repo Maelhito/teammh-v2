@@ -60,9 +60,9 @@ export default function SeanceDetailPage() {
   if (!data) return <p style={{ fontSize: 13, color: "#555", fontFamily: "system-ui" }}>Chargement…</p>;
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {/* ── Header ── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button onClick={() => router.push("/coach/seances")}
             style={{ background: "none", border: "1px solid #222", borderRadius: 7, padding: "7px 14px", fontSize: 12, color: "#888", cursor: "pointer", fontFamily: "system-ui" }}>
@@ -84,7 +84,7 @@ export default function SeanceDetailPage() {
       </div>
 
       {/* ── Info section ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 14, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 14, marginBottom: 20, flexShrink: 0 }}>
 
         {/* Left: metadata */}
         <div style={{ backgroundColor: "#111", borderRadius: 12, border: "1px solid #1a1a1a", padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -142,7 +142,9 @@ export default function SeanceDetailPage() {
       </div>
 
       {/* ── Builder ── */}
-      <SeanceBuilder data={data} onChange={setData} />
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <SeanceBuilder data={data} onChange={setData} />
+      </div>
     </div>
   );
 }
