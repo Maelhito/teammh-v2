@@ -54,7 +54,7 @@ if [ -f "$GITDIR/MERGE_HEAD" ]; then
 fi
 
 # ── 1. Commit de ce qui traîne ────────────────────────────────────────────────
-etape "1/5  Travail non commité"
+etape "1/6  Travail non commité"
 
 if [ -n "$(git status --porcelain)" ]; then
   git status --short
@@ -94,7 +94,7 @@ echo "  $NB commit(s) à envoyer :"
 git log --oneline --reverse "$REMOTE/$BRANCHE_CIBLE..HEAD" | sed 's/^/    /'
 
 # ── 2. Filet de sécurité : une sauvegarde avant de rebaser ────────────────────
-etape "2/5  Sauvegarde de sécurité"
+etape "2/6  Sauvegarde de sécurité"
 
 SAUVEGARDE="backup/${BRANCHE//\//-}-$(date +%Y%m%d-%H%M%S)"
 git branch "$SAUVEGARDE" >/dev/null 2>&1 \
@@ -102,7 +102,7 @@ git branch "$SAUVEGARDE" >/dev/null 2>&1 \
   || jaune "  ! sauvegarde locale impossible (on continue)"
 
 # ── 3. Rebase sur le vrai main ────────────────────────────────────────────────
-etape "3/5  Rebase sur $REMOTE/$BRANCHE_CIBLE"
+etape "3/6  Rebase sur $REMOTE/$BRANCHE_CIBLE"
 echo "  → ton travail est replacé AU-DESSUS du dernier état de la prod,"
 echo "    donc il ne peut pas écraser ce qui existe déjà."
 echo ""
@@ -135,7 +135,7 @@ fi
 vert "  ✓ rebase propre"
 
 # ── 4. Le build décide ────────────────────────────────────────────────────────
-etape "4/5  Build (le garde-fou)"
+etape "4/6  Build (le garde-fou)"
 
 # Le build a besoin des variables d'env : on les emprunte au dépôt principal.
 if [ ! -f .env.local ]; then
@@ -171,7 +171,7 @@ vert "  ✓ build OK"
 echo "$(git rev-parse HEAD)" > "$GITDIR/ship-build-ok"
 
 # ── 5. Push fast-forward strict ───────────────────────────────────────────────
-etape "5/5  Envoi vers $BRANCHE_CIBLE"
+etape "5/6  Envoi vers $BRANCHE_CIBLE"
 
 # Pas de --force : si main a bougé pendant le build, git refuse et on recommence.
 SORTIE_PUSH=$(git push "$REMOTE" "HEAD:$BRANCHE_CIBLE" 2>&1)
@@ -221,11 +221,36 @@ fi
 # La sauvegarde n'a plus lieu d'être : le travail est en sécurité sur GitHub.
 git branch -D "$SAUVEGARDE" >/dev/null 2>&1
 
+vert "  ✓ $NB commit(s) dans $BRANCHE_CIBLE"
+
+# ── 6. Déploiement ────────────────────────────────────────────────────────────
+# Le projet Vercel n'est pas connecté à GitHub : pousser dans main ne déploie PAS.
+# On déploie donc explicitement, depuis le code exact qui vient d'être poussé.
+# C'est ce qui garantit que la prod == main, et jamais un vieil état local.
+etape "6/6  Déploiement en production"
+
+if [ "${SHIP_NO_DEPLOY:-}" = "1" ]; then
+  jaune "  ignoré (SHIP_NO_DEPLOY=1)"
+elif ! command -v vercel >/dev/null 2>&1; then
+  jaune "  Vercel CLI introuvable — déploiement à faire à la main :"
+  echo "    npx vercel --prod --yes"
+else
+  echo "  déploiement du code qui vient d'être poussé..."
+  echo ""
+  if vercel --prod --yes; then
+    vert "  ✓ déployé"
+  else
+    echo ""
+    rouge "  ✖ Le déploiement a échoué."
+    echo "  Ton code est en sécurité dans $BRANCHE_CIBLE — seule la mise en ligne a échoué."
+    echo "  Relancer :  npx vercel --prod --yes"
+    echo ""
+    exit 1
+  fi
+fi
+
 echo ""
 vert "════════════════════════════════════════════════"
-vert "  ENVOYÉ — $NB commit(s) dans $BRANCHE_CIBLE"
+vert "  TERMINÉ — $BRANCHE_CIBLE et la prod sont identiques"
 vert "════════════════════════════════════════════════"
-echo ""
-echo "  Vercel déploie automatiquement."
-echo "  Suivi : https://vercel.com/dashboard"
 echo ""

@@ -18,9 +18,23 @@ Elle enchaîne, dans cet ordre, et **s'arrête à la première erreur** :
 3. **Rebase sur `origin/main`** — le travail est replacé *au-dessus* du dernier état de prod, jamais en dessous
 4. **`npm run build`** — si le build casse, rien n'est poussé
 5. `git push origin HEAD:main` — en fast-forward strict, sans `--force`
-6. Vercel déploie
+6. `vercel --prod` — déploie exactement le code qui vient d'être poussé
 
-Ne pas contourner cette commande. Ne pas utiliser `vercel --prod` à la main : le push sur `main` déclenche déjà le déploiement.
+Ne pas contourner cette commande. Ne **jamais** lancer `vercel --prod` seul (voir ci-dessous).
+
+### ⚠️ Le projet Vercel n'est pas connecté à GitHub
+
+Pousser dans `main` ne déclenche **aucun** déploiement. Historiquement, la prod était mise à jour
+par des `vercel --prod` lancés à la main depuis un dossier local — c'est-à-dire depuis l'état du
+disque à cet instant, souvent une branche ancienne. **`main` et la prod étaient donc deux choses
+indépendantes**, et c'est une des causes des régressions constatées.
+
+`npm run ship` règle le problème en déployant *juste après* le push, depuis le code exact qui vient
+d'être validé : la prod est forcément identique à `main`.
+
+**Amélioration recommandée** — connecter le dépôt GitHub dans Vercel
+(*Project Settings → Git → Connect Git Repository*). Une fois fait, le déploiement devient
+automatique et `ship` n'aura plus à le déclencher (`SHIP_NO_DEPLOY=1 npm run ship` pour le sauter).
 
 ---
 
@@ -33,6 +47,8 @@ Ce projet a perdu du travail plusieurs fois. Les trois causes, et ce qui les blo
 | Le travail restait sur des branches locales jamais poussées | `npm run ship` pousse dans `main` à chaque fois |
 | Une branche ancienne fusionnée en dernier écrasait du travail plus récent | Le **rebase sur `origin/main`** avant chaque push ; le push est en fast-forward strict, donc **impossible** d'écraser un commit existant |
 | Du code cassé arrivait en prod | Le **build** bloque le push (hook `pre-push` + CI GitHub Actions) |
+| La prod était déployée depuis un dossier local, pas depuis `main` | `ship` déploie **juste après** le push, depuis le code exact qui vient d'être validé |
+| Les erreurs TypeScript étaient ignorées au build | `ignoreBuildErrors: false` dans `next.config.ts` |
 
 ### Interdits absolus
 
