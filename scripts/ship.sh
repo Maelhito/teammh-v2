@@ -229,6 +229,7 @@ vert "  ✓ $NB commit(s) dans $BRANCHE_CIBLE"
 # C'est ce qui garantit que la prod == main, et jamais un vieil état local.
 etape "6/6  Déploiement en production"
 
+DEPLOYE=0
 if [ "${SHIP_NO_DEPLOY:-}" = "1" ]; then
   jaune "  ignoré (SHIP_NO_DEPLOY=1)"
 elif ! command -v vercel >/dev/null 2>&1; then
@@ -239,6 +240,7 @@ else
   echo ""
   if vercel --prod --yes; then
     vert "  ✓ déployé"
+    DEPLOYE=1
   else
     echo ""
     rouge "  ✖ Le déploiement a échoué."
@@ -250,7 +252,16 @@ else
 fi
 
 echo ""
-vert "════════════════════════════════════════════════"
-vert "  TERMINÉ — $BRANCHE_CIBLE et la prod sont identiques"
-vert "════════════════════════════════════════════════"
+if [ "$DEPLOYE" = "1" ]; then
+  vert "════════════════════════════════════════════════"
+  vert "  TERMINÉ — $BRANCHE_CIBLE et la prod sont identiques"
+  vert "════════════════════════════════════════════════"
+else
+  jaune "════════════════════════════════════════════════"
+  jaune "  POUSSÉ dans $BRANCHE_CIBLE — mais PAS déployé"
+  jaune "════════════════════════════════════════════════"
+  echo ""
+  echo "  La prod tourne encore sur une version antérieure."
+  echo "  Pour la mettre à jour :  npx vercel --prod --yes"
+fi
 echo ""
