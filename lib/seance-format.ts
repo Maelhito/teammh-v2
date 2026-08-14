@@ -137,9 +137,24 @@ export function decodeSeance(
   } catch {}
 
   const blocs_meta = (meta.blocs as Record<string, unknown>[] | undefined) ?? [];
+
+  // Rattrapage des séances enregistrées quand l'API écrasait `ordre` par
+  // l'index du tableau : toutes les lignes valent alors 0,1,2… donc « bloc 0 ».
+  // À l'époque seuls les blocs tabata étaient écrits ; s'il n'y en a qu'un, on
+  // sait sans ambiguïté à qui ces exercices appartiennent — on les lui rend.
+  const tabataIdx = blocs_meta
+    .map((bm, i) => (bm.format === "tabata" ? i : -1))
+    .filter(i => i >= 0);
+  const looksLegacy =
+    exercices.length > 0 &&
+    exercices.every(ex => (((ex.ordre as number) ?? 0) < ORDRE_BLOC_STRIDE)) &&
+    tabataIdx.length === 1 && tabataIdx[0] !== 0;
+
   const exByBlocIdx: Record<number, Record<string, unknown>[]> = {};
   for (const ex of exercices) {
-    const bi = Math.floor(((ex.ordre as number) ?? 0) / ORDRE_BLOC_STRIDE);
+    const bi = looksLegacy
+      ? tabataIdx[0]
+      : Math.floor(((ex.ordre as number) ?? 0) / ORDRE_BLOC_STRIDE);
     if (!exByBlocIdx[bi]) exByBlocIdx[bi] = [];
     exByBlocIdx[bi].push(ex);
   }

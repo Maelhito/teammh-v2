@@ -65,6 +65,11 @@ function ytEmbed(url: string) {
   return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=1` : null;
 }
 
+/** Modifications d'un bloc. La forme fonction reçoit le bloc À JOUR : c'est la
+ *  seule sûre quand la valeur dépend de l'état courant (listes d'exercices),
+ *  car les props d'un composant sont périmées tant que React n'a pas re-rendu. */
+type BlocChanges = Partial<Bloc> | ((bloc: Bloc) => Partial<Bloc>);
+
 // ─── Video Modal ──────────────────────────────────────────────────────────────
 function VideoModal({ url, nom, onClose }: { url: string; nom: string; onClose: () => void }) {
   useEffect(() => {
@@ -107,6 +112,29 @@ function extractExercisesFromHtml(html: string): Exercise[] {
   } catch { return []; }
 }
 
+/** Le HTML de la description est ré-injecté chez la cliente via
+ *  dangerouslySetInnerHTML. Un copier-coller depuis le web peut donc y glisser
+ *  un `<img onerror>` ou un `<script>` : on nettoie avant de stocker. */
+const TAGS_INTERDITS = ["script", "style", "iframe", "object", "embed", "link", "meta", "form", "input", "button"];
+function sanitizeHtml(html: string): string {
+  if (typeof window === "undefined" || !html) return html;
+  try {
+    const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+    const root = doc.body.firstElementChild;
+    if (!root) return html;
+    root.querySelectorAll(TAGS_INTERDITS.join(",")).forEach(n => n.remove());
+    root.querySelectorAll("*").forEach(el => {
+      for (const attr of [...el.attributes]) {
+        const nom = attr.name.toLowerCase();
+        const val = attr.value.replace(/\s/g, "").toLowerCase();
+        if (nom.startsWith("on")) el.removeAttribute(attr.name);
+        else if ((nom === "href" || nom === "src" || nom === "xlink:href") && val.startsWith("javascript:")) el.removeAttribute(attr.name);
+      }
+    });
+    return root.innerHTML;
+  } catch { return html; }
+}
+
 export interface RichTextEditorHandle {
   /** Retourne le HTML après suppression (null si l'éditeur n'est pas monté).
    *  Ne déclenche PAS onHtmlChange : l'appelant doit écrire instructions +
@@ -139,7 +167,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
       div.querySelectorAll(`[data-ex-nom]`).forEach(s => {
         if (s.getAttribute("data-ex-nom") === nom) s.remove();
       });
-      return div.innerHTML;
+      return sanitizeHtml(div.innerHTML);
     },
   }));
 
@@ -176,7 +204,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
     after.setStartAfter(span); after.collapse(true);
     sel?.removeAllRanges(); sel?.addRange(after);
     div.focus();
-    return div.innerHTML;
+    return sanitizeHtml(div.innerHTML);
   }
 
   const ph = placeholder || "Tape tes consignes… Glisse un exercice pour l'insérer en rouge et dans Mouvements.";
@@ -188,8 +216,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
         contentEditable
         suppressContentEditableWarning
         data-placeholder={ph}
-        onInput={() => divRef.current && onHtmlChange(divRef.current.innerHTML)}
-        onKeyUp={() => divRef.current && onHtmlChange(divRef.current.innerHTML)}
+        onInput={() => divRef.current && onHtmlChange(sanitizeHtml(divRef.current.innerHTML))}
+        onKeyUp={() => divRef.current && onHtmlChange(sanitizeHtml(divRef.current.innerHTML))}
         onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
         onDrop={e => {
           e.preventDefault(); e.stopPropagation();
@@ -494,7 +522,7 @@ function BlocCard({
   bloc: Bloc;
   blocNum: number;
   corpsTotal: number;
-  onBlocChange: (key: string, changes: Partial<Bloc>) => void;
+  onBlocChange: (key: string, changes: BlocChanges) => void;
   onBlocRemove: (key: string) => void;
   isActive: boolean;
   onDrop: (e: React.DragEvent) => void;
@@ -506,8 +534,9 @@ function BlocCard({
 
   /** Recalcule Mouvements à partir du HTML de la description.
    *  Dédoublonné : deux fois le même exercice dans le texte donnaient deux
-   *  entrées avec la même clé React (une des deux disparaissait). */
-  function richFromHtml(html: string): RichExercise[] {
+   *  entrées avec la même clé React (une des deux disparaissait).
+   *  `current` vient du bloc à jour, jamais des props (potentiellement périmées). */
+  function richFromHtml(html: string, current: RichExercise[]): RichExercise[] {
     const exes = extractExercisesFromHtml(html);
     const fromDesc: RichExercise[] = [];
     const seen = new Set<string>();
@@ -519,7 +548,7 @@ function BlocCard({
     }
     const fromDescNoms = new Set(exes.map(e => e.nom));
     // Garde les exercices ajoutés directement dans Mouvements (pas via description)
-    const directOnly = bloc.rich_exercices.filter(
+    const directOnly = current.filter(
       re => !fromDescNoms.has(re.exercise.nom) && !re._key.startsWith("desc_")
     );
     return [...fromDesc, ...directOnly];
@@ -531,7 +560,7 @@ function BlocCard({
       onBlocChange(bloc._key, { instructions: html });
       return;
     }
-    onBlocChange(bloc._key, { instructions: html, rich_exercices: richFromHtml(html) });
+    onBlocChange(bloc._key, b => ({ instructions: html, rich_exercices: richFromHtml(html, b.rich_exercices) }));
   }
 
   const color = BCOLORS[bloc.type];
@@ -669,14 +698,19 @@ function BlocCard({
             onVideoClick={(url, nom) => setVideoUrl({ url, nom })}
             placeholder="Redigez la description… Glisse un exercice pour l’insérer en rouge et dans Mouvements."
             onExerciseDrop={(ex, html) => {
-              // UNE seule écriture : description + Mouvements dans le même
-              // onBlocChange, sinon la seconde (issue d'un `data` périmé)
-              // annule la première et l'exercice disparaît de la description.
+              // UNE seule écriture, à partir du bloc à jour : description +
+              // Mouvements ensemble. Deux écritures séparées se seraient
+              // annulées et l'exercice aurait disparu de la description.
               if (bloc.format === "tabata") {
-                const item: TabataItem = { _key: newKey(), exercise_id: ex.id, exercise: ex, series: "", tabata_work: bloc.tabata_work, tabata_rest: bloc.tabata_rest, notes: "" };
-                onBlocChange(bloc._key, { instructions: html, tabata_exercices: [...bloc.tabata_exercices, item] });
+                onBlocChange(bloc._key, b => ({
+                  instructions: html,
+                  tabata_exercices: [...b.tabata_exercices, {
+                    _key: newKey(), exercise_id: ex.id, exercise: ex,
+                    series: "", tabata_work: b.tabata_work, tabata_rest: b.tabata_rest, notes: "",
+                  }],
+                }));
               } else {
-                onBlocChange(bloc._key, { instructions: html, rich_exercices: richFromHtml(html) });
+                onBlocChange(bloc._key, b => ({ instructions: html, rich_exercices: richFromHtml(html, b.rich_exercices) }));
               }
             }}
           />
@@ -734,20 +768,24 @@ function BlocCard({
                       onClick={() => {
                         const nom = re.exercise?.nom ?? "";
                         if (bloc.format === "tabata") {
-                          const nextTabata = bloc.tabata_exercices.filter(t => t._key !== re._key);
-                          // Ne retire le span que si l'exercice ne reste pas ailleurs dans le bloc
-                          const html = nextTabata.some(t => t.exercise?.nom === nom)
-                            ? null : editorRef.current?.removeExercise(nom) ?? null;
-                          onBlocChange(bloc._key, html !== null
-                            ? { instructions: html, tabata_exercices: nextTabata }
-                            : { tabata_exercices: nextTabata });
+                          onBlocChange(bloc._key, b => {
+                            const nextTabata = b.tabata_exercices.filter(t => t._key !== re._key);
+                            // Ne retire le span que si l'exercice ne reste pas ailleurs dans le bloc
+                            const html = nextTabata.some(t => t.exercise?.nom === nom)
+                              ? null : editorRef.current?.removeExercise(nom) ?? null;
+                            return html !== null
+                              ? { instructions: html, tabata_exercices: nextTabata }
+                              : { tabata_exercices: nextTabata };
+                          });
                         } else {
                           // Sync bidirectionnel : supprime aussi le span dans la description
                           const html = editorRef.current?.removeExercise(nom) ?? null;
-                          const nextRich = bloc.rich_exercices.filter(r => r._key !== re._key);
-                          onBlocChange(bloc._key, html !== null
-                            ? { instructions: html, rich_exercices: nextRich }
-                            : { rich_exercices: nextRich });
+                          onBlocChange(bloc._key, b => {
+                            const nextRich = b.rich_exercices.filter(r => r._key !== re._key);
+                            return html !== null
+                              ? { instructions: html, rich_exercices: nextRich }
+                              : { rich_exercices: nextRich };
+                          });
                         }
                       }}
                       style={{ background: "none", border: "none", color: "#333", cursor: "pointer", fontSize: 12, padding: 2 }}>✕</button>
@@ -792,59 +830,80 @@ export default function SeanceBuilder({ data, onChange }: SeanceBuilderProps) {
   const [activeBlocKey, setActiveBlocKey] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const updateBloc = useCallback((key: string, changes: Partial<Bloc>) => {
-    onChange({ ...data, blocs: data.blocs.map(b => b._key === key ? { ...b, ...changes } : b) });
-  }, [data, onChange]);
+  // `data` arrive en prop : entre deux écritures faites dans le MÊME événement,
+  // React n'a pas encore re-rendu, donc la prop est périmée et la 2ᵉ écriture
+  // écrase la 1ʳᵉ (c'est ce qui faisait disparaître les exercices).
+  // dataRef garde toujours la dernière valeur émise ; il est réaligné sur la
+  // prop après chaque rendu, donc jamais désynchronisé du parent.
+  const dataRef = useRef(data);
+  useEffect(() => { dataRef.current = data; });
+
+  const commit = useCallback((next: SeanceData) => {
+    dataRef.current = next;
+    onChange(next);
+  }, [onChange]);
+
+  const updateBloc = useCallback((key: string, changes: BlocChanges) => {
+    const d = dataRef.current;
+    commit({
+      ...d,
+      blocs: d.blocs.map(b =>
+        b._key === key ? { ...b, ...(typeof changes === "function" ? changes(b) : changes) } : b),
+    });
+  }, [commit]);
 
   const removeBloc = useCallback((key: string) => {
     setActiveBlocKey(prev => prev === key ? null : prev);
-    onChange({ ...data, blocs: data.blocs.filter(b => b._key !== key) });
-  }, [data, onChange]);
+    const d = dataRef.current;
+    commit({ ...d, blocs: d.blocs.filter(b => b._key !== key) });
+  }, [commit]);
 
   const addCorpsBloc = useCallback(() => {
-    const n = data.blocs.filter(b => b.type === "corps").length + 1;
+    const d = dataRef.current;
+    const n = d.blocs.filter(b => b.type === "corps").length + 1;
     const newBloc = defaultBloc("corps", n);
-    const finIdx = data.blocs.findIndex(b => b.type === "finisher");
-    const blocs = [...data.blocs];
+    const finIdx = d.blocs.findIndex(b => b.type === "finisher");
+    const blocs = [...d.blocs];
     if (finIdx >= 0) blocs.splice(finIdx, 0, newBloc); else blocs.push(newBloc);
-    onChange({ ...data, blocs });
+    commit({ ...d, blocs });
     // auto-scroll to new bloc
     setTimeout(() => {
       if (scrollRef.current) {
         scrollRef.current.scrollTo({ left: scrollRef.current.scrollWidth, behavior: "smooth" });
       }
     }, 50);
-  }, [data, onChange]);
+  }, [commit]);
 
   const toggleFinisher = useCallback(() => {
-    const has = data.blocs.some(b => b.type === "finisher");
-    if (has) onChange({ ...data, blocs: data.blocs.filter(b => b.type !== "finisher") });
-    else onChange({ ...data, blocs: [...data.blocs, defaultBloc("finisher")] });
-  }, [data, onChange]);
+    const d = dataRef.current;
+    const has = d.blocs.some(b => b.type === "finisher");
+    if (has) commit({ ...d, blocs: d.blocs.filter(b => b.type !== "finisher") });
+    else commit({ ...d, blocs: [...d.blocs, defaultBloc("finisher")] });
+  }, [commit]);
 
   function handleAddFromBank(ex: Exercise) {
-    if (!activeBlocKey) {
-      // Si aucun bloc actif, ajouter au premier bloc corps ou au premier bloc
-      const target = data.blocs.find(b => b.type === "corps") ?? data.blocs[0];
-      if (!target) return;
-      addExToBloc(target._key, ex);
-      return;
-    }
-    addExToBloc(activeBlocKey, ex);
+    addExToBloc(activeBlocKey ?? "", ex);
   }
 
   function addExToBloc(blocKey: string, ex: Exercise) {
     // Repli si le bloc actif a été supprimé entre-temps : sans ça l'exercice
     // était ajouté nulle part (il « disparaissait » au clic).
-    const bloc = data.blocs.find(b => b._key === blocKey)
-      ?? data.blocs.find(b => b.type === "corps")
-      ?? data.blocs[0];
+    const blocs = dataRef.current.blocs;
+    const bloc = blocs.find(b => b._key === blocKey)
+      ?? blocs.find(b => b.type === "corps")
+      ?? blocs[0];
     if (!bloc) return;
     if (bloc.format === "tabata") {
-      const item: TabataItem = { _key: newKey(), exercise_id: ex.id, exercise: ex, series: "", tabata_work: bloc.tabata_work, tabata_rest: bloc.tabata_rest, notes: "" };
-      updateBloc(bloc._key, { tabata_exercices: [...bloc.tabata_exercices, item] });
+      updateBloc(bloc._key, b => ({
+        tabata_exercices: [...b.tabata_exercices, {
+          _key: newKey(), exercise_id: ex.id, exercise: ex,
+          series: "", tabata_work: b.tabata_work, tabata_rest: b.tabata_rest, notes: "",
+        }],
+      }));
     } else {
-      updateBloc(bloc._key, { rich_exercices: [...bloc.rich_exercices, { _key: newKey(), exercise: ex }] });
+      updateBloc(bloc._key, b => ({
+        rich_exercices: [...b.rich_exercices, { _key: newKey(), exercise: ex }],
+      }));
     }
   }
 
@@ -904,7 +963,7 @@ export default function SeanceBuilder({ data, onChange }: SeanceBuilderProps) {
             <input
               type="number" min="1"
               value={data.duree_estimee}
-              onChange={e => onChange({ ...data, duree_estimee: e.target.value })}
+              onChange={e => commit({ ...dataRef.current, duree_estimee: e.target.value })}
               style={{ width: 52, padding: "3px 6px", borderRadius: 6, border: "1px solid #e0e0e0", backgroundColor: "#f5f5f5", color: "#1a1a1a", fontSize: 13, fontWeight: 700, fontFamily: "system-ui", outline: "none", textAlign: "center" }}
             />
             <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui" }}>min</span>

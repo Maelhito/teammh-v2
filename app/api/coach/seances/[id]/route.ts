@@ -44,9 +44,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Replace exercices
+  // Remplace les exercices. On INSÈRE d'abord, on supprime l'ancien ensuite :
+  // supabase-js n'a pas de transaction, donc un delete-puis-insert raté
+  // laisserait la séance sans aucun exercice.
   if (exercices !== undefined) {
-    await admin.from("seance_exercices").delete().eq("seance_id", id);
+    const { data: anciens } = await admin
+      .from("seance_exercices").select("id").eq("seance_id", id);
+    const ancienIds = (anciens ?? []).map(r => r.id);
+
     if (exercices.length) {
       // `ordre` encode le bloc (bloc * 10000 + position) : l'écraser par l'index
       // du tableau renvoie tous les exercices dans le premier bloc à la relecture.
@@ -61,8 +66,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
         notes: ex.notes || null,
       }));
       const { error: exError } = await admin.from("seance_exercices").insert(rows);
-      if (exError) return NextResponse.json({ error: `Séance enregistrée mais exercices non sauvegardés : ${exError.message}` }, { status: 500 });
+      // Échec : on garde les anciennes lignes plutôt que de tout perdre.
+      if (exError) return NextResponse.json({ error: `Séance enregistrée mais exercices non sauvegardés (anciens conservés) : ${exError.message}` }, { status: 500 });
     }
+    if (ancienIds.length) await admin.from("seance_exercices").delete().in("id", ancienIds);
   }
 
   return NextResponse.json({ seance });

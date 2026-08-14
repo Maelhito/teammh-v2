@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import ProgrammeBuilder, { encodeProgData, decodeProgData, type ProgrammeData } from "../ProgrammeBuilder";
+import ProgrammeBuilder, { encodeProgData, decodeProgData, countGridItems, type ProgrammeData } from "../ProgrammeBuilder";
 import { NIVEAUX } from "../../seances/SeanceBuilder";
 import ImageUpload from "@/components/ImageUpload";
 
@@ -45,7 +45,7 @@ export default function EditProgrammePage() {
 
   if (!data) return <p style={{ fontSize: 13, color: "#555", fontFamily: "system-ui" }}>Chargement…</p>;
 
-  const totalItems = Object.values(data.grid).reduce((a, items) => a + items.length, 0);
+  const totalItems = countGridItems(data.grid, data.duree_semaines).visibles;
 
   return (
     <div>

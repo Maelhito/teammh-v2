@@ -87,7 +87,7 @@ async function getDashboardData() {
   // Map user_id (auth) → team_member_id via user_metadata.team_member_ids
   const userToTeamIds: Record<string, string[]> = {};
   for (const u of allUsers) {
-    const ids: string[] = u.user_metadata?.team_member_ids ?? [];
+    const ids: string[] = ((u.user_metadata as Record<string, unknown> | undefined)?.team_member_ids as string[] | undefined) ?? [];
     if (ids.length) userToTeamIds[u.id] = ids;
   }
 

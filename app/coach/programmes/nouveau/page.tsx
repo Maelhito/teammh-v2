@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import ProgrammeBuilder, { encodeProgData, type ProgrammeData } from "../ProgrammeBuilder";
+import ProgrammeBuilder, { encodeProgData, countGridItems, type ProgrammeData } from "../ProgrammeBuilder";
 import { NIVEAUX } from "../../seances/SeanceBuilder";
 import ImageUpload from "@/components/ImageUpload";
 
@@ -47,7 +47,7 @@ export default function NouveauProgrammePage() {
     letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6, fontFamily: "system-ui",
   };
 
-  const totalItems = Object.values(data.grid).reduce((a, items) => a + items.length, 0);
+  const totalItems = countGridItems(data.grid, data.duree_semaines).visibles;
 
   return (
     <div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { NIVEAUX, CATEGORIES, defaultBloc, decodeSeance, type SeanceData } from "../seances/SeanceBuilder";
 import SeanceBuildComp from "../seances/SeanceBuilder";
 
@@ -10,7 +10,10 @@ export interface SeanceRef {
 }
 export type CellItem =
   | { _key: string; type: "seance";        seanceId: string; seanceName: string; duree: number | null }
-  | { _key: string; type: "seance_locale"; nom: string; duree: number | null; seanceData: SeanceData }
+  // groupId relie les copies d'une même séance répétée sur plusieurs semaines.
+  // Sans lui, l'édition retrouvait ses copies par NOM et emportait au passage
+  // toute autre séance homonyme du programme. Absent sur les anciens programmes.
+  | { _key: string; type: "seance_locale"; nom: string; duree: number | null; seanceData: SeanceData; groupId?: string }
   | { _key: string; type: "video";         titre: string; url: string; categorie: string; thumb: string | null };
 export type Grid = Record<string, CellItem[]>;
 export interface ProgrammeData {
@@ -21,6 +24,17 @@ export interface ProgrammeData {
 const JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 const VIDEO_CATS = ["Échauffement", "Cardio", "Étirements", "Mobilité", "Coaching", "Nutrition", "Mental", "Autre"];
 export function gridKey(s: number, j: number) { return `S${s}_J${j}`; }
+/** Compte les éléments visibles et ceux situés au-delà de la durée du
+ *  programme. Réduire la durée masque ces semaines sans effacer leur contenu :
+ *  il ne faut donc ni les compter comme planifiés, ni les passer sous silence. */
+export function countGridItems(grid: Grid, duree_semaines: number): { visibles: number; masques: number } {
+  let visibles = 0, masques = 0;
+  for (const [key, items] of Object.entries(grid)) {
+    const semaine = parseInt(key.slice(1).split("_")[0]) || 0;
+    if (semaine <= duree_semaines) visibles += items.length; else masques += items.length;
+  }
+  return { visibles, masques };
+}
 let _k = 0;
 function nk() { return `ci${++_k}_${Date.now()}`; }
 function ytThumb(url: string): string | null {
@@ -306,7 +320,7 @@ function AddMenu({ seances, onAdd, onCreateSeance, onClose }: {
 }
 
 // ─── Éditeur de séance inline (modification + gestion semaines) ──────────────
-function InlineSeanceEditor({ seanceData: initialData, jourLabel, semaine, jour, duree_semaines, grid, itemNom, onSaved, onClose }: {
+function InlineSeanceEditor({ seanceData: initialData, jourLabel, semaine, jour, duree_semaines, grid, itemNom, itemGroupId, onSaved, onClose }: {
   seanceData: SeanceData;
   jourLabel: string;
   semaine: number;
@@ -314,6 +328,7 @@ function InlineSeanceEditor({ seanceData: initialData, jourLabel, semaine, jour,
   duree_semaines: number;
   grid: Grid;
   itemNom: string;
+  itemGroupId?: string;
   onSaved: (seanceData: SeanceData, selectedWeeks: number[], selectedJour: number) => void;
   onClose: () => void;
 }) {
@@ -322,10 +337,13 @@ function InlineSeanceEditor({ seanceData: initialData, jourLabel, semaine, jour,
   const [error, setError] = useState("");
   const [selectedJour, setSelectedJour] = useState(jour);
 
-  // Semaines où cette séance existe déjà (même nom, même jour)
+  // Semaines où cette séance existe déjà, sur ce jour. On suit le groupe de
+  // copies quand il est connu, sinon le nom (programmes créés avant groupId).
   const initialWeeks = Array.from({ length: duree_semaines }, (_, i) => i + 1).filter(s => {
     const key = gridKey(s, jour);
-    return (grid[key] ?? []).some(i => i.type === "seance_locale" && i.nom === itemNom);
+    return (grid[key] ?? []).some(i => i.type === "seance_locale" && (itemGroupId
+      ? i.groupId === itemGroupId
+      : !i.groupId && i.nom === itemNom));
   });
   const [selectedWeeks, setSelectedWeeks] = useState<number[]>(initialWeeks.length > 0 ? initialWeeks : [semaine]);
 
@@ -815,6 +833,16 @@ export interface ProgrammeBuilderProps {
 }
 
 export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderProps) {
+  // Même précaution que dans SeanceBuilder : `data` est une prop, donc périmée
+  // tant que React n'a pas re-rendu. Deux écritures dans le même événement
+  // (fréquent : fermer une modale ET modifier la grille) se seraient annulées.
+  const dataRef = useRef(data);
+  useEffect(() => { dataRef.current = data; });
+  const commit = useCallback((next: ProgrammeData) => {
+    dataRef.current = next;
+    onChange(next);
+  }, [onChange]);
+
   const [seances, setSeances] = useState<SeanceRef[]>([]);
   const [creatorTarget, setCreatorTarget] = useState<{ semaine: number; jour: number } | null>(null);
   const [editTarget, setEditTarget] = useState<{ item: CellItem & { type: "seance_locale" }; semaine: number; jour: number } | null>(null);
@@ -836,80 +864,87 @@ export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderPro
 
   useEffect(() => { loadSeances(); }, [loadSeances]);
 
-  const totalItems = Object.values(data.grid).reduce((a, items) => a + items.length, 0);
+  const { visibles: totalItems, masques: hiddenItems } = countGridItems(data.grid, data.duree_semaines);
+
+  /** Retire d'une grille tous les items désignés par `match`, sur toutes les
+   *  semaines du jour indiqué, et nettoie les cellules devenues vides. */
+  function pruneGrid(grid: Grid, jour: number, semaines: number, match: (i: CellItem) => boolean): Grid {
+    const next = { ...grid };
+    for (let s = 1; s <= semaines; s++) {
+      const key = gridKey(s, jour);
+      if (!next[key]) continue;
+      next[key] = next[key].filter(i => !match(i));
+      if (next[key].length === 0) delete next[key];
+    }
+    return next;
+  }
 
   function handleSeanceSaved(seanceData: SeanceData, selectedWeeks: number[], selectedJour: number) {
     if (!editTarget) return;
     const { item, jour: originalJour } = editTarget;
-    const newGrid = { ...data.grid };
-    for (let s = 1; s <= data.duree_semaines; s++) {
-      const key = gridKey(s, originalJour);
-      if (!newGrid[key]) continue;
-      newGrid[key] = newGrid[key].filter(i => !(i.type === "seance_locale" && (i._key === item._key || i.nom === item.nom)));
-      if (newGrid[key].length === 0) delete newGrid[key];
-    }
+    const d = dataRef.current;
+    // groupId quand il existe : on ne touche qu'aux copies de CETTE séance,
+    // jamais aux homonymes. Repli sur le nom pour les programmes existants.
+    const groupId = item.groupId ?? nk();
+    const newGrid = pruneGrid(d.grid, originalJour, d.duree_semaines, i =>
+      i.type === "seance_locale" && (item.groupId
+        ? i.groupId === item.groupId
+        : i._key === item._key || (!i.groupId && i.nom === item.nom)));
     for (const s of selectedWeeks) {
       const key = gridKey(s, selectedJour);
-      newGrid[key] = [...(newGrid[key] ?? []), { _key: nk(), type: "seance_locale" as const, nom: seanceData.nom, duree: parseInt(seanceData.duree_estimee) || null, seanceData }];
+      newGrid[key] = [...(newGrid[key] ?? []), { _key: nk(), groupId, type: "seance_locale" as const, nom: seanceData.nom, duree: parseInt(seanceData.duree_estimee) || null, seanceData }];
     }
-    onChange({ ...data, grid: newGrid });
+    commit({ ...d, grid: newGrid });
     setEditTarget(null);
   }
 
   function handleDbSeanceSaved(seanceData: SeanceData, selectedWeeks: number[], selectedJour: number) {
     if (!dbEditTarget) return;
     const { item, jour: originalJour } = dbEditTarget;
-    const newGrid = { ...data.grid };
+    const d = dataRef.current;
+    const groupId = nk();
     // Supprimer l'item original (seance DB) de sa cellule d'origine
-    for (let s = 1; s <= data.duree_semaines; s++) {
-      const key = gridKey(s, originalJour);
-      if (!newGrid[key]) continue;
-      newGrid[key] = newGrid[key].filter(i => i._key !== item._key);
-      if (newGrid[key].length === 0) delete newGrid[key];
-    }
+    const newGrid = pruneGrid(d.grid, originalJour, d.duree_semaines, i => i._key === item._key);
     // Ajouter comme seance_locale aux nouvelles positions
     for (const s of selectedWeeks) {
       const key = gridKey(s, selectedJour);
-      newGrid[key] = [...(newGrid[key] ?? []), { _key: nk(), type: "seance_locale" as const, nom: seanceData.nom, duree: parseInt(seanceData.duree_estimee) || null, seanceData }];
+      newGrid[key] = [...(newGrid[key] ?? []), { _key: nk(), groupId, type: "seance_locale" as const, nom: seanceData.nom, duree: parseInt(seanceData.duree_estimee) || null, seanceData }];
     }
-    onChange({ ...data, grid: newGrid });
+    commit({ ...d, grid: newGrid });
     setDbEditTarget(null);
   }
 
   function handleVideoSaved(selectedWeeks: number[], selectedJour: number) {
     if (!videoEditTarget) return;
     const { item, jour: originalJour } = videoEditTarget;
-    const newGrid = { ...data.grid };
+    const d = dataRef.current;
     // Supprimer l'item vidéo de sa position d'origine
-    for (let s = 1; s <= data.duree_semaines; s++) {
-      const key = gridKey(s, originalJour);
-      if (!newGrid[key]) continue;
-      newGrid[key] = newGrid[key].filter(i => i._key !== item._key);
-      if (newGrid[key].length === 0) delete newGrid[key];
-    }
+    const newGrid = pruneGrid(d.grid, originalJour, d.duree_semaines, i => i._key === item._key);
     // Ajouter aux nouvelles positions
     for (const s of selectedWeeks) {
       const key = gridKey(s, selectedJour);
       newGrid[key] = [...(newGrid[key] ?? []), { ...item, _key: nk() }];
     }
-    onChange({ ...data, grid: newGrid });
+    commit({ ...d, grid: newGrid });
     setVideoEditTarget(null);
   }
 
   function handleSeanceCreated(seanceData: SeanceData, repetitions: number) {
     if (!creatorTarget) return;
     const { semaine, jour } = creatorTarget;
-    const newGrid = { ...data.grid };
-    for (let s = semaine; s < semaine + repetitions && s <= data.duree_semaines; s++) {
+    const d = dataRef.current;
+    const newGrid = { ...d.grid };
+    const groupId = nk();
+    for (let s = semaine; s < semaine + repetitions && s <= d.duree_semaines; s++) {
       const key = gridKey(s, jour);
       newGrid[key] = [...(newGrid[key] ?? []), {
-        _key: nk(), type: "seance_locale" as const,
+        _key: nk(), groupId, type: "seance_locale" as const,
         nom: seanceData.nom,
         duree: parseInt(seanceData.duree_estimee) || null,
         seanceData,
       }];
     }
-    onChange({ ...data, grid: newGrid });
+    commit({ ...d, grid: newGrid });
     setCreatorTarget(null);
   }
 
@@ -925,16 +960,22 @@ export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderPro
           <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
             <div>
               <p style={{ fontSize: 9, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 4px", fontFamily: "system-ui" }}>Description</p>
-              <input value={data.note} onChange={e => onChange({ ...data, note: e.target.value })} placeholder="Objectif du programme…"
+              <input value={data.note} onChange={e => commit({ ...dataRef.current, note: e.target.value })} placeholder="Objectif du programme…"
                 style={{ padding: "7px 10px", borderRadius: 7, border: "1px solid #ddd", backgroundColor: "#fff", fontSize: 12, fontFamily: "system-ui", outline: "none", minWidth: 240 }} />
             </div>
             <p style={{ fontSize: 11, color: "#aaa", fontFamily: "system-ui", margin: 0 }}>
               {totalItems} élément{totalItems > 1 ? "s" : ""} planifié{totalItems > 1 ? "s" : ""}
             </p>
+            {hiddenItems > 0 && (
+              <p title="Ces éléments sont conservés : ils réapparaîtront si tu remets la durée d'origine."
+                style={{ fontSize: 11, color: "#B22222", fontFamily: "system-ui", margin: 0, cursor: "help" }}>
+                ⚠ {hiddenItems} élément{hiddenItems > 1 ? "s" : ""} au-delà de la semaine {data.duree_semaines} (masqué{hiddenItems > 1 ? "s" : ""}, non supprimé{hiddenItems > 1 ? "s" : ""})
+              </p>
+            )}
           </div>
           <ProgrammeGrid
             data={data} seances={seances}
-            onChange={grid => onChange({ ...data, grid })}
+            onChange={grid => commit({ ...dataRef.current, grid })}
             onCreateSeance={(s, j) => setCreatorTarget({ semaine: s, jour: j })}
             onEditSeance={(item, semaine, jour) => setEditTarget({ item, semaine, jour })}
             onEditDbSeance={(item, semaine, jour) => setDbEditTarget({ item, semaine, jour })}
@@ -962,6 +1003,7 @@ export default function ProgrammeBuilder({ data, onChange }: ProgrammeBuilderPro
           duree_semaines={data.duree_semaines}
           grid={data.grid}
           itemNom={editTarget.item.nom}
+          itemGroupId={editTarget.item.groupId}
           onSaved={handleSeanceSaved}
           onClose={() => setEditTarget(null)}
         />
