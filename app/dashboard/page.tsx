@@ -15,6 +15,7 @@ import TachesSection from "@/components/TachesSection";
 import DashboardCalendar, { type DayData } from "@/components/DashboardCalendar";
 import PreviewBanner from "@/components/PreviewBanner";
 import { getEffectiveUser } from "@/lib/preview";
+import { decodeAssignments, gridKeyFor, itemsForDate, semaineCourante } from "@/lib/programme-planning";
 
 export const dynamic = "force-dynamic";
 
@@ -72,20 +73,19 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const weekStart = monday.toISOString().slice(0, 10);
   const weekEndStr = weekEnd.toISOString().slice(0, 10);
 
-  const [profile, completionsWithDates, activeAssignment, allEventsRaw, streakInfo] = await Promise.all([
+  const [profile, completionsWithDates, activeProgrammes, allEventsRaw, streakInfo] = await Promise.all([
     userId ? getUserProfile(userId) : Promise.resolve(null),
     userId ? getModuleCompletionsWithDates(userId) : Promise.resolve([]),
+    // Plusieurs programmes peuvent être en cours simultanément.
     userId
       ? admin
           .from("client_programmes")
-          .select("*, programme:programmes(nom)")
+          .select("*, programme:programmes(nom, duree_semaines, description)")
           .eq("user_id", userId)
           .eq("statut", "en_cours")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle()
-          .then((r) => r.data)
-      : Promise.resolve(null),
+          .order("date_debut", { ascending: true })
+          .then((r) => decodeAssignments(r.data))
+      : Promise.resolve([]),
     userId
       ? admin
           .from("calendar_events")
@@ -111,53 +111,36 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   void weekStart; void weekEndStr; // utilisés uniquement pour allEventsRaw
 
-  // Séances validées cette semaine (depuis seances_log)
-  const seancesLogThisWeek: string[] = activeAssignment
+  // Séances validées cette semaine (depuis seances_log), tous programmes confondus.
+  // Clé de dédup : "assignmentId:gridKey" — deux programmes peuvent partager un gridKey.
+  const seancesLogThisWeek: Set<string> = activeProgrammes.length
     ? await admin
         .from("seances_log")
-        .select("grid_key")
+        .select("grid_key, assignment_id")
         .eq("user_id", userId)
-        .eq("assignment_id", activeAssignment.id)
         .gte("created_at", monday.toISOString())
-        .then((r) => (r.data ?? []).map((row) => row.grid_key as string).filter(Boolean))
-    : [];
+        .then((r) => new Set((r.data ?? [])
+          .filter((row) => row.grid_key)
+          .map((row) => `${row.assignment_id}:${row.grid_key}`)))
+    : new Set<string>();
 
-  // Séance du jour
-  let seancesDuJour: { nom: string; duree: number | null; itemIndex: number }[] = [];
-  let nomProgramme = "";
-  let isJourDeSeance = false;
-  let gridKeyDuJour: string | null = null;
+  type SeanceItem = { type: string; seanceName?: string; nom?: string; duree?: number | null };
 
-  if (activeAssignment) {
-    nomProgramme = activeAssignment.programme?.nom ?? "";
-    try {
-      const src = activeAssignment.grid_data ?? "";
-      if (src?.startsWith("{")) {
-        const parsed = JSON.parse(src);
-        const grid: Record<string, { type: string; seanceName?: string; nom?: string; duree?: number | null }[]> = parsed.grid ?? {};
-        const dateDebut = activeAssignment.date_debut ? new Date(activeAssignment.date_debut) : null;
-        if (dateDebut) {
-          const diffDays = Math.floor((now.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24));
-          const semaine = Math.max(Math.floor(diffDays / 7) + 1, 1);
-          const jourIndex = now.getDay() === 0 ? 7 : now.getDay();
-          const key = `S${semaine}_J${jourIndex}`;
-          gridKeyDuJour = key;
-          const items = grid[key] ?? [];
-          seancesDuJour = items
-            .filter((item) => item.type !== "video")
-            .map((item, itemIndex) => ({
-              nom: item.type === "seance" ? (item.seanceName ?? "") : (item.nom ?? ""),
-              duree: item.duree ?? null,
-              itemIndex,
-            }));
-          isJourDeSeance = items.some((item) => item.type !== "video");
-        }
-      }
-    } catch {}
-  }
+  // Séances du jour — tous programmes actifs confondus
+  const seancesDuJour = itemsForDate<SeanceItem>(activeProgrammes, now)
+    .filter(({ item }) => item.type !== "video")
+    .map(({ programme, gridKey, itemIndex, item }) => ({
+      nom: item.type === "seance" ? (item.seanceName ?? "") : (item.nom ?? ""),
+      duree: item.duree ?? null,
+      itemIndex,
+      gridKey,
+      assignmentId: programme.id,
+      nomProgramme: programme.nom,
+      validee: seancesLogThisWeek.has(`${programme.id}:${gridKey}`),
+    }));
 
-  // Séance du jour déjà validée aujourd'hui ?
-  const isTodaySeanceValidee = gridKeyDuJour ? seancesLogThisWeek.includes(gridKeyDuJour) : false;
+  // On n'affiche l'encart que pour les séances du jour pas encore validées
+  const seancesDuJourAFaire = seancesDuJour.filter((s) => !s.validee);
 
   const completedSet = new Set(completionsWithDates.map((c) => c.module_slug));
   const completedCount = completedSet.size;
@@ -189,68 +172,37 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   }
 
   // Stat séances de la semaine courante
+  // Cumul sur tous les programmes actifs cette semaine
   let seancesPreSemaine = 0;
   let seancesTermineesSemaine = 0;
-  if (activeAssignment) {
-    try {
-      const src = activeAssignment.grid_data ?? "";
-      if (src?.startsWith("{")) {
-        const parsed = JSON.parse(src);
-        const grid: Record<string, { type: string }[]> = parsed.grid ?? {};
-        const terminees: string[] = Array.isArray(parsed.seances_terminees) ? parsed.seances_terminees : [];
-        const dateDebut = activeAssignment.date_debut ? new Date(activeAssignment.date_debut) : null;
-        if (dateDebut) {
-          const diffDays = Math.floor((now.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24));
-          const semaineCourante = Math.max(Math.floor(diffDays / 7) + 1, 1);
-          for (let j = 1; j <= 7; j++) {
-            const key = `S${semaineCourante}_J${j}`;
-            const items = grid[key] ?? [];
-            const hasSeance = items.some((i) => i.type !== "video");
-            if (hasSeance) {
-              seancesPreSemaine++;
-              if (terminees.includes(key)) seancesTermineesSemaine++;
-            }
-          }
-        }
-      }
-    } catch {}
+  for (const prog of activeProgrammes) {
+    // Ignorer un programme qui n'a pas encore démarré ou qui est déjà fini
+    if (!gridKeyFor(prog, now)) continue;
+    const sem = semaineCourante(prog, now);
+    for (let j = 1; j <= 7; j++) {
+      const key = `S${sem}_J${j}`;
+      const items = (prog.grid[key] ?? []) as { type: string }[];
+      if (!items.some((i) => i.type !== "video")) continue;
+      seancesPreSemaine++;
+      if (prog.seancesTerminees.includes(key)) seancesTermineesSemaine++;
+    }
   }
 
   // Construction des données pour DashboardCalendar (séances par jour + validation)
   const JOURS_COURTS_CAL = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
   const weekDaysData: DayData[] = weekDays.map(({ date, events }) => {
-    // Séances de ce jour depuis grid_data
-    const daySeances: DayData["seances"] = [];
-    if (activeAssignment) {
-      try {
-        const src = activeAssignment.grid_data ?? "";
-        if (src?.startsWith("{")) {
-          const parsed = JSON.parse(src);
-          const grid: Record<string, { type: string; seanceName?: string; nom?: string; duree?: number | null }[]> = parsed.grid ?? {};
-          const dateDebut = activeAssignment.date_debut ? new Date(activeAssignment.date_debut) : null;
-          if (dateDebut) {
-            const diffDays = Math.floor((date.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24));
-            if (diffDays >= 0) {
-              const semaine = Math.floor(diffDays / 7) + 1;
-              const jourIndex = date.getDay() === 0 ? 7 : date.getDay();
-              const key = `S${semaine}_J${jourIndex}`;
-              const items = (grid[key] ?? []).filter((i) => i.type !== "video");
-              items.forEach((item, itemIndex) => {
-                daySeances.push({
-                  nom: item.type === "seance" ? (item.seanceName ?? "") : (item.nom ?? ""),
-                  duree: item.duree ?? null,
-                  gridKey: key,
-                  assignmentId: activeAssignment.id,
-                  itemIndex,
-                  validated: seancesLogThisWeek.includes(key),
-                  isToday: date.toDateString() === now.toDateString(),
-                });
-              });
-            }
-          }
-        }
-      } catch {}
-    }
+    // Séances de ce jour, tous programmes actifs confondus
+    const daySeances: DayData["seances"] = itemsForDate<SeanceItem>(activeProgrammes, date)
+      .filter(({ item }) => item.type !== "video")
+      .map(({ programme, gridKey, itemIndex, item }) => ({
+        nom: item.type === "seance" ? (item.seanceName ?? "") : (item.nom ?? ""),
+        duree: item.duree ?? null,
+        gridKey,
+        assignmentId: programme.id,
+        itemIndex,
+        validated: seancesLogThisWeek.has(`${programme.id}:${gridKey}`),
+        isToday: date.toDateString() === now.toDateString(),
+      }));
     const dayOfWeekIdx = date.getDay() === 0 ? 6 : date.getDay() - 1;
     return {
       dateStr: date.toISOString().slice(0, 10),
@@ -359,7 +311,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         )}
 
         {/* Encart Jour de séance — uniquement si séance prévue aujourd'hui ET pas encore validée */}
-        {activeAssignment && !enDemarrage && isJourDeSeance && !isTodaySeanceValidee && (
+        {!enDemarrage && seancesDuJourAFaire.length > 0 && (
           <div style={{ padding: "8px 16px" }}>
             <div style={{ background: "linear-gradient(135deg, #8B0000 0%, #B22222 100%)", borderRadius: 14, padding: "16px 18px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
@@ -368,31 +320,27 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", margin: 0 }}>
-                    SÉANCE DU JOUR · {nomProgramme.toUpperCase()}
+                    {seancesDuJourAFaire.length > 1 ? "SÉANCES DU JOUR" : "SÉANCE DU JOUR"}
                   </p>
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {seancesDuJour.map((s, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {seancesDuJourAFaire.map((s) => (
+                  <div key={`${s.assignmentId}-${s.gridKey}-${s.itemIndex}`} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#FFFFFF", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {s.nom}
                       </p>
-                      {s.duree && (
-                        <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.55)", margin: "1px 0 0" }}>
-                          {s.duree} min
-                        </p>
-                      )}
+                      <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.55)", margin: "1px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {[s.nomProgramme, s.duree ? `${s.duree} min` : null].filter(Boolean).join(" · ")}
+                      </p>
                     </div>
-                    {gridKeyDuJour && (
-                      <Link
-                        href={`/entrainement/seance?assignmentId=${activeAssignment.id}&gridKey=${gridKeyDuJour}&itemIndex=${s.itemIndex}`}
-                        style={{ padding: "8px 14px", backgroundColor: "rgba(0,0,0,0.3)", borderRadius: 9, color: "#FFF", fontSize: "0.75rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
-                      >
-                        ▶ Démarrer
-                      </Link>
-                    )}
+                    <Link
+                      href={`/entrainement/seance?assignmentId=${s.assignmentId}&gridKey=${s.gridKey}&itemIndex=${s.itemIndex}`}
+                      style={{ padding: "8px 14px", backgroundColor: "rgba(0,0,0,0.3)", borderRadius: 9, color: "#FFF", fontSize: "0.75rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                    >
+                      ▶ Démarrer
+                    </Link>
                   </div>
                 ))}
               </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { sendPushToUser } from "@/lib/push";
+import { decodeAssignments } from "@/lib/programme-planning";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -36,14 +37,19 @@ function inHourWindow(hour: number, targetHour: number): boolean {
   return hour === targetHour;
 }
 
-/** Calcule le grid_key d'aujourd'hui pour un programme donné */
-function todayGridKey(dateDebutStr: string, localDateStr: string): string | null {
+/**
+ * Calcule le grid_key d'aujourd'hui pour un programme donné.
+ * `dureeSemaines` borne la fenêtre : au-delà, le programme est terminé pour
+ * cette cliente et ne doit plus déclencher de notification.
+ */
+function todayGridKey(dateDebutStr: string, localDateStr: string, dureeSemaines?: number): string | null {
   try {
     const start = new Date(dateDebutStr + "T00:00:00");
     const today = new Date(localDateStr + "T00:00:00");
     const diffDays = Math.floor((today.getTime() - start.getTime()) / 86400000);
     if (diffDays < 0) return null;
     const semaine = Math.floor(diffDays / 7) + 1;
+    if (dureeSemaines && semaine > dureeSemaines) return null;
     const jourSemaine = ((today.getDay() + 6) % 7) + 1; // lun=1…dim=7
     return `S${semaine}_J${jourSemaine}`;
   } catch { return null; }
@@ -156,39 +162,41 @@ async function checkAndSendSeanceDuJour(
   dateStr: string,
   logs: string[]
 ) {
-  const { data: assignment } = await admin
+  // Une cliente peut avoir plusieurs programmes en cours en même temps
+  const { data: rows } = await admin
     .from("client_programmes")
-    .select("id, date_debut, grid_data, programme:programmes(nom)")
+    .select("id, date_debut, grid_data, programme:programmes(nom, duree_semaines, description)")
     .eq("user_id", userId)
     .eq("statut", "en_cours")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("date_debut", { ascending: true });
 
-  if (!assignment?.date_debut) return;
+  type SeanceItem = { type: string; seanceName?: string; nom?: string; duree?: number | null };
+  const duJour: { nom: string; duree?: number | null; nomProg: string }[] = [];
 
-  const key = todayGridKey(assignment.date_debut, dateStr);
-  if (!key) return;
+  for (const assignment of decodeAssignments(rows)) {
+    if (!assignment.date_debut) continue;
+    const key = todayGridKey(assignment.date_debut, dateStr, assignment.duree_semaines);
+    if (!key) continue;
 
-  let grid: Record<string, { type: string; seanceName?: string; nom?: string; duree?: number | null }[]> = {};
-  try {
-    const src = assignment.grid_data ?? "";
-    if (src.startsWith("{")) grid = JSON.parse(src).grid ?? {};
-  } catch { return; }
+    const items = (assignment.grid[key] ?? []) as SeanceItem[];
+    for (const item of items.filter((i) => i.type !== "video")) {
+      duJour.push({ nom: item.seanceName ?? item.nom ?? "Séance", duree: item.duree, nomProg: assignment.nom });
+    }
+  }
 
-  const items = (grid[key] ?? []).filter((i) => i.type !== "video");
-  if (!items.length) return;
+  if (!duJour.length) return;
 
-  const nomSeance = items[0].seanceName ?? items[0].nom ?? "Séance";
-  const duree = items[0].duree;
-  const nomProg = (assignment.programme as { nom?: string } | null)?.nom ?? "";
+  const body =
+    duJour.length === 1
+      ? `${duJour[0].nom}${duJour[0].duree ? ` · ${duJour[0].duree} min` : ""}${duJour[0].nomProg ? ` — ${duJour[0].nomProg}` : ""} · C'est parti !`
+      : `${duJour.length} séances aujourd'hui : ${duJour.map((s) => s.nom).join(", ")} · C'est parti !`;
 
   await sendPushToUser(userId, {
-    title: "💪 Séance du jour",
-    body: `${nomSeance}${duree ? ` · ${duree} min` : ""}${nomProg ? ` — ${nomProg}` : ""} · C'est parti !`,
+    title: duJour.length > 1 ? "💪 Séances du jour" : "💪 Séance du jour",
+    body,
     url: `/entrainement`,
   });
-  logs.push(`[seance] notif envoyée → ${userId} (${nomSeance})`);
+  logs.push(`[seance] notif envoyée → ${userId} (${duJour.map((s) => s.nom).join(", ")})`);
 }
 
 // ─── Visio de groupe ──────────────────────────────────────────────────────────
@@ -255,39 +263,38 @@ async function sendRappelSeance(
   dateStr: string,
   logs: string[]
 ) {
-  const { data: assignment } = await admin
+  const { data: rows } = await admin
     .from("client_programmes")
-    .select("id, date_debut, grid_data")
+    .select("id, date_debut, grid_data, programme:programmes(nom, duree_semaines, description)")
     .eq("user_id", userId)
     .eq("statut", "en_cours")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("date_debut", { ascending: true });
 
-  if (!assignment?.date_debut) return;
+  // On rappelle dès qu'AU MOINS une séance du jour n'est pas validée,
+  // tous programmes en cours confondus.
+  let resteUneSeance = false;
 
-  const key = todayGridKey(assignment.date_debut, dateStr);
-  if (!key) return;
+  for (const assignment of decodeAssignments(rows)) {
+    if (!assignment.date_debut) continue;
+    const key = todayGridKey(assignment.date_debut, dateStr, assignment.duree_semaines);
+    if (!key) continue;
 
-  let grid: Record<string, { type: string }[]> = {};
-  try {
-    const src = assignment.grid_data ?? "";
-    if (src.startsWith("{")) grid = JSON.parse(src).grid ?? {};
-  } catch { return; }
+    const items = (assignment.grid[key] ?? []) as { type: string }[];
+    if (!items.some((i) => i.type !== "video")) continue;
 
-  const hasSeance = (grid[key] ?? []).some((i) => i.type !== "video");
-  if (!hasSeance) return;
+    // Vérifier si déjà validée aujourd'hui
+    const { data: log } = await admin
+      .from("seances_log")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("assignment_id", assignment.id)
+      .eq("grid_key", key)
+      .limit(1);
 
-  // Vérifier si déjà validée aujourd'hui
-  const { data: log } = await admin
-    .from("seances_log")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("assignment_id", assignment.id)
-    .eq("grid_key", key)
-    .limit(1);
+    if (!log?.length) { resteUneSeance = true; break; }
+  }
 
-  if (log?.length) return; // déjà faite
+  if (!resteUneSeance) return;
 
   await sendPushToUser(userId, {
     title: "🔥 Ta séance t'attend !",

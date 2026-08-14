@@ -5,6 +5,7 @@ import BottomNav from "@/components/BottomNav";
 import CalendrierClient from "./CalendrierClient";
 import PreviewBanner from "@/components/PreviewBanner";
 import { getEffectiveUser } from "@/lib/preview";
+import { decodeAssignments } from "@/lib/programme-planning";
 
 export const dynamic = "force-dynamic";
 
@@ -39,25 +40,18 @@ export default async function CalendrierPage() {
 
     // 2) Séances : générées directement depuis la grille du/des programme(s) assigné(s)
     //    (même source que la vue coach), pour rester toujours synchronisé.
-    const { data: assignments } = await admin
+    const { data: assignmentRows } = await admin
       .from("client_programmes")
-      .select("id, date_debut, grid_data, programme:programmes(description)")
+      .select("id, date_debut, grid_data, programme:programmes(nom, duree_semaines, description)")
       .eq("user_id", userId)
       .in("statut", ["en_cours", "termine"]);
 
     const seanceEvents: object[] = [];
 
-    for (const assignment of assignments ?? []) {
+    for (const assignment of decodeAssignments(assignmentRows)) {
       if (!assignment.date_debut) continue;
 
-      let grid: Record<string, CellItem[]> = {};
-      try {
-        const src = assignment.grid_data ?? (assignment.programme as { description?: string } | null)?.description ?? "";
-        if (typeof src === "string" && src.startsWith("{")) {
-          grid = JSON.parse(src).grid ?? {};
-        }
-      } catch {}
-
+      const grid = assignment.grid as Record<string, CellItem[]>;
       const startDate = new Date(assignment.date_debut + "T00:00:00");
 
       for (const [key, items] of Object.entries(grid)) {
@@ -65,6 +59,8 @@ export default async function CalendrierPage() {
         if (!match) continue;
         const semaine = parseInt(match[1]);
         const jour = parseInt(match[2]);
+        // Durée raccourcie pour cette cliente → les semaines au-delà sont masquées
+        if (semaine > assignment.duree_semaines) continue;
 
         for (const item of items) {
           if (item.type !== "seance" && item.type !== "seance_locale") continue;

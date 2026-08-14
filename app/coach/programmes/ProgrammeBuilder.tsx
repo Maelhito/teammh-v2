@@ -52,19 +52,21 @@ export function encodeProgData(d: ProgrammeData): string {
   return JSON.stringify({ grid: d.grid, note: d.note, duree_semaines: d.duree_semaines });
 }
 export function decodeProgData(prog: Record<string, unknown>): ProgrammeData {
-  let grid: Grid = {}; let note = ""; let duree_semaines = 4;
+  let grid: Grid = {}; let note = ""; let duree_semaines: number | null = null;
   try {
     const desc = (prog.description as string) || "";
     if (desc.startsWith("{")) {
       const p = JSON.parse(desc);
       grid = p.grid ?? {}; note = p.note ?? "";
-      duree_semaines = p.duree_semaines ?? (prog.duree_semaines as number ?? 4);
+      duree_semaines = typeof p.duree_semaines === "number" ? p.duree_semaines : null;
     } else note = desc;
   } catch {}
   return {
     nom: (prog.nom as string) || "",
     niveau: (prog.niveau as string) || "debutant",
-    duree_semaines: (prog.duree_semaines as number) || duree_semaines || 4,
+    // La durée encodée dans le JSON prime : pour une assignation, ce JSON est le
+    // grid_data de la cliente, dont la durée peut différer de celle du template.
+    duree_semaines: duree_semaines || (prog.duree_semaines as number) || 4,
     note, grid,
   };
 }

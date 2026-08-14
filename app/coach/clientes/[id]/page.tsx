@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { decodeProgData, type Grid, type CellItem } from "../../programmes/ProgrammeBuilder";
 import SeanceBuildComp, { type SeanceData } from "../../seances/SeanceBuilder";
 import QuestionnaireCliente from "./QuestionnaireCliente";
+import { adapterCles, adapterGrille, joursDeLaGrille, type MappingJours } from "@/lib/programme-planning";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Cliente { id: string; email: string; prenom: string | null; nom: string | null; statut: string; date_demarrage: string | null; }
@@ -98,6 +99,52 @@ function evColor(ev: CalendarEvent): string {
 }
 function toLocalDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// ─── Programmes multiples ─────────────────────────────────────────────────────
+// Une cliente peut avoir plusieurs programmes "en_cours" en même temps : chacun
+// a sa propre date de début, donc sa propre fenêtre sur le calendrier. C'est ce
+// qui permet au coach de programmer la suite à l'avance.
+interface ProgrammeLayer {
+  /** id de l'assignation (client_programmes.id) */
+  id: string;
+  nom: string;
+  grid: Grid;
+  activeStart: Date;
+  dureeSemaines: number;
+  color: string;
+}
+
+// Couleurs de distinction des programmes sur le calendrier coach
+const PROG_COLORS = ["#F97316", "#0EA5E9", "#EC4899", "#84CC16", "#F59E0B", "#14B8A6"];
+function progColor(index: number): string {
+  return PROG_COLORS[index % PROG_COLORS.length];
+}
+
+/**
+ * Durée retenue pour CETTE cliente. Le coach peut raccourcir un programme de
+ * 4 semaines à 2 sans toucher au template : la valeur vit dans grid_data.
+ */
+function dureeAssignment(a: Assignment): number {
+  const src = a.grid_data?.startsWith("{") ? a.grid_data : a.programme?.description;
+  if (src?.startsWith("{")) {
+    try {
+      const d = JSON.parse(src).duree_semaines;
+      if (typeof d === "number" && d >= 1) return d;
+    } catch {}
+  }
+  return a.programme?.duree_semaines ?? 4;
+}
+
+function buildLayers(assignments: Assignment[], gridsByAssignment: Record<string, Grid>): ProgrammeLayer[] {
+  return assignments.map((a, i) => ({
+    id: a.id,
+    nom: a.programme?.nom ?? "Programme",
+    grid: gridsByAssignment[a.id] ?? {},
+    activeStart: parseLocalDate(a.date_debut),
+    dureeSemaines: dureeAssignment(a),
+    color: progColor(i),
+  }));
 }
 
 // ─── Edit panel ───────────────────────────────────────────────────────────────
@@ -429,17 +476,20 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
 }
 
 // ─── Calendrier mensuel avec drag & drop ──────────────────────────────────────
-function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEditItem, onMoveItem, onAddEvent, onEventClick }: {
-  grid: Grid; activeStart: Date | null; dureeSemaines: number; today: Date;
+function MonthCalendar({ layers, today, events, onEditItem, onMoveItem, onAddEvent, onEventClick }: {
+  /** Un calque par programme actif — chacun avec sa date de début et sa grille */
+  layers: ProgrammeLayer[];
+  today: Date;
   events: CalendarEvent[];
-  onEditItem: (cellKey: string, item: CellItem) => void;
-  onMoveItem: (fromKey: string, itemKey: string, toKey: string) => void;
+  onEditItem: (assignmentId: string, cellKey: string, item: CellItem) => void;
+  onMoveItem: (assignmentId: string, fromKey: string, itemKey: string, toKey: string) => void;
   onAddEvent: (date: Date) => void;
   onEventClick?: (ev: CalendarEvent) => void;
 }) {
   const [monthOffset, setMonthOffset] = useState(0);
+  // Un drop cible une case d'un programme précis → clé "assignmentId|cellKey"
   const [dragOver, setDragOver] = useState<string | null>(null);
-  const dragRef = useRef<{ cellKey: string; itemKey: string } | null>(null);
+  const dragRef = useRef<{ assignmentId: string; cellKey: string; itemKey: string } | null>(null);
 
   const base = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
   const month = base.getMonth();
@@ -463,7 +513,13 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
           <p style={{ fontSize: 15, fontWeight: 800, color: "#1a1a1a", margin: "2px 0 0", fontFamily: "system-ui" }}>{MOIS_LONG[month]} {year}</p>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {Object.entries(EV_LABELS).map(([type, label]) => (
+          {layers.map(layer => (
+            <span key={layer.id} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#666", fontFamily: "system-ui" }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: layer.color, display: "inline-block", flexShrink: 0 }} />
+              {layer.nom}
+            </span>
+          ))}
+          {Object.entries(EV_LABELS).filter(([type]) => type !== "seance").map(([type, label]) => (
             <span key={type} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#666", fontFamily: "system-ui" }}>
               <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: EV_COLORS[type], display: "inline-block", flexShrink: 0 }} />
               {label}
@@ -500,19 +556,38 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
           const isCurrentMonth = day.getMonth() === month;
           const isToday = isSameDay(day, today);
           const isPast = day < today && !isToday;
-          const cellKey = activeStart ? dateToGridKey(day, activeStart, dureeSemaines) : null;
-          const items = getSeancesForKey(grid, cellKey);
-          const isDragTarget = dragOver === cellKey && cellKey !== null;
+          const dayId = toLocalDate(day);
+          // Items de ce jour, tous programmes actifs confondus
+          const dayLayers = layers
+            .map(layer => {
+              const cellKey = dateToGridKey(day, layer.activeStart, layer.dureeSemaines);
+              return { layer, cellKey, items: getSeancesForKey(layer.grid, cellKey) };
+            })
+            .filter(l => l.cellKey !== null);
+          const isDragTarget = dragOver === dayId;
           const dayEvents = events.filter(ev => isEventOnDay(ev, day));
+
+          /** Case cible de ce jour pour le programme de l'item en cours de drag. */
+          const dropTargetKey = (): string | null => {
+            const drag = dragRef.current;
+            if (!drag) return null;
+            const layer = layers.find(l => l.id === drag.assignmentId);
+            if (!layer) return null;
+            return dateToGridKey(day, layer.activeStart, layer.dureeSemaines);
+          };
 
           return (
             <div key={i}
-              onDragOver={e => { e.preventDefault(); e.stopPropagation(); if (cellKey) setDragOver(cellKey); }}
+              onDragOver={e => { e.preventDefault(); e.stopPropagation(); if (dropTargetKey()) setDragOver(dayId); }}
               onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(null); }}
               onDrop={e => {
                 e.preventDefault(); setDragOver(null);
-                if (!cellKey || !dragRef.current || dragRef.current.cellKey === cellKey) return;
-                onMoveItem(dragRef.current.cellKey, dragRef.current.itemKey, cellKey);
+                const drag = dragRef.current;
+                const toKey = dropTargetKey();
+                // Un item reste dans son propre programme : la case cible est
+                // calculée depuis la date de début de CE programme.
+                if (!drag || !toKey || drag.cellKey === toKey) return;
+                onMoveItem(drag.assignmentId, drag.cellKey, drag.itemKey, toKey);
                 dragRef.current = null;
               }}
               style={{
@@ -538,23 +613,26 @@ function MonthCalendar({ grid, activeStart, dureeSemaines, today, events, onEdit
                   <p style={{ fontSize: 8, fontWeight: 700, color: evColor(ev), margin: 0, fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.titre}</p>
                 </div>
               ))}
-              {items.map(item => {
-                const label = item.type === "seance" ? item.seanceName : item.type === "seance_locale" ? item.nom : `🎬 ${item.titre}`;
-                return (
-                  <div key={item._key}
-                    draggable
-                    onDragStart={() => { if (cellKey) dragRef.current = { cellKey, itemKey: item._key }; }}
-                    onDragEnd={() => setDragOver(null)}
-                    onClick={() => { if (cellKey) onEditItem(cellKey, item); }}
-                    title="Cliquer pour modifier · Glisser pour déplacer"
-                    style={{ padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: isPast ? "#f5f5f5" : item.type === "video" ? "rgba(139,92,246,0.06)" : "rgba(249,115,22,0.06)", borderLeft: `2px solid ${isPast ? "#ddd" : item.type === "video" ? "#8B5CF6" : "#F97316"}`, transition: "opacity 0.1s" }}
-                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.opacity = "0.75"}
-                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.opacity = "1"}
-                  >
-                    <p style={{ fontSize: 8, fontWeight: 700, color: isPast ? "#bbb" : item.type === "video" ? "#7c3aed" : "#F97316", margin: 0, fontFamily: "system-ui", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none" }}>{label}</p>
-                  </div>
-                );
-              })}
+              {dayLayers.map(({ layer, cellKey, items }) =>
+                items.map(item => {
+                  const label = item.type === "seance" ? item.seanceName : item.type === "seance_locale" ? item.nom : `🎬 ${item.titre}`;
+                  const color = item.type === "video" ? "#8B5CF6" : layer.color;
+                  return (
+                    <div key={`${layer.id}-${item._key}`}
+                      draggable
+                      onDragStart={() => { if (cellKey) dragRef.current = { assignmentId: layer.id, cellKey, itemKey: item._key }; }}
+                      onDragEnd={() => setDragOver(null)}
+                      onClick={() => { if (cellKey) onEditItem(layer.id, cellKey, item); }}
+                      title={`${layer.nom} · Cliquer pour modifier · Glisser pour déplacer`}
+                      style={{ padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: isPast ? "#f5f5f5" : `${color}0f`, borderLeft: `2px solid ${isPast ? "#ddd" : color}`, transition: "opacity 0.1s" }}
+                      onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.opacity = "0.75"}
+                      onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.opacity = "1"}
+                    >
+                      <p style={{ fontSize: 8, fontWeight: 700, color: isPast ? "#bbb" : color, margin: 0, fontFamily: "system-ui", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none" }}>{label}</p>
+                    </div>
+                  );
+                })
+              )}
             </div>
           );
         })}
@@ -689,7 +767,7 @@ function HistoriqueAccordion({ assignments, clienteId, onDeleted }: {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "#333", margin: 0, fontFamily: "system-ui", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.programme.nom}</p>
                   <p style={{ fontSize: 10, color: "#bbb", margin: 0, fontFamily: "system-ui" }}>
-                    Début {parseLocalDate(a.date_debut).toLocaleDateString("fr-FR")} · {a.programme.duree_semaines} sem.
+                    Début {parseLocalDate(a.date_debut).toLocaleDateString("fr-FR")} · {dureeAssignment(a)} sem.
                   </p>
                 </div>
                 <span style={{ fontSize: 9, fontWeight: 700, color: st.color, padding: "2px 7px", borderRadius: 99, border: `1px solid ${st.color}22`, backgroundColor: `${st.color}11`, flexShrink: 0, fontFamily: "system-ui" }}>
@@ -801,15 +879,230 @@ function SeanceListPanel({ grid, dureeSemaines, onEditItem, onClose }: {
   );
 }
 
+// ─── Réglage durée / séances par semaine ──────────────────────────────────────
+// Bloc réutilisé à l'assignation ET après coup : il ne travaille jamais sur le
+// template, seulement sur la copie de la cliente.
+
+interface LigneJour {
+  /** jour d'origine dans la grille (1-7) */
+  source: number;
+  /** jour où la séance doit tomber pour cette cliente (1-7) */
+  cible: number;
+  garde: boolean;
+  libelle: string;
+}
+
+/** Construit une ligne par jour occupé de la grille, avec le nom des séances. */
+function lignesDepuisGrille(grid: Grid): LigneJour[] {
+  return joursDeLaGrille(grid).map(source => {
+    const noms = new Set<string>();
+    for (const [key, items] of Object.entries(grid)) {
+      if (parseInt(key.match(/^S\d+_J(\d+)$/)?.[1] ?? "0") !== source) continue;
+      for (const item of items) noms.add(getItemName(item));
+    }
+    const liste = [...noms];
+    return {
+      source,
+      cible: source,
+      garde: true,
+      libelle: liste.slice(0, 2).join(" · ") + (liste.length > 2 ? ` +${liste.length - 2}` : ""),
+    };
+  });
+}
+
+function ReglageProgrammation({ lignes, setLignes, duree, setDuree, dureeTemplate }: {
+  lignes: LigneJour[]; setLignes: (l: LigneJour[]) => void;
+  duree: number; setDuree: (d: number) => void;
+  dureeTemplate: number;
+}) {
+  const gardees = lignes.filter(l => l.garde);
+  const doublons = gardees.length !== new Set(gardees.map(l => l.cible)).size;
+
+  const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#888", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5, fontFamily: "system-ui" };
+  const JOURS_LABELS = ["—","Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+
+  function maj(source: number, patch: Partial<LigneJour>) {
+    setLignes(lignes.map(l => l.source === source ? { ...l, ...patch } : l));
+  }
+
+  return (
+    <>
+      <div>
+        <label style={lbl}>Durée pour cette cliente</label>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <input
+            type="number" min={1} max={52} value={duree}
+            onChange={e => setDuree(Math.min(52, Math.max(1, parseInt(e.target.value) || 1)))}
+            style={{ width: 72, padding: "10px 12px", borderRadius: 8, border: "1px solid #ddd", fontSize: 13, fontFamily: "system-ui", outline: "none", textAlign: "center", color: "#1a1a1a", backgroundColor: "#fff" }}
+          />
+          <span style={{ fontSize: 13, color: "#555", fontFamily: "system-ui" }}>semaine{duree > 1 ? "s" : ""}</span>
+          {duree !== dureeTemplate && (
+            <button
+              onClick={() => setDuree(dureeTemplate)}
+              style={{ padding: "5px 10px", borderRadius: 7, border: "1px solid #e8e8e8", background: "#fafafa", color: "#666", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}
+            >
+              ↺ Durée du programme ({dureeTemplate})
+            </button>
+          )}
+        </div>
+        {duree < dureeTemplate && (
+          <p style={{ fontSize: 10, color: "#888", margin: "6px 0 0", fontFamily: "system-ui" }}>
+            Les semaines {duree + 1} à {dureeTemplate} sont masquées pour la cliente — pas supprimées : remets la durée d&apos;origine pour les retrouver.
+          </p>
+        )}
+      </div>
+
+      {lignes.length > 0 && (
+        <div>
+          <label style={lbl}>
+            Séances par semaine
+            <span style={{ color: "#B22222", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
+              {" "}— {gardees.length} sur {lignes.length}
+            </span>
+          </label>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {lignes.map(l => (
+              <div key={l.source} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, border: "1px solid #eee", backgroundColor: l.garde ? "#fff" : "#fafafa", opacity: l.garde ? 1 : 0.55 }}>
+                <input
+                  type="checkbox" checked={l.garde}
+                  onChange={e => maj(l.source, { garde: e.target.checked })}
+                  style={{ cursor: "pointer", flexShrink: 0 }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a", margin: 0, fontFamily: "system-ui", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {l.libelle || "Séance"}
+                  </p>
+                  <p style={{ fontSize: 10, color: "#bbb", margin: 0, fontFamily: "system-ui" }}>
+                    {JOURS_LONG[l.source]} dans le programme
+                  </p>
+                </div>
+                <select
+                  value={l.cible} disabled={!l.garde}
+                  onChange={e => maj(l.source, { cible: parseInt(e.target.value) })}
+                  style={{ padding: "6px 8px", borderRadius: 7, border: "1px solid #ddd", fontSize: 12, fontFamily: "system-ui", cursor: l.garde ? "pointer" : "not-allowed", color: "#1a1a1a", backgroundColor: "#fff", flexShrink: 0 }}
+                >
+                  {[1,2,3,4,5,6,7].map(j => <option key={j} value={j}>{JOURS_LABELS[j]}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+          {gardees.length === 0 && (
+            <p style={{ fontSize: 11, color: "#EF4444", margin: "6px 0 0", fontFamily: "system-ui" }}>
+              Garde au moins une séance.
+            </p>
+          )}
+          {doublons && (
+            <p style={{ fontSize: 10, color: "#F59E0B", margin: "6px 0 0", fontFamily: "system-ui" }}>
+              ⚠️ Plusieurs séances tomberont le même jour.
+            </p>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Mapping jour source → jour cible à partir des lignes gardées. */
+function mappingDepuisLignes(lignes: LigneJour[]): MappingJours {
+  return Object.fromEntries(lignes.filter(l => l.garde).map(l => [l.source, l.cible]));
+}
+
+// ─── Modal « Durée & séances » (après assignation) ─────────────────────────────
+function AdjustModal({ clienteId, assignment, grid, onSaved, onClose }: {
+  clienteId: string; assignment: Assignment; grid: Grid;
+  onSaved: () => void; onClose: () => void;
+}) {
+  const dureeTemplate = assignment.programme?.duree_semaines ?? 4;
+  const [duree, setDuree] = useState(() => dureeAssignment(assignment));
+  const [lignes, setLignes] = useState<LigneJour[]>(() => lignesDepuisGrille(grid));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSave() {
+    if (!lignes.some(l => l.garde)) { setError("Garde au moins une séance."); return; }
+    setSaving(true); setError("");
+
+    const src = assignment.grid_data?.startsWith("{") ? assignment.grid_data : assignment.programme?.description ?? "{}";
+    let parsed: Record<string, unknown> = {};
+    try { parsed = JSON.parse(src); } catch {}
+
+    const mapping = mappingDepuisLignes(lignes);
+    const terminees = Array.isArray(parsed.seances_terminees) ? (parsed.seances_terminees as string[]) : [];
+
+    const res = await fetch(`/api/coach/clientes/${clienteId}/programmes/${assignment.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grid_data: JSON.stringify({
+          ...parsed,
+          grid: adapterGrille(grid, mapping),
+          duree_semaines: duree,
+          seances_terminees: adapterCles(terminees, mapping),
+        }),
+      }),
+    });
+
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? "Erreur");
+      setSaving(false);
+      return;
+    }
+    onSaved();
+    onClose();
+  }
+
+  const retirees = lignes.filter(l => !l.garde).length;
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 200, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto", backgroundColor: "#fff", borderRadius: 14, padding: 24, boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
+        <h3 style={{ fontSize: "1rem", fontWeight: 800, margin: "0 0 4px", color: "#1a1a1a", fontFamily: "system-ui" }}>
+          ⚙️ Durée &amp; séances
+        </h3>
+        <p style={{ fontSize: 12, color: "#888", margin: "0 0 20px", fontFamily: "system-ui" }}>
+          {assignment.programme?.nom} — ces réglages ne concernent que cette cliente, le programme d&apos;origine n&apos;est pas modifié.
+        </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <ReglageProgrammation
+            lignes={lignes} setLignes={setLignes}
+            duree={duree} setDuree={setDuree}
+            dureeTemplate={dureeTemplate}
+          />
+
+          {retirees > 0 && (
+            <p style={{ fontSize: 11, color: "#EF4444", margin: 0, fontFamily: "system-ui" }}>
+              {retirees} séance{retirees > 1 ? "s" : ""}/semaine {retirees > 1 ? "seront retirées" : "sera retirée"} de la programmation de cette cliente.
+            </p>
+          )}
+
+          {error && <p style={{ fontSize: 12, color: "#EF4444", margin: 0, fontFamily: "system-ui" }}>{error}</p>}
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: "11px", borderRadius: 8, border: "1px solid #eee", background: "#fafafa", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "system-ui" }}>Annuler</button>
+            <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: "11px", borderRadius: 8, border: "none", backgroundColor: saving ? "#eee" : "#B22222", color: saving ? "#aaa" : "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
+              {saving ? "Enregistrement…" : "✅ Appliquer"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Modal assignation ─────────────────────────────────────────────────────────
-function AssignModal({ clienteId, onAssigned, onPersonnaliser, onClose }: {
-  clienteId: string; onAssigned: () => void; onPersonnaliser: (assignId: string) => void; onClose: () => void;
+function AssignModal({ clienteId, nbActifs, onAssigned, onPersonnaliser, onClose }: {
+  clienteId: string; nbActifs: number; onAssigned: () => void; onPersonnaliser: (assignId: string) => void; onClose: () => void;
 }) {
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [selected, setSelected] = useState("");
   const [dateDebut, setDateDebut] = useState(() => new Date().toISOString().split("T")[0]);
-  const [joursSelectionnes, setJoursSelectionnes] = useState<number[]>([]);
-  const [joursDansProg, setJoursDansProg] = useState<number[]>([]);
+  // Réglages propres à cette cliente (durée + séances gardées / déplacées)
+  const [lignes, setLignes] = useState<LigneJour[]>([]);
+  const [duree, setDuree] = useState(4);
+  const [dureeTemplate, setDureeTemplate] = useState(4);
+  // Par défaut on cumule : les programmes déjà assignés restent actifs.
+  const [pauseLesAutres, setPauseLesAutres] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
@@ -822,27 +1115,27 @@ function AssignModal({ clienteId, onAssigned, onPersonnaliser, onClose }: {
     setSelected(id); setError("");
     const prog = programmes.find(p => p.id === id);
     if (!prog) return;
-    const grid = decodeGrid(prog.description);
-    const days = Array.from(new Set(Object.keys(grid).map(k => parseInt(k.match(/_J(\d+)$/)?.[1] ?? "0")).filter(j => j > 0))).sort((a,b) => a - b);
-    setJoursDansProg(days);
-    setJoursSelectionnes([...days]);
-  }
-
-  function toggleJour(j: number) {
-    setJoursSelectionnes(prev => {
-      if (prev.includes(j)) return prev.filter(x => x !== j);
-      if (prev.length >= joursDansProg.length) return prev;
-      return [...prev, j].sort((a, b) => a - b);
-    });
+    // On part de la grille du template, qu'on n'écrira jamais : seule la copie
+    // envoyée dans grid_data est adaptée.
+    setLignes(lignesDepuisGrille(decodeGrid(prog.description)));
+    const d = decodeProgData({ ...prog } as unknown as Record<string, unknown>).duree_semaines;
+    setDuree(d);
+    setDureeTemplate(d);
   }
 
   async function handleSave() {
     if (!selected) { setError("Sélectionne un programme."); return; }
-    if (joursSelectionnes.length !== joursDansProg.length) { setError(`Sélectionne exactement ${joursDansProg.length} jour${joursDansProg.length > 1 ? "s" : ""}.`); return; }
+    if (!lignes.some(l => l.garde)) { setError("Garde au moins une séance."); return; }
     setSaving(true); setError("");
     const res = await fetch(`/api/coach/clientes/${clienteId}/programmes`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ programme_id: selected, date_debut: dateDebut, jours_selectionnes: joursSelectionnes }),
+      body: JSON.stringify({
+        programme_id: selected,
+        date_debut: dateDebut,
+        jours_mapping: mappingDepuisLignes(lignes),
+        duree_semaines: duree,
+        mettre_en_pause_les_autres: pauseLesAutres,
+      }),
     });
     if (res.ok) {
       const { assignment } = await res.json();
@@ -854,11 +1147,10 @@ function AssignModal({ clienteId, onAssigned, onPersonnaliser, onClose }: {
 
   const inp: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #ddd", fontSize: 13, fontFamily: "system-ui", outline: "none", boxSizing: "border-box", color: "#1a1a1a", backgroundColor: "#fff" };
   const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#888", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5, fontFamily: "system-ui" };
-  const JOURS_LABELS = ["—","Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
 
   return (
     <div onClick={done ? undefined : onClose} style={{ position: "fixed", inset: 0, zIndex: 200, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} >
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, backgroundColor: "#fff", borderRadius: 14, padding: "24px", boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto", backgroundColor: "#fff", borderRadius: 14, padding: "24px", boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
 
         {/* ── Écran de succès ── */}
         {done ? (
@@ -896,16 +1188,26 @@ function AssignModal({ clienteId, onAssigned, onPersonnaliser, onClose }: {
                 <label style={lbl}>Date de début</label>
                 <input type="date" style={inp} value={dateDebut} onChange={e => setDateDebut(e.target.value)} />
               </div>
-              {selected && joursDansProg.length > 0 && (
-                <div>
-                  <label style={lbl}>Jours d'entraînement <span style={{ color: "#B22222", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>— {joursDansProg.length} jour{joursDansProg.length > 1 ? "s" : ""}</span></label>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {[1,2,3,4,5,6,7].map(j => {
-                      const isOn = joursSelectionnes.includes(j);
-                      return <button key={j} onClick={() => toggleJour(j)} style={{ padding: "7px 11px", borderRadius: 8, border: isOn ? "2px solid #B22222" : "1px solid #ddd", backgroundColor: isOn ? "rgba(178,34,34,0.06)" : "#fafafa", color: isOn ? "#B22222" : "#555", fontSize: 12, fontWeight: isOn ? 700 : 400, cursor: "pointer", fontFamily: "system-ui" }}>{JOURS_LABELS[j]}</button>;
-                    })}
-                  </div>
-                  <p style={{ fontSize: 10, color: "#aaa", margin: "6px 0 0", fontFamily: "system-ui" }}>{joursSelectionnes.length}/{joursDansProg.length} sélectionné{joursSelectionnes.length > 1 ? "s" : ""}</p>
+              {selected && (
+                <ReglageProgrammation
+                  lignes={lignes} setLignes={setLignes}
+                  duree={duree} setDuree={setDuree}
+                  dureeTemplate={dureeTemplate}
+                />
+              )}
+              {nbActifs > 0 && (
+                <div style={{ borderRadius: 8, border: "1px solid #eee", backgroundColor: "#fafafa", padding: "10px 12px" }}>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", fontFamily: "system-ui" }}>
+                    <input type="checkbox" checked={pauseLesAutres} onChange={e => setPauseLesAutres(e.target.checked)} style={{ marginTop: 2, cursor: "pointer" }} />
+                    <span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a", display: "block" }}>
+                        Mettre en pause {nbActifs > 1 ? `les ${nbActifs} programmes en cours` : "le programme en cours"}
+                      </span>
+                      <span style={{ fontSize: 11, color: "#888" }}>
+                        Décoché : les programmes se cumulent — utile pour programmer la suite à l&apos;avance.
+                      </span>
+                    </span>
+                  </label>
                 </div>
               )}
               {error && <p style={{ fontSize: 12, color: "#EF4444", margin: 0, fontFamily: "system-ui" }}>{error}</p>}
@@ -1022,9 +1324,11 @@ export default function ClienteFichePage() {
   const router = useRouter();
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [gridData, setGridData] = useState<Grid>({});
-  const [editTarget, setEditTarget] = useState<{ cellKey: string; item: CellItem } | null>(null);
+  // Une grille par assignation active (plusieurs programmes peuvent tourner ensemble)
+  const [gridsByAssignment, setGridsByAssignment] = useState<Record<string, Grid>>({});
+  const [editTarget, setEditTarget] = useState<{ assignmentId: string; cellKey: string; item: CellItem } | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [adjustTarget, setAdjustTarget] = useState<Assignment | null>(null);
   const [today] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [calEvents, setCalEvents] = useState<CalendarEvent[]>([]);
   const [showAddEv, setShowAddEv] = useState(false);
@@ -1045,11 +1349,12 @@ export default function ClienteFichePage() {
     const d = await res.json();
     const list: Assignment[] = d.assignments ?? [];
     setAssignments(list);
-    const active = list.find(a => a.statut === "en_cours");
-    if (active) {
-      const src = active.grid_data?.startsWith("{") ? active.grid_data : active.programme?.description;
-      setGridData(decodeGrid(src ?? null));
+    const grids: Record<string, Grid> = {};
+    for (const a of list.filter(a => a.statut === "en_cours")) {
+      const src = a.grid_data?.startsWith("{") ? a.grid_data : a.programme?.description;
+      grids[a.id] = decodeGrid(src ?? null);
     }
+    setGridsByAssignment(grids);
   }, [id]);
 
   useEffect(() => {
@@ -1058,38 +1363,50 @@ export default function ClienteFichePage() {
     loadCalEvents();
   }, [id, loadAssignments, loadCalEvents]);
 
-  const enCours = assignments.find(a => a.statut === "en_cours") ?? null;
+  // Tous les programmes actifs, du plus ancien au plus récent (ordre = couleurs)
+  const actifs = assignments
+    .filter(a => a.statut === "en_cours")
+    .sort((a, b) => a.date_debut.localeCompare(b.date_debut));
   const termines = assignments.filter(a => a.statut === "termine");
-  const activeStart = enCours ? parseLocalDate(enCours.date_debut) : null;
-  const dureeSemaines = enCours?.programme?.duree_semaines ?? 0;
-  const totalSeancesPrevues = Object.values(gridData).reduce((a, items) => a + items.length, 0);
+  const layers = buildLayers(actifs, gridsByAssignment);
 
-  async function patchGrid(newGrid: Grid) {
-    if (!enCours) return;
-    const src = enCours.grid_data?.startsWith("{") ? enCours.grid_data : enCours.programme?.description ?? "{}";
+  /** Séances réellement programmées : on ignore les semaines hors de la durée retenue. */
+  function totalSeancesPrevues(assign: Assignment): number {
+    const duree = dureeAssignment(assign);
+    return Object.entries(gridsByAssignment[assign.id] ?? {}).reduce((total, [key, items]) => {
+      const semaine = parseInt(key.match(/^S(\d+)_J\d+$/)?.[1] ?? "0");
+      return semaine >= 1 && semaine <= duree ? total + items.length : total;
+    }, 0);
+  }
+
+  async function patchGrid(assignId: string, newGrid: Grid) {
+    const target = actifs.find(a => a.id === assignId);
+    if (!target) return;
+    const src = target.grid_data?.startsWith("{") ? target.grid_data : target.programme?.description ?? "{}";
     const parsed = JSON.parse(src);
     const newGridData = JSON.stringify({ ...parsed, grid: newGrid });
-    await fetch(`/api/coach/clientes/${id}/programmes/${enCours.id}`, {
+    await fetch(`/api/coach/clientes/${id}/programmes/${assignId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ grid_data: newGridData }),
     });
-    setGridData(newGrid);
+    setGridsByAssignment(prev => ({ ...prev, [assignId]: newGrid }));
   }
 
-  function handleMoveItem(fromKey: string, itemKey: string, toKey: string) {
-    const item = (gridData[fromKey] ?? []).find(i => i._key === itemKey);
+  function handleMoveItem(assignId: string, fromKey: string, itemKey: string, toKey: string) {
+    const grid = gridsByAssignment[assignId] ?? {};
+    const item = (grid[fromKey] ?? []).find(i => i._key === itemKey);
     if (!item) return;
-    const newGrid = { ...gridData };
+    const newGrid = { ...grid };
     newGrid[fromKey] = (newGrid[fromKey] ?? []).filter(i => i._key !== itemKey);
     if (!newGrid[fromKey].length) delete newGrid[fromKey];
     newGrid[toKey] = [...(newGrid[toKey] ?? []), { ...item, _key: nk() }];
-    patchGrid(newGrid);
+    patchGrid(assignId, newGrid);
   }
 
   function handleEditSave(updatedItem: CellItem, newCellKey: string, applyToAll: boolean) {
     if (!editTarget) return;
-    const { cellKey: oldKey } = editTarget;
-    const newGrid = { ...gridData };
+    const { assignmentId, cellKey: oldKey } = editTarget;
+    const newGrid = { ...(gridsByAssignment[assignmentId] ?? {}) };
 
     if (applyToAll) {
       const name = getItemName(editTarget.item);
@@ -1119,17 +1436,17 @@ export default function ClienteFichePage() {
       newGrid[newCellKey] = [...(newGrid[newCellKey] ?? []), updatedItem];
     }
 
-    patchGrid(newGrid);
+    patchGrid(assignmentId, newGrid);
     setEditTarget(null);
   }
 
   function handleDeleteItem() {
     if (!editTarget) return;
-    const { cellKey, item } = editTarget;
-    const newGrid = { ...gridData };
+    const { assignmentId, cellKey, item } = editTarget;
+    const newGrid = { ...(gridsByAssignment[assignmentId] ?? {}) };
     newGrid[cellKey] = (newGrid[cellKey] ?? []).filter(i => i._key !== item._key);
     if (!newGrid[cellKey].length) delete newGrid[cellKey];
-    patchGrid(newGrid);
+    patchGrid(assignmentId, newGrid);
     setEditTarget(null);
   }
 
@@ -1204,42 +1521,80 @@ export default function ClienteFichePage() {
 
       {/* Calendrier */}
       <MonthCalendar
-        grid={gridData} activeStart={activeStart} dureeSemaines={dureeSemaines} today={today}
+        layers={layers} today={today}
         events={calEvents}
-        onEditItem={(cellKey, item) => setEditTarget({ cellKey, item })}
+        onEditItem={(assignmentId, cellKey, item) => setEditTarget({ assignmentId, cellKey, item })}
         onMoveItem={handleMoveItem}
         onAddEvent={(date) => { setAddEvDate(toLocalDate(date)); setShowAddEv(true); }}
         onEventClick={(ev) => setEditEvent(ev)}
       />
 
-      {/* Programme en cours */}
+      {/* Programmes en cours — plusieurs peuvent coexister (programmation à l'avance) */}
       <div style={{ backgroundColor: "#fff", borderRadius: 14, border: "1px solid #efefef", padding: "18px", marginBottom: 12 }}>
-        <p style={{ ...lbl10, marginBottom: 12 }}>Programme en cours</p>
-        {!enCours ? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8 }}>
+          <p style={{ ...lbl10, margin: 0 }}>
+            {actifs.length > 1 ? `Programmes en cours (${actifs.length})` : "Programme en cours"}
+          </p>
+          {actifs.length > 0 && (
+            <button onClick={() => setShowModal(true)} style={{ padding: "5px 11px", borderRadius: 7, border: "1px solid #e8e8e8", background: "#fafafa", color: "#666", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>
+              + Ajouter un programme
+            </button>
+          )}
+        </div>
+        {actifs.length === 0 ? (
           <div style={{ textAlign: "center", padding: "24px 0" }}>
             <p style={{ fontSize: 13, color: "#bbb", fontFamily: "system-ui" }}>Aucun programme assigné</p>
             <button onClick={() => setShowModal(true)} style={{ marginTop: 8, padding: "8px 16px", borderRadius: 8, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>+ Assigner un programme</button>
           </div>
         ) : (
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <p style={{ fontSize: 15, fontWeight: 800, color: "#1a1a1a", margin: "0 0 4px", fontFamily: "system-ui" }}>{enCours.programme.nom}</p>
-              <p style={{ fontSize: 11, color: "#aaa", margin: "0 0 10px", fontFamily: "system-ui" }}>{NIV[enCours.programme.niveau] ?? enCours.programme.niveau} · {enCours.programme.duree_semaines} semaines · début le {new Date(enCours.date_debut).toLocaleDateString("fr-FR")}</p>
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 10, color: "#888", fontFamily: "system-ui" }}>Séances effectuées</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#1a1a1a", fontFamily: "system-ui" }}>{enCours.seances_effectuees} / {totalSeancesPrevues}</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {actifs.map((a, i) => {
+              const total = totalSeancesPrevues(a);
+              const debut = parseLocalDate(a.date_debut);
+              const aVenir = debut > today;
+              const color = progColor(i);
+              const duree = dureeAssignment(a);
+              const dureeTemplate = a.programme?.duree_semaines ?? duree;
+              const grid = gridsByAssignment[a.id] ?? {};
+              const nbJours = joursDeLaGrille(grid).length;
+              return (
+                <div key={a.id} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", borderLeft: `3px solid ${color}`, paddingLeft: 12 }}>
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                      <p style={{ fontSize: 15, fontWeight: 800, color: "#1a1a1a", margin: 0, fontFamily: "system-ui" }}>{a.programme.nom}</p>
+                      {aVenir && (
+                        <span style={{ fontSize: 9, fontWeight: 700, color: "#0EA5E9", padding: "2px 7px", borderRadius: 99, border: "1px solid rgba(14,165,233,0.2)", backgroundColor: "rgba(14,165,233,0.07)", fontFamily: "system-ui" }}>
+                          Programmé
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ fontSize: 11, color: "#aaa", margin: "0 0 10px", fontFamily: "system-ui" }}>
+                      {NIV[a.programme.niveau] ?? a.programme.niveau} · {duree} semaine{duree > 1 ? "s" : ""}
+                      {duree !== dureeTemplate && (
+                        <span style={{ color: "#F59E0B" }}> (adapté, template : {dureeTemplate})</span>
+                      )}
+                      {nbJours > 0 && ` · ${nbJours} séance${nbJours > 1 ? "s" : ""}/semaine`}
+                      {" · "}{aVenir ? "démarre" : "début"} le {debut.toLocaleDateString("fr-FR")}
+                    </p>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontSize: 10, color: "#888", fontFamily: "system-ui" }}>Séances effectuées</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#1a1a1a", fontFamily: "system-ui" }}>{a.seances_effectuees} / {total}</span>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 99, backgroundColor: "#f0f0f0", overflow: "hidden" }}>
+                        <div style={{ height: "100%", borderRadius: 99, backgroundColor: color, width: total > 0 ? `${Math.min(100, (a.seances_effectuees / total) * 100)}%` : "0%" }} />
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => setAdjustTarget(a)} style={{ padding: "7px 14px", borderRadius: 7, border: "1px solid #B22222", backgroundColor: "#fff", color: "#B22222", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>⚙️ Durée & séances</button>
+                    <button onClick={() => goToEditor(a.id)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✏️ Modifier les séances</button>
+                    <button onClick={() => handleSeanceFaite(a.id, a.seances_effectuees)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#10B981", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✓ Séance faite</button>
+                    <button onClick={() => handleTerminer(a.id)} style={{ padding: "7px 14px", borderRadius: 7, border: "1px solid #e0e0e0", background: "#fafafa", color: "#888", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>Marquer terminé</button>
+                  </div>
                 </div>
-                <div style={{ height: 6, borderRadius: 99, backgroundColor: "#f0f0f0", overflow: "hidden" }}>
-                  <div style={{ height: "100%", borderRadius: 99, backgroundColor: "#B22222", width: totalSeancesPrevues > 0 ? `${Math.min(100, (enCours.seances_effectuees / totalSeancesPrevues) * 100)}%` : "0%" }} />
-                </div>
-              </div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-              <button onClick={() => enCours && goToEditor(enCours.id)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✏️ Modifier les séances</button>
-              <button onClick={() => handleSeanceFaite(enCours.id, enCours.seances_effectuees)} style={{ padding: "7px 14px", borderRadius: 7, border: "none", backgroundColor: "#10B981", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>✓ Séance faite</button>
-              <button onClick={() => handleTerminer(enCours.id)} style={{ padding: "7px 14px", borderRadius: 7, border: "1px solid #e0e0e0", background: "#fafafa", color: "#888", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>Marquer terminé</button>
-            </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -1251,12 +1606,12 @@ export default function ClienteFichePage() {
       <JournalSeances clienteId={id} />
 
       {/* Edit panel */}
-      {editTarget && enCours && (
+      {editTarget && (
         <SeanceEditPanel
           item={editTarget.item}
           cellKey={editTarget.cellKey}
-          dureeSemaines={dureeSemaines}
-          otherInstancesCount={Object.entries(gridData)
+          dureeSemaines={(() => { const a = actifs.find(a => a.id === editTarget.assignmentId); return a ? dureeAssignment(a) : 0; })()}
+          otherInstancesCount={Object.entries(gridsByAssignment[editTarget.assignmentId] ?? {})
             .filter(([k]) => k !== editTarget.cellKey)
             .reduce((acc, [, items]) => acc + items.filter(i => getItemName(i) === getItemName(editTarget.item)).length, 0)}
           onSave={handleEditSave}
@@ -1265,13 +1620,23 @@ export default function ClienteFichePage() {
         />
       )}
 
-      {showModal && <AssignModal clienteId={id} onAssigned={loadAssignments} onPersonnaliser={goToEditor} onClose={() => setShowModal(false)} />}
+      {showModal && <AssignModal clienteId={id} nbActifs={actifs.length} onAssigned={loadAssignments} onPersonnaliser={goToEditor} onClose={() => setShowModal(false)} />}
 
-      {showSeanceList && enCours && (
+      {adjustTarget && (
+        <AdjustModal
+          clienteId={id}
+          assignment={adjustTarget}
+          grid={gridsByAssignment[adjustTarget.id] ?? {}}
+          onSaved={loadAssignments}
+          onClose={() => setAdjustTarget(null)}
+        />
+      )}
+
+      {showSeanceList && actifs[0] && (
         <SeanceListPanel
-          grid={gridData}
-          dureeSemaines={dureeSemaines}
-          onEditItem={(cellKey, item) => { setEditTarget({ cellKey, item }); setShowSeanceList(false); }}
+          grid={gridsByAssignment[actifs[0].id] ?? {}}
+          dureeSemaines={dureeAssignment(actifs[0])}
+          onEditItem={(cellKey, item) => { setEditTarget({ assignmentId: actifs[0].id, cellKey, item }); setShowSeanceList(false); }}
           onClose={() => setShowSeanceList(false)}
         />
       )}
