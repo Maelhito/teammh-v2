@@ -236,10 +236,37 @@ elif ! command -v vercel >/dev/null 2>&1; then
   jaune "  Vercel CLI introuvable — déploiement à faire à la main :"
   echo "    npx vercel --prod --yes"
 else
+  # `.vercel/` est gitignoré, donc absent des worktrees. Sans lui, `vercel --prod --yes`
+  # CRÉE un nouveau projet nommé d'après le dossier et déploie à côté de la vraie prod.
+  # On emprunte donc le lien du dépôt principal avant tout déploiement.
+  if [ ! -f .vercel/project.json ]; then
+    PRINCIPAL=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+    if [ -n "$PRINCIPAL" ] && [ -f "$PRINCIPAL/.vercel/project.json" ]; then
+      mkdir -p .vercel
+      cp "$PRINCIPAL/.vercel/project.json" .vercel/project.json
+      echo "  lien Vercel emprunté au dépôt principal"
+    fi
+  fi
+
+  # Jamais de déploiement à l'aveugle : sans lien connu, on s'arrête.
+  if [ ! -f .vercel/project.json ]; then
+    rouge "  ✖ Aucun projet Vercel lié — déploiement annulé."
+    echo ""
+    echo "  Déployer maintenant créerait un projet parasite au lieu de mettre"
+    echo "  à jour la vraie prod. Lie le projet d'abord :"
+    echo "    vercel link"
+    echo ""
+    echo "  Ton code est en sécurité dans $BRANCHE_CIBLE."
+    echo ""
+    exit 1
+  fi
+
+  PROJET=$(node -e "try{console.log(require('./.vercel/project.json').projectName||'')}catch(e){}" 2>/dev/null)
+  echo "  projet ciblé : ${PROJET:-inconnu}"
   echo "  déploiement du code qui vient d'être poussé..."
   echo ""
   if vercel --prod --yes; then
-    vert "  ✓ déployé"
+    vert "  ✓ déployé sur ${PROJET:-le projet lié}"
     DEPLOYE=1
   else
     echo ""
