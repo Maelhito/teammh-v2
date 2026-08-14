@@ -45,14 +45,17 @@ export async function POST(request: NextRequest) {
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
 
+  // Notification uniquement pour un vrai module de la liste (les points du module
+  // de démarrage ont un slug `module-0:<key>` : pas de push, comme pour les vidéos).
   if (!isSlot2) {
     const moduleData = getModuleBySlug(slug);
-    const moduleTitle = moduleData?.title ?? slug;
-    await sendPushToAll({
-      title: "📄 Nouveau document disponible",
-      body: `Un document PDF est disponible dans le module "${moduleTitle}".`,
-      url: `/modules/${slug}`,
-    }).catch(() => {});
+    if (moduleData) {
+      await sendPushToAll({
+        title: "📄 Nouveau document disponible",
+        body: `Un document PDF est disponible dans le module "${moduleData.title}".`,
+        url: `/modules/${slug}`,
+      }).catch(() => {});
+    }
   }
 
   return NextResponse.json({ success: true, url: publicUrl, name: filename, slot });
