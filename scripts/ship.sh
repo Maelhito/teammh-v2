@@ -224,71 +224,77 @@ git branch -D "$SAUVEGARDE" >/dev/null 2>&1
 vert "  ✓ $NB commit(s) dans $BRANCHE_CIBLE"
 
 # ── 6. Déploiement ────────────────────────────────────────────────────────────
-# Le projet Vercel n'est pas connecté à GitHub : pousser dans main ne déploie PAS.
-# On déploie donc explicitement, depuis le code exact qui vient d'être poussé.
-# C'est ce qui garantit que la prod == main, et jamais un vieil état local.
-etape "6/6  Déploiement en production"
+# Le dépôt GitHub EST connecté à Vercel : le push ci-dessus a déjà déclenché le
+# déploiement de production. On se contente de le suivre.
+#
+# ⚠️ NE JAMAIS lancer `vercel --prod` ici. Cela crée un SECOND déploiement de prod,
+# construit à partir des fichiers locaux et non du commit poussé, qui court après
+# le même alias que le déploiement git. Le dernier arrivé gagne : un état local
+# périmé peut donc écraser la prod. C'est une des causes des régressions passées.
+etape "6/6  Déploiement (déclenché par le push)"
 
 DEPLOYE=0
-if [ "${SHIP_NO_DEPLOY:-}" = "1" ]; then
-  jaune "  ignoré (SHIP_NO_DEPLOY=1)"
-elif ! command -v vercel >/dev/null 2>&1; then
-  jaune "  Vercel CLI introuvable — déploiement à faire à la main :"
-  echo "    npx vercel --prod --yes"
+
+if ! command -v vercel >/dev/null 2>&1; then
+  jaune "  Vercel CLI absent — suivi impossible depuis le terminal."
+  echo "  Le déploiement tourne quand même : https://vercel.com/dashboard"
 else
-  # `.vercel/` est gitignoré, donc absent des worktrees. Sans lui, `vercel --prod --yes`
-  # CRÉE un nouveau projet nommé d'après le dossier et déploie à côté de la vraie prod.
-  # On emprunte donc le lien du dépôt principal avant tout déploiement.
+  # `.vercel/` est gitignoré donc absent des worktrees : on emprunte le lien du
+  # dépôt principal, uniquement pour CONSULTER l'état (aucun déploiement lancé).
   if [ ! -f .vercel/project.json ]; then
     PRINCIPAL=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
     if [ -n "$PRINCIPAL" ] && [ -f "$PRINCIPAL/.vercel/project.json" ]; then
       mkdir -p .vercel
       cp "$PRINCIPAL/.vercel/project.json" .vercel/project.json
-      echo "  lien Vercel emprunté au dépôt principal"
     fi
   fi
 
-  # Jamais de déploiement à l'aveugle : sans lien connu, on s'arrête.
   if [ ! -f .vercel/project.json ]; then
-    rouge "  ✖ Aucun projet Vercel lié — déploiement annulé."
-    echo ""
-    echo "  Déployer maintenant créerait un projet parasite au lieu de mettre"
-    echo "  à jour la vraie prod. Lie le projet d'abord :"
-    echo "    vercel link"
-    echo ""
-    echo "  Ton code est en sécurité dans $BRANCHE_CIBLE."
-    echo ""
-    exit 1
-  fi
-
-  PROJET=$(node -e "try{console.log(require('./.vercel/project.json').projectName||'')}catch(e){}" 2>/dev/null)
-  echo "  projet ciblé : ${PROJET:-inconnu}"
-  echo "  déploiement du code qui vient d'être poussé..."
-  echo ""
-  if vercel --prod --yes; then
-    vert "  ✓ déployé sur ${PROJET:-le projet lié}"
-    DEPLOYE=1
+    jaune "  Projet Vercel non lié ici — suivi impossible."
+    echo "  Le déploiement tourne quand même : https://vercel.com/dashboard"
   else
+    echo "  Vercel construit le commit qui vient d'être poussé."
+    printf "  attente"
+
+    for _ in $(seq 1 40); do
+      printf "."
+      sleep 6
+      LIGNE=$(vercel ls --prod 2>/dev/null | grep -E "https://" | head -1)
+      case "$LIGNE" in
+        *Ready*)   DEPLOYE=1; break ;;
+        *Error*)   DEPLOYE=2; break ;;
+      esac
+    done
     echo ""
-    rouge "  ✖ Le déploiement a échoué."
-    echo "  Ton code est en sécurité dans $BRANCHE_CIBLE — seule la mise en ligne a échoué."
-    echo "  Relancer :  npx vercel --prod --yes"
-    echo ""
-    exit 1
+
+    case "$DEPLOYE" in
+      1) vert "  ✓ déploiement terminé" ;;
+      2) rouge "  ✖ Le déploiement Vercel a échoué."
+         echo "  Ton code est en sécurité dans $BRANCHE_CIBLE."
+         echo "  Voir les logs : https://vercel.com/dashboard" ;;
+      *) jaune "  Toujours en cours après 4 min — suivi : https://vercel.com/dashboard" ;;
+    esac
   fi
 fi
 
 echo ""
-if [ "$DEPLOYE" = "1" ]; then
-  vert "════════════════════════════════════════════════"
-  vert "  TERMINÉ — $BRANCHE_CIBLE et la prod sont identiques"
-  vert "════════════════════════════════════════════════"
-else
-  jaune "════════════════════════════════════════════════"
-  jaune "  POUSSÉ dans $BRANCHE_CIBLE — mais PAS déployé"
-  jaune "════════════════════════════════════════════════"
-  echo ""
-  echo "  La prod tourne encore sur une version antérieure."
-  echo "  Pour la mettre à jour :  npx vercel --prod --yes"
-fi
+case "$DEPLOYE" in
+  1)
+    vert "════════════════════════════════════════════════"
+    vert "  TERMINÉ — $BRANCHE_CIBLE et la prod sont identiques"
+    vert "════════════════════════════════════════════════"
+    ;;
+  2)
+    rouge "════════════════════════════════════════════════"
+    rouge "  POUSSÉ dans $BRANCHE_CIBLE — déploiement en échec"
+    rouge "════════════════════════════════════════════════"
+    echo ""
+    echo "  Ne pas lancer 'vercel --prod' pour rattraper : corrige et refais 'npm run ship'."
+    ;;
+  *)
+    jaune "════════════════════════════════════════════════"
+    jaune "  POUSSÉ dans $BRANCHE_CIBLE — déploiement en cours"
+    jaune "════════════════════════════════════════════════"
+    ;;
+esac
 echo ""

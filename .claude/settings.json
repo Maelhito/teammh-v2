@@ -14,6 +14,9 @@
       "Bash(npm run worktrees:clean:*)"
     ],
     "deny": [
+      "Bash(vercel --prod:*)",
+      "Bash(vercel deploy --prod:*)",
+      "Bash(npx vercel --prod:*)",
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
       "Bash(git push --force-with-lease:*)",

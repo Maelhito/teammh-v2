@@ -18,23 +18,23 @@ Elle enchaîne, dans cet ordre, et **s'arrête à la première erreur** :
 3. **Rebase sur `origin/main`** — le travail est replacé *au-dessus* du dernier état de prod, jamais en dessous
 4. **`npm run build`** — si le build casse, rien n'est poussé
 5. `git push origin HEAD:main` — en fast-forward strict, sans `--force`
-6. `vercel --prod` — déploie exactement le code qui vient d'être poussé
+6. Vercel déploie tout seul (le dépôt GitHub est connecté), `ship` suit le build et te dit si ça passe
 
-Ne pas contourner cette commande. Ne **jamais** lancer `vercel --prod` seul (voir ci-dessous).
+### 🚫 Ne jamais lancer `vercel --prod`
 
-### ⚠️ Le projet Vercel n'est pas connecté à GitHub
+Le dépôt GitHub **est** connecté à Vercel : pousser dans `main` déclenche le déploiement de
+production. Lancer `vercel --prod` en plus crée un **second** déploiement de prod, construit à
+partir des **fichiers de ton disque** et non du commit poussé. Les deux courent après la même
+adresse `teammj-v2.vercel.app`, et **le dernier arrivé gagne**.
 
-Pousser dans `main` ne déclenche **aucun** déploiement. Historiquement, la prod était mise à jour
-par des `vercel --prod` lancés à la main depuis un dossier local — c'est-à-dire depuis l'état du
-disque à cet instant, souvent une branche ancienne. **`main` et la prod étaient donc deux choses
-indépendantes**, et c'est une des causes des régressions constatées.
+C'est une des causes des régressions : un `vercel --prod` lancé depuis un dossier local — souvent
+une vieille branche — écrasait la prod construite depuis `main`. Constaté le 14 août 2026, deux
+déploiements à 2 secondes d'intervalle.
 
-`npm run ship` règle le problème en déployant *juste après* le push, depuis le code exact qui vient
-d'être validé : la prod est forcément identique à `main`.
+**Donc : on pousse, et on laisse Vercel faire.** `npm run ship` s'en charge et attend le résultat.
 
-**Amélioration recommandée** — connecter le dépôt GitHub dans Vercel
-(*Project Settings → Git → Connect Git Repository*). Une fois fait, le déploiement devient
-automatique et `ship` n'aura plus à le déclencher (`SHIP_NO_DEPLOY=1 npm run ship` pour le sauter).
+Si un déploiement échoue, on **ne rattrape pas** avec `vercel --prod` : on corrige le code et on
+refait `npm run ship`.
 
 ---
 
@@ -47,11 +47,12 @@ Ce projet a perdu du travail plusieurs fois. Les trois causes, et ce qui les blo
 | Le travail restait sur des branches locales jamais poussées | `npm run ship` pousse dans `main` à chaque fois |
 | Une branche ancienne fusionnée en dernier écrasait du travail plus récent | Le **rebase sur `origin/main`** avant chaque push ; le push est en fast-forward strict, donc **impossible** d'écraser un commit existant |
 | Du code cassé arrivait en prod | Le **build** bloque le push (hook `pre-push` + CI GitHub Actions) |
-| La prod était déployée depuis un dossier local, pas depuis `main` | `ship` déploie **juste après** le push, depuis le code exact qui vient d'être validé |
+| `vercel --prod` depuis un dossier local écrasait la prod construite depuis `main` | On ne déploie plus à la main : le push suffit, `ship` suit le build |
 | Les erreurs TypeScript étaient ignorées au build | `ignoreBuildErrors: false` dans `next.config.ts` |
 
 ### Interdits absolus
 
+- ❌ `vercel --prod` (double le déploiement git et peut écraser la prod avec un état local)
 - ❌ `git push --force` / `--force-with-lease` sur `main`
 - ❌ `git reset --hard` sur `main`
 - ❌ Contourner le hook avec `--no-verify`

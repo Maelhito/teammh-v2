@@ -1,8 +1,14 @@
-# Activer la CI GitHub (2 minutes, à faire une fois)
+# Activer la CI GitHub — optionnel
 
-La CI est le **deuxième filet** : elle relance le build sur les serveurs de GitHub
-à chaque push sur `main`. Elle protège même si le hook local a été contourné,
-ou si le push vient d'une autre machine.
+> **Ce n'est pas urgent.** Vercel est connecté à GitHub et construit déjà le projet à chaque
+> push sur `main` : un build cassé se voit immédiatement (déploiement en échec dans le tableau
+> de bord Vercel). Ajouté au build local bloquant de `npm run ship`, tu es déjà couvert.
+>
+> La CI GitHub n'apporte qu'un plus : une coche verte/rouge visible directement sur GitHub,
+> et une vérification sur les pull requests avant fusion. À faire si tu en as envie, pas avant.
+
+La CI relance le build sur les serveurs de GitHub à chaque push sur `main`.
+Elle protège même si le hook local a été contourné, ou si le push vient d'une autre machine.
 
 Le fichier est prêt : [`docs/github-actions-ci.yml`](./github-actions-ci.yml).
 Il n'a pas pu être poussé automatiquement car le token GitHub utilisé ici n'a pas
