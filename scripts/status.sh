@@ -20,10 +20,16 @@ gras ""
 
 TOTAL=0
 TROUVE=0
+SAUVEGARDES=0
 
 while read -r branche; do
   [ -z "$branche" ] && continue
-  case "$branche" in backup/*) continue ;; esac
+  # Les branches de sauvegarde sont des points de restauration, pas du travail
+  # à réintégrer : on les compte à part pour ne pas noyer la vraie liste.
+  case "$branche" in
+    backup/*) continue ;;
+    sauvegarde/*) SAUVEGARDES=$((SAUVEGARDES + 1)); continue ;;
+  esac
 
   n=$(git rev-list --count "origin/main..$branche" 2>/dev/null) || continue
   [ "${n:-0}" = "0" ] && continue
@@ -53,7 +59,12 @@ else
   echo ""
   echo "  Pour envoyer une branche :"
   echo "    git switch <branche> && npm run ship"
+  echo ""
+  echo "  Détail et ordre conseillé : TRAVAIL-A-REINTEGRER.md"
 fi
+
+[ "$SAUVEGARDES" -gt 0 ] && \
+  echo "" && echo "  ($SAUVEGARDES branche(s) 'sauvegarde/*' — points de restauration, rien à en faire)"
 
 # ── Modifications non commitées dans chaque worktree ──────────────────────────
 echo ""
