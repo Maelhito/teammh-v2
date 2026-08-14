@@ -14,6 +14,7 @@ export interface UserProfile {
   date_demarrage: string | null;
   programme_type: ProgrammeType | null;
   programme_duree: ProgrammeDuree | null;
+  avatar_url: string | null;
   updated_at: string | null;
 }
 

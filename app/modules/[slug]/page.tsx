@@ -8,6 +8,8 @@ import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import ValidateButton from "./ValidateButton";
 import VisioReplaysClient from "./VisioReplaysClient";
+import PreviewBanner from "@/components/PreviewBanner";
+import { getEffectiveUser } from "@/lib/preview";
 import fs from "fs";
 import path from "path";
 
@@ -154,7 +156,7 @@ export default async function ModulePage({ params }: PageProps) {
 
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
-  const userId = session?.user.id ?? "";
+  const { userId, firstName, isPreview } = await getEffectiveUser(session);
 
   const modules = getModules();
   const slugs = modules.map((m) => m.slug);
@@ -212,6 +214,7 @@ export default async function ModulePage({ params }: PageProps) {
 
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 90 }}>
+      {isPreview && <PreviewBanner name={firstName} />}
       <AppHeader back backHref="/dashboard" />
 
       {/* Bannière */}

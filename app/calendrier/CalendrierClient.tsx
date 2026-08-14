@@ -15,6 +15,8 @@ interface CalendarEvent {
   user_id: string | null;
   target_user_id: string | null;
   team_member_id: string | null;
+  grid_key?: string | null;
+  assignment_id?: string | null;
 }
 
 interface TeamMember {
@@ -27,6 +29,7 @@ interface TeamMember {
 interface Props {
   userId: string;
   initialEvents: CalendarEvent[];
+  completedSeances?: { grid_key: string | null; assignment_id: string | null; nom: string | null }[];
 }
 
 function isEventOnDay(event: CalendarEvent, day: Date): boolean {
@@ -52,8 +55,26 @@ function toLocalDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function eventColor(evt: CalendarEvent): string {
-  if (evt.event_type === "seance")          return "#F97316"; // 🟠 Séance de sport
+function isSeanceValidee(
+  evt: CalendarEvent,
+  completedSeances: { grid_key: string | null; assignment_id: string | null; nom: string | null }[]
+): boolean {
+  if (evt.event_type !== "seance") return false;
+  return completedSeances.some((c) => {
+    // Correspondance exacte via grid_key + assignment_id (séances générées depuis la grille du programme)
+    if (c.grid_key && c.assignment_id && evt.grid_key && evt.assignment_id) {
+      return c.grid_key === evt.grid_key && c.assignment_id === evt.assignment_id;
+    }
+    // Repli : correspondance par nom (au cas où l'événement ne porte pas grid_key/assignment_id)
+    if (c.nom && evt.titre) return c.nom.trim().toLowerCase() === evt.titre.trim().toLowerCase();
+    return false;
+  });
+}
+
+function eventColor(evt: CalendarEvent, completedSeances: { grid_key: string | null; assignment_id: string | null; nom: string | null }[] = []): string {
+  if (evt.event_type === "seance") {
+    return isSeanceValidee(evt, completedSeances) ? "#16A34A" /* 🟢 Validée */ : "#F97316"; // 🟠 Séance de sport
+  }
   if (evt.event_type === "coach")           return "#B22222"; // 🔴 Coach
   if (evt.event_type === "nutrition")       return "#22C55E"; // 🟢 Nutrition
   if (evt.event_type === "coaching_groupe") return "#3B82F6"; // 🔵 Coaching de groupe
@@ -74,7 +95,7 @@ const RECURRENCE_LABELS: Record<string, string> = {
   monthly: "Mensuel",
 };
 
-export default function CalendrierClient({ userId, initialEvents }: Props) {
+export default function CalendrierClient({ userId, initialEvents, completedSeances = [] }: Props) {
   void userId;
   const todayRaw = new Date();
   todayRaw.setHours(0, 0, 0, 0);
@@ -247,7 +268,9 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
           const isToday = dayDate.toDateString() === todayRaw.toDateString();
           const isSelected = selectedDay?.toDateString() === dayDate.toDateString();
           const dayEvts = getDayEvents(dayDate);
-          const hasSeance       = dayEvts.some((e) => e.event_type === "seance");
+          const seanceEvts = dayEvts.filter((e) => e.event_type === "seance");
+          const hasSeance       = seanceEvts.length > 0 && seanceEvts.some((e) => !isSeanceValidee(e, completedSeances));
+          const hasSeanceValidee = seanceEvts.some((e) => isSeanceValidee(e, completedSeances));
           const hasCoach        = dayEvts.some((e) => e.event_type === "coach");
           const hasCoachingGroupe = dayEvts.some((e) => e.event_type === "coaching_groupe");
           const hasNutrition    = dayEvts.some((e) => e.event_type === "nutrition");
@@ -282,8 +305,13 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
               }}>
                 {day}
               </span>
-              {(hasSeance || hasCoach || hasCoachingGroupe || hasNutrition || hasTache || hasPersonal) && (
+              {(hasSeance || hasSeanceValidee || hasCoach || hasCoachingGroupe || hasNutrition || hasTache || hasPersonal) && (
                 <div style={{ display: "flex", gap: 2, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }}>
+                  {hasSeanceValidee && (
+                    <span style={{ width: 9, height: 9, borderRadius: "50%", backgroundColor: "#16A34A", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: 7, lineHeight: 1, color: "#0D0D0D", fontWeight: 900 }}>✓</span>
+                    </span>
+                  )}
                   {hasSeance        && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#F97316" }} />}
                   {hasCoach         && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#B22222" }} />}
                   {hasCoachingGroupe && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#3B82F6" }} />}
@@ -301,6 +329,7 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
       <div style={{ display: "flex", gap: 10, marginTop: 16, paddingBottom: 4, flexWrap: "wrap" }}>
         {[
           { color: "#F97316", label: "Séance" },
+          { color: "#16A34A", label: "Séance validée ✓" },
           { color: "#B22222", label: "Coach" },
           { color: "#3B82F6", label: "Coaching groupe" },
           { color: "#22C55E", label: "Nutrition" },
@@ -339,14 +368,24 @@ export default function CalendrierClient({ userId, initialEvents }: Props) {
                 padding: "10px 12px",
                 backgroundColor: "#0D0D0D",
                 borderRadius: 8,
-                borderLeft: `3px solid ${eventColor(evt)}`,
+                borderLeft: `3px solid ${eventColor(evt, completedSeances)}`,
               }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                   <p style={{ fontWeight: 600, color: "#F5F5F0", fontSize: "0.9rem", margin: 0, flex: 1 }}>
                     {evt.titre}
                   </p>
+                  {isSeanceValidee(evt, completedSeances) && (
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      fontSize: "0.68rem", fontWeight: 700, color: "#16A34A",
+                      backgroundColor: "rgba(22,163,74,0.12)", borderRadius: 999,
+                      padding: "2px 8px", flexShrink: 0,
+                    }}>
+                      ✓ Validée
+                    </span>
+                  )}
                   {evt.heure && (
-                    <span style={{ fontSize: "0.75rem", color: eventColor(evt), fontWeight: 600, flexShrink: 0 }}>
+                    <span style={{ fontSize: "0.75rem", color: eventColor(evt, completedSeances), fontWeight: 600, flexShrink: 0 }}>
                       {evt.heure.slice(0, 5)}
                     </span>
                   )}
