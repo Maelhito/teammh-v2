@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "3001"],
       "port": 3001
+    },
+    {
+      "name": "Production locale (port 3002)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start", "--", "--port", "3002"],
+      "port": 3002
     }
   ]
 }

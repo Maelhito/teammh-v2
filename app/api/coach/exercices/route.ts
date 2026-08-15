@@ -10,7 +10,10 @@ export async function GET() {
   const { data, error } = await admin
     .from("exercises")
     .select("*")
-    .order("created_at", { ascending: false });
+    // Ordre alphabétique : c'est celui attendu partout (bibliothèque du builder,
+    // page Exercices, autocomplétion « # »). Les vues affinent avec localeCompare
+    // en français, car le tri SQL ne place pas toujours les accents correctement.
+    .order("nom", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ exercises: data ?? [] });

@@ -127,6 +127,11 @@ function useExercises(): Exercise[] {
   return list;
 }
 
+/** Tri alphabétique français : « Élévations » se range à E, pas après Z. */
+function trierParNom<T extends { nom: string }>(liste: T[]): T[] {
+  return [...liste].sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
+}
+
 /** Minuscules sans accents : « Développé » et « developpe » doivent se trouver. */
 function normaliser(s: string): string {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -135,7 +140,7 @@ function normaliser(s: string): string {
 /** Exercices correspondant à la saisie, les débuts de nom d'abord. */
 function chercherExercices(liste: Exercise[], saisie: string, max = 8): Exercise[] {
   const q = normaliser(saisie);
-  if (!q) return liste.slice(0, max);
+  if (!q) return trierParNom(liste).slice(0, max);
   const debut: Exercise[] = [];
   const dedans: Exercise[] = [];
   for (const ex of liste) {
@@ -143,7 +148,9 @@ function chercherExercices(liste: Exercise[], saisie: string, max = 8): Exercise
     if (n.startsWith(q)) debut.push(ex);
     else if (n.includes(q)) dedans.push(ex);
   }
-  return [...debut, ...dedans].slice(0, max);
+  // Les noms commençant par la saisie d'abord — c'est ce qu'on cherche en tapant —
+  // puis les autres ; chaque groupe classé alphabétiquement.
+  return [...trierParNom(debut), ...trierParNom(dedans)].slice(0, max);
 }
 
 // ─── Helpers sync description ↔ Mouvements ───────────────────────────────────
@@ -484,6 +491,7 @@ function ExerciseBank({
     if (search && !ex.nom.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+  const listeTriee = trierParNom(filtered);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "calc(100vh - 64px)", alignSelf: "start", backgroundColor: "#fff", borderRight: "1px solid #e8e8e8", width: 260, flexShrink: 0 }}>
@@ -532,7 +540,7 @@ function ExerciseBank({
       </div>
 
       <div style={{ flex: 1, overflowY: "auto" }}>
-        {filtered.map(ex => {
+        {listeTriee.map(ex => {
           const thumb = ex.miniature_url || ytThumb(ex.video_url);
           const color = GC[ex.groupe_musculaire] ?? "#888";
           return (
