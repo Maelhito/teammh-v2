@@ -93,7 +93,7 @@ function _playOneBip(ctx: AudioContext, freq: number, duration: number, volume: 
 }
 
 // Bip simple (compte à rebours 3/2/1)
-function playBeep(freq = 880, duration = 0.18, volume = 2.0) {
+function playBeep(freq = 880, duration = 0.18, volume = 0.9) {
   const ctx = getAudioCtx();
   if (!ctx) return;
   const doPlay = () => _playOneBip(ctx, freq, duration, volume, ctx.currentTime);
@@ -107,17 +107,71 @@ function playTransitionBeep() {
   if (!ctx) return;
   const doPlay = () => {
     const now = ctx.currentTime;
-    _playOneBip(ctx, 1047, 0.15, 2.5, now);          // do
-    _playOneBip(ctx, 1175, 0.15, 2.5, now + 0.20);   // ré
-    _playOneBip(ctx, 1319, 0.30, 2.5, now + 0.40);   // mi long
+    _playOneBip(ctx, 1047, 0.15, 0.9, now);          // do
+    _playOneBip(ctx, 1175, 0.15, 0.9, now + 0.20);   // ré
+    _playOneBip(ctx, 1319, 0.30, 0.9, now + 0.40);   // mi long
   };
   if (ctx.state === "suspended") { ctx.resume().then(doPlay).catch(() => {}); }
   else { doPlay(); }
 }
 
+/* ---- Voix du décompte ----
+ * Fichiers pré-enregistrés plutôt que synthèse vocale du navigateur : même voix
+ * sur tous les téléphones, et surtout on peut programmer la lecture à l'avance
+ * sur l'horloge audio, ce que la synthèse ne permet pas.
+ * Si un fichier manque ou n'a pas fini de charger, on retombe sur les bips :
+ * une cliente ne doit jamais se retrouver sans signal en pleine série. */
+const MOTS_VOIX = { 3: "trois", 2: "deux", 1: "un", 0: "top" } as const;
+const voix = new Map<string, AudioBuffer>();
+let voixChargee = false;
+
+function precharger() {
+  if (voixChargee) return;
+  voixChargee = true;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  for (const mot of Object.values(MOTS_VOIX)) {
+    fetch(`/sons/${mot}.mp3`)
+      .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then(b => ctx.decodeAudioData(b))
+      .then(buf => voix.set(mot, buf))
+      .catch(() => {}); // silencieux : le repli en bips prend le relais
+  }
+}
+
+/** Joue un mot. Retourne false si l'audio n'est pas disponible. */
+function direMot(mot: string): boolean {
+  const ctx = getAudioCtx();
+  const buf = voix.get(mot);
+  if (!ctx || !buf) return false;
+  const jouer = () => {
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(ctx.currentTime);
+  };
+  if (ctx.state === "suspended") ctx.resume().then(jouer).catch(() => {});
+  else jouer();
+  return true;
+}
+
+/** Point d'entrée unique du décompte, partagé par les trois chronos.
+ *  Appelé à chaque seconde avec le temps restant. */
+function signalerDecompte(secondesRestantes: number) {
+  if (secondesRestantes > 3) return;
+  // Un compteur qui dépasse zéro reste la fin du temps : on dit « top », comme
+  // l'ancien code bipait sur `next <= 0`.
+  const cle = Math.max(0, secondesRestantes) as 0 | 1 | 2 | 3;
+  if (direMot(MOTS_VOIX[cle])) return;
+  // Repli : les bips d'origine, volume ramené sous le seuil de saturation
+  if (cle === 0) playTransitionBeep();
+  else playBeep(cle === 1 ? 1200 : 880, 0.18, 0.9);
+}
+
 function initAudio() {
   const ctx = getAudioCtx();
   if (ctx?.state === "suspended") ctx.resume().catch(() => {});
+  precharger();
 }
 
 /* ---- Wake Lock — empêche l'écran de s'éteindre ---- */
@@ -291,8 +345,7 @@ function Countdown({ totalSeconds, label }: { totalSeconds: number; label: strin
       ref.current = setInterval(() => {
         setRemaining((r) => {
           const next = Math.max(0, r - 1);
-          if (next <= 3 && next > 0) playBeep(next === 1 ? 1200 : 880, 0.18, 2.0);
-          if (next === 0) playTransitionBeep();
+          signalerDecompte(next);
           prevRemaining.current = next;
           return next;
         });
@@ -332,9 +385,8 @@ function EmomTimer({ intervalSec, rounds }: { intervalSec: number; rounds: numbe
       ref.current = setInterval(() => {
         setRemaining((r) => {
           const next = r - 1;
-          if (next <= 3 && next > 0) playBeep(next === 1 ? 1200 : 880, 0.18, 2.0);
+          signalerDecompte(next);
           if (next <= 0) {
-            playTransitionBeep();
             setCurrentRound((cr) => {
               if (cr >= rounds) { setRunning(false); return cr; }
               return cr + 1;
@@ -380,9 +432,8 @@ function TabataTimer({ workSec, restSec, tours }: { workSec: number; restSec: nu
       ref.current = setInterval(() => {
         setRemaining((r) => {
           const next = r - 1;
-          if (next <= 3 && next > 0) playBeep(next === 1 ? 1200 : 880, 0.18, 2.0);
+          signalerDecompte(next);
           if (next <= 0) {
-            playTransitionBeep();
             if (phase === "work") { setPhase("rest"); return restSec; }
             else {
               setCurrentTour((t) => {
