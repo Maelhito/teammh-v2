@@ -1,5 +1,5 @@
-import PageSkeleton from "@/components/PageSkeleton";
+import PanelSkeleton from "@/components/PanelSkeleton";
 
 export default function Loading() {
-  return <PageSkeleton />;
+  return <PanelSkeleton />;
 }
