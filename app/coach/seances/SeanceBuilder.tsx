@@ -5,6 +5,7 @@ import {
   newKey, ytThumb, defaultBloc, encodeSeance, decodeSeance,
   type Exercise, type TabataItem, type RichExercise, type BlocType, type Bloc, type SeanceData,
 } from "@/lib/seance-format";
+import { normaliserTexte, contientRecherche, comparerNoms } from "@/lib/recherche";
 
 // Le format d'encodage vit dans lib/seance-format.ts (module pur, lisible côté
 // serveur par app/entrainement). On le ré-exporte pour les imports existants.
@@ -129,22 +130,17 @@ function useExercises(): Exercise[] {
 
 /** Tri alphabétique français : « Élévations » se range à E, pas après Z. */
 function trierParNom<T extends { nom: string }>(liste: T[]): T[] {
-  return [...liste].sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
-}
-
-/** Minuscules sans accents : « Développé » et « developpe » doivent se trouver. */
-function normaliser(s: string): string {
-  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  return [...liste].sort((a, b) => comparerNoms(a.nom, b.nom));
 }
 
 /** Exercices correspondant à la saisie, les débuts de nom d'abord. */
 function chercherExercices(liste: Exercise[], saisie: string, max = 8): Exercise[] {
-  const q = normaliser(saisie);
+  const q = normaliserTexte(saisie);
   if (!q) return trierParNom(liste).slice(0, max);
   const debut: Exercise[] = [];
   const dedans: Exercise[] = [];
   for (const ex of liste) {
-    const n = normaliser(ex.nom);
+    const n = normaliserTexte(ex.nom);
     if (n.startsWith(q)) debut.push(ex);
     else if (n.includes(q)) dedans.push(ex);
   }
@@ -488,7 +484,7 @@ function ExerciseBank({
     if (bankTab === "echauffements" && !isEchauff) return false;
     if (bankTab === "exercices" && isEchauff) return false;
     if (filterGroupe !== "tous" && ex.groupe_musculaire !== filterGroupe) return false;
-    if (search && !ex.nom.toLowerCase().includes(search.toLowerCase())) return false;
+    if (!contientRecherche(ex.nom, search)) return false;
     return true;
   });
   const listeTriee = trierParNom(filtered);

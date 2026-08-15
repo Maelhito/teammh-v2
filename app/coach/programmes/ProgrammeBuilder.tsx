@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { NIVEAUX, CATEGORIES, defaultBloc, decodeSeance, type SeanceData } from "../seances/SeanceBuilder";
 import SeanceBuildComp from "../seances/SeanceBuilder";
+import { contientRecherche } from "@/lib/recherche";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface SeanceRef {
@@ -244,7 +245,7 @@ function AddMenu({ seances, onAdd, onCreateSeance, onClose }: {
   const [videoThumb, setVideoThumb] = useState<string | null>(null);
 
   function handleVideoUrl(url: string) { setVideoUrl(url); setVideoThumb(ytThumb(url)); }
-  const filtered = seances.filter(s => !search || s.nom.toLowerCase().includes(search.toLowerCase()));
+  const filtered = seances.filter(s => contientRecherche(s.nom, search));
   const tabStyle = (t: typeof tab): React.CSSProperties => ({
     flex: 1, padding: "8px 4px", border: "none", cursor: "pointer", fontSize: 11, fontFamily: "system-ui", fontWeight: 700,
     backgroundColor: tab === t ? "#fff" : "transparent", color: tab === t ? "#B22222" : "#888",
@@ -740,7 +741,7 @@ function DayCell({ semaine, jour, items, seances, onAdd, onRemove, onCreateSeanc
 // ─── Panel séances ────────────────────────────────────────────────────────────
 function SeancesPanel({ seances, onRefresh }: { seances: SeanceRef[]; onRefresh: () => void }) {
   const [search, setSearch] = useState("");
-  const filtered = seances.filter(s => !search || s.nom.toLowerCase().includes(search.toLowerCase()));
+  const filtered = seances.filter(s => contientRecherche(s.nom, search));
   return (
     <div style={{ display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "calc(100vh - 80px)", backgroundColor: "#0D0D0D", borderRight: "1px solid #1a1a1a" }}>
       <div style={{ padding: "12px 14px", borderBottom: "1px solid #1a1a1a", flexShrink: 0 }}>

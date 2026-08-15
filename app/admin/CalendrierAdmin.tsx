@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { contientRecherche } from "@/lib/recherche";
 
 interface Client {
   id: string;
@@ -163,7 +164,7 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
   }
 
   const filteredClients = useMemo(() =>
-    clients.filter(c => clientLabel(c).toLowerCase().includes(clientSearch.toLowerCase())),
+    clients.filter(c => contientRecherche(clientLabel(c), clientSearch)),
     [clients, clientSearch]
   );
 

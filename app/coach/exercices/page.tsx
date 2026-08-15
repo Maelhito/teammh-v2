@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { contientRecherche } from "@/lib/recherche";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Exercise {
@@ -439,7 +440,7 @@ export default function CoachExercicesPage() {
     if (activeTab === "echauffements" && ex.type_format !== "echauffement") return false;
     if (activeTab === "exercices" && ex.type_format === "echauffement") return false;
     // Filtres texte / groupe / matériel
-    if (search && !ex.nom.toLowerCase().includes(search.toLowerCase())) return false;
+    if (!contientRecherche(ex.nom, search)) return false;
     if (filterGroupe !== "tous" && !parseGroupes(ex.groupe_musculaire).includes(filterGroupe)) return false;
     if (filterMateriel !== "tous" && ex.materiel !== filterMateriel) return false;
     return true;
