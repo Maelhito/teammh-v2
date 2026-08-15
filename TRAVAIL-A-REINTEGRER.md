@@ -22,14 +22,20 @@ En cas de conflit, il liste les fichiers concernés et s'arrête sans rien casse
 
 ## À réintégrer, du plus récent au plus ancien
 
-### 1. `claude/ttm-coach-clientes-review-8402d3` — 10 août
+### ~~1. `claude/ttm-coach-clientes-review-8402d3` — 10 août~~ ✅ RÉINTÉGRÉE le 15/08/2026
 **Suivi des mesures : poids, mensurations, photos de progression**
 3 commits · 15 fichiers · +1472 lignes
 
 Comparateur avant/après, galerie complète, courbes côté coach, historique repliable des deux côtés.
 Nouvelles routes API `mesures` + composants `MesuresCliente` / `PhotosCliente`.
 
-> Gros morceau, autonome, sans recoupement avec le reste. **Le meilleur candidat pour commencer.**
+Fusionnée dans `main` via `reintegration/mesures-photos`. Un seul conflit
+(`app/coach/clientes/[id]/page.tsx`, deux imports) — les deux versions conservées, rien de perdu.
+Bucket Supabase **privé** `photos-progression` créé à cette occasion ; les tables `mesures` et
+`photos_progression` existaient déjà.
+
+> **Reste à faire dessus :** la colonne `note` est en base et dans les types, mais n'est ni
+> saisissable ni affichée. À brancher si le besoin se confirme.
 
 ---
 
@@ -135,8 +141,8 @@ Le plus ancien et le plus petit. Probablement le plus simple à reprendre — ou
 
 ## Ordre conseillé
 
-1. **n°1** (mesures) — gros, autonome, sans conflit
-2. **n°7** (skeletons) — peu risqué, gain immédiat
+1. ~~**n°1** (mesures)~~ ✅ fait
+2. **n°7** (skeletons) — peu risqué, gain immédiat — **prochaine**
 3. **n°2** (renommage TTL) — seule, avant les autres branches TTS
 4. **n°3** puis vérifier **n°4** (doublon PWA)
 5. **n°5** (landing TTS) — après la n°2
