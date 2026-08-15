@@ -96,6 +96,56 @@ function VideoModal({ url, nom, onClose }: { url: string; nom: string; onClose: 
   );
 }
 
+// ─── Bibliothèque d'exercices partagée ───────────────────────────────────────
+/** La bibliothèque et l'autocomplétion « # » ont besoin de la même liste.
+ *  Un cache au niveau module évite un second appel réseau par éditeur ouvert. */
+let exercisesCache: Exercise[] | null = null;
+let exercisesEnVol: Promise<Exercise[]> | null = null;
+
+/** Un seul appel réseau même si plusieurs éditeurs se montent en même temps
+ *  (une séance a un éditeur par bloc). La promesse est relâchée une fois
+ *  résolue : un retour sur la page redemande donc bien la liste à jour. */
+function loadExercises(): Promise<Exercise[]> {
+  if (exercisesEnVol) return exercisesEnVol;
+  exercisesEnVol = fetch("/api/coach/exercices")
+    .then(r => r.json())
+    .then(d => { exercisesCache = d.exercises ?? []; return exercisesCache!; })
+    .catch(() => exercisesCache ?? [])
+    .finally(() => { exercisesEnVol = null; });
+  return exercisesEnVol;
+}
+
+/** Sert immédiatement la dernière liste connue (pas de clignotement), puis la
+ *  rafraîchit : un exercice créé dans la bibliothèque apparaît sans rechargement. */
+function useExercises(): Exercise[] {
+  const [list, setList] = useState<Exercise[]>(exercisesCache ?? []);
+  useEffect(() => {
+    let vivant = true;
+    loadExercises().then(ex => { if (vivant) setList(ex); });
+    return () => { vivant = false; };
+  }, []);
+  return list;
+}
+
+/** Minuscules sans accents : « Développé » et « developpe » doivent se trouver. */
+function normaliser(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+/** Exercices correspondant à la saisie, les débuts de nom d'abord. */
+function chercherExercices(liste: Exercise[], saisie: string, max = 8): Exercise[] {
+  const q = normaliser(saisie);
+  if (!q) return liste.slice(0, max);
+  const debut: Exercise[] = [];
+  const dedans: Exercise[] = [];
+  for (const ex of liste) {
+    const n = normaliser(ex.nom);
+    if (n.startsWith(q)) debut.push(ex);
+    else if (n.includes(q)) dedans.push(ex);
+  }
+  return [...debut, ...dedans].slice(0, max);
+}
+
 // ─── Helpers sync description ↔ Mouvements ───────────────────────────────────
 function extractExercisesFromHtml(html: string): Exercise[] {
   if (typeof window === "undefined" || !html) return [];
@@ -152,6 +202,9 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
   onExerciseDrop?: (ex: Exercise, html: string) => void;
 }>(function RichTextEditor({ initialHtml, onHtmlChange, onVideoClick, placeholder, onExerciseDrop }, ref) {
   const divRef = useRef<HTMLDivElement>(null);
+  const exercices = useExercises();
+  /** Menu d'autocomplétion « # » : null = fermé. */
+  const [menu, setMenu] = useState<{ items: Exercise[]; idx: number; x: number; y: number } | null>(null);
 
   useEffect(() => {
     const div = divRef.current;
@@ -171,6 +224,47 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
     },
   }));
 
+  /** Span rouge/gras portant TOUTES les données nécessaires au sync Mouvements. */
+  function makeExerciseSpan(ex: Exercise): HTMLSpanElement {
+    const span = document.createElement("span");
+    span.setAttribute("contenteditable", "false");
+    span.dataset.exId     = ex.id;
+    span.dataset.exNom    = ex.nom;
+    span.dataset.exVideo  = ex.video_url || "";
+    span.dataset.exGroupe = ex.groupe_musculaire;
+    span.dataset.exThumb  = ex.miniature_url || ytThumb(ex.video_url) || "";
+    span.style.cssText    = "color:#B22222;font-weight:800;cursor:pointer;user-select:none;";
+    span.textContent      = ex.nom;
+    return span;
+  }
+
+  /** Insère le span à l'emplacement d'un Range et place le curseur après. */
+  function insertSpanAt(range: Range, ex: Exercise): string | null {
+    const div = divRef.current;
+    if (!div) return null;
+    const span = makeExerciseSpan(ex);
+    const sel = window.getSelection();
+    sel?.removeAllRanges(); sel?.addRange(range);
+    range.deleteContents(); range.insertNode(span);
+
+    // Sans séparateur, deux exercices consécutifs se collent
+    // (« Développé militaireSoulevé de terre »).
+    const gauche = span.previousSibling;
+    const colleAGauche = gauche
+      && !(gauche.nodeType === Node.TEXT_NODE && /[\s\u00a0]$/.test(gauche.textContent ?? ""));
+    if (colleAGauche) span.before(document.createTextNode(" "));
+
+    // Espace insécable après : sans lui, impossible de replacer le curseur
+    // derrière un span en fin de ligne pour continuer à écrire.
+    const espace = document.createTextNode(" ");
+    span.after(espace);
+    const after = document.createRange();
+    after.setStart(espace, 1); after.collapse(true);
+    sel?.removeAllRanges(); sel?.addRange(after);
+    div.focus();
+    return sanitizeHtml(div.innerHTML);
+  }
+
   /** Insère le span rouge et retourne le nouveau HTML (null si non monté). */
   function insertExerciseAtDrop(e: React.DragEvent, ex: Exercise): string | null {
     const div = divRef.current;
@@ -186,26 +280,69 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
       range = document.createRange(); range.selectNodeContents(div); range.collapse(false);
     }
 
-    // Span rouge/gras avec TOUTES les données pour le sync
-    const span = document.createElement("span");
-    span.setAttribute("contenteditable", "false");
-    span.dataset.exId     = ex.id;
-    span.dataset.exNom    = ex.nom;
-    span.dataset.exVideo  = ex.video_url || "";
-    span.dataset.exGroupe = ex.groupe_musculaire;
-    span.dataset.exThumb  = ex.miniature_url || ytThumb(ex.video_url) || "";
-    span.style.cssText    = "color:#B22222;font-weight:800;cursor:pointer;user-select:none;";
-    span.textContent      = ex.nom;
+    // Lâcher un exercice PILE sur un exercice déjà inséré plaçait le curseur
+    // dans un span contenteditable=false : le nouveau nom se retrouvait imbriqué
+    // dans l'ancien et les deux disparaissaient de Mouvements. On sort du span.
+    let node: Node | null = range.startContainer;
+    while (node && node !== div) {
+      if (node.nodeType === Node.ELEMENT_NODE && (node as Element).getAttribute("contenteditable") === "false") {
+        range = document.createRange();
+        range.setStartAfter(node); range.collapse(true);
+        break;
+      }
+      node = node.parentNode;
+    }
 
-    const sel = window.getSelection();
-    sel?.removeAllRanges(); sel?.addRange(range);
-    range.deleteContents(); range.insertNode(span);
-    const after = document.createRange();
-    after.setStartAfter(span); after.collapse(true);
-    sel?.removeAllRanges(); sel?.addRange(after);
-    div.focus();
-    return sanitizeHtml(div.innerHTML);
+    return insertSpanAt(range, ex);
   }
+
+  // ─── Autocomplétion « # » ───────────────────────────────────────────────────
+  /** Si le curseur suit un « #… », retourne la saisie et le Range à remplacer. */
+  function detecterHash(): { q: string; range: Range } | null {
+    const div = divRef.current;
+    const sel = window.getSelection();
+    if (!div || !sel || !sel.isCollapsed || sel.rangeCount === 0) return null;
+    const node = sel.anchorNode;
+    if (!node || node.nodeType !== Node.TEXT_NODE || !div.contains(node)) return null;
+
+    const avant = (node.textContent ?? "").slice(0, sel.anchorOffset);
+    // Le nom peut contenir des espaces (« Développé couché ») : on autorise tout
+    // sauf un autre # ou un retour à la ligne, et on plafonne la longueur.
+    const m = avant.match(/#([^#\n]{0,40})$/);
+    if (!m) return null;
+
+    const range = document.createRange();
+    range.setStart(node, sel.anchorOffset - m[0].length);
+    range.setEnd(node, sel.anchorOffset);
+    return { q: m[1], range };
+  }
+
+  function rafraichirMenu() {
+    const d = detecterHash();
+    if (!d) { setMenu(null); return; }
+    const items = chercherExercices(exercices, d.q);
+    // Aucun résultat = le « # » n'était pas une intention d'insertion : on ferme
+    // pour ne pas bloquer l'écriture normale.
+    if (items.length === 0) { setMenu(null); return; }
+    const r = d.range.getBoundingClientRect();
+    setMenu({ items, idx: 0, x: r.left, y: r.bottom });
+  }
+
+  /** Remplace le « #saisie » par l'exercice choisi, et le remonte au parent
+   *  pour qu'il apparaisse aussi dans Mouvements. */
+  function choisirExercice(ex: Exercise) {
+    const d = detecterHash();
+    setMenu(null);
+    if (!d) return;
+    const html = insertSpanAt(d.range, ex);
+    if (html === null) return;
+    // Même chemin que le glisser-déposer : une seule écriture parente, sinon la
+    // seconde (basée sur un état périmé) effacerait la première.
+    if (onExerciseDrop) onExerciseDrop(ex, html);
+    else onHtmlChange(html);
+  }
+
+  const TOUCHES_MENU = ["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"];
 
   const ph = placeholder || "Tape tes consignes… Glisse un exercice pour l'insérer en rouge et dans Mouvements.";
 
@@ -216,8 +353,25 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
         contentEditable
         suppressContentEditableWarning
         data-placeholder={ph}
-        onInput={() => divRef.current && onHtmlChange(sanitizeHtml(divRef.current.innerHTML))}
-        onKeyUp={() => divRef.current && onHtmlChange(sanitizeHtml(divRef.current.innerHTML))}
+        onInput={() => {
+          if (divRef.current) onHtmlChange(sanitizeHtml(divRef.current.innerHTML));
+          rafraichirMenu();
+        }}
+        onKeyUp={e => {
+          if (divRef.current) onHtmlChange(sanitizeHtml(divRef.current.innerHTML));
+          // Les touches de navigation pilotent le menu : les rejouer ici
+          // remettrait la sélection à zéro à chaque flèche.
+          if (!TOUCHES_MENU.includes(e.key)) rafraichirMenu();
+        }}
+        onKeyDown={e => {
+          if (!menu) return;
+          const n = menu.items.length;
+          if (e.key === "ArrowDown")      { e.preventDefault(); setMenu(m => m && { ...m, idx: (m.idx + 1) % n }); }
+          else if (e.key === "ArrowUp")   { e.preventDefault(); setMenu(m => m && { ...m, idx: (m.idx - 1 + n) % n }); }
+          else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); choisirExercice(menu.items[menu.idx]); }
+          else if (e.key === "Escape")    { e.preventDefault(); setMenu(null); }
+        }}
+        onBlur={() => setMenu(null)}
         onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
         onDrop={e => {
           e.preventDefault(); e.stopPropagation();
@@ -243,6 +397,54 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
           wordBreak: "break-word", cursor: "text",
         }}
       />
+      {menu && (
+        <div
+          // position fixed : l'éditeur vit dans un panneau qui défile, un
+          // positionnement relatif ferait dériver le menu au scroll.
+          style={{
+            position: "fixed", left: menu.x, top: menu.y + 4, zIndex: 3000,
+            minWidth: 240, maxWidth: 340, maxHeight: 260, overflowY: "auto",
+            backgroundColor: "#fff", border: "1px solid #e0e0e0", borderRadius: 8,
+            boxShadow: "0 6px 24px rgba(0,0,0,0.16)", padding: 4, fontFamily: "system-ui",
+          }}
+        >
+          {menu.items.map((ex, i) => {
+            const thumb = ex.miniature_url || ytThumb(ex.video_url);
+            return (
+              <div
+                key={ex.id}
+                // preventDefault au mousedown : sans ça le clic retire le focus
+                // de l'éditeur, la sélection est perdue et l'insertion échoue.
+                onMouseDown={e => { e.preventDefault(); choisirExercice(ex); }}
+                onMouseEnter={() => setMenu(m => m && { ...m, idx: i })}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8, padding: "6px 8px",
+                  borderRadius: 6, cursor: "pointer",
+                  backgroundColor: i === menu.idx ? "#fdecec" : "transparent",
+                }}
+              >
+                {thumb
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={thumb} alt="" width={28} height={28} style={{ borderRadius: 4, objectFit: "cover", flexShrink: 0 }} />
+                  : <span style={{ width: 28, height: 28, borderRadius: 4, backgroundColor: GC[ex.groupe_musculaire] ?? "#ddd", flexShrink: 0 }} />}
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {ex.nom}
+                  </span>
+                  {ex.groupe_musculaire && (
+                    <span style={{ display: "block", fontSize: 10, color: "#999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {ex.groupe_musculaire}
+                    </span>
+                  )}
+                </span>
+              </div>
+            );
+          })}
+          <div style={{ padding: "4px 8px", fontSize: 9, color: "#bbb", borderTop: "1px solid #f0f0f0", marginTop: 2 }}>
+            ↑↓ naviguer · Entrée choisir · Échap fermer
+          </div>
+        </div>
+      )}
       <style>{`[data-placeholder]:empty:before{content:attr(data-placeholder);color:#aaa;pointer-events:none;}`}</style>
     </>
   );
@@ -258,14 +460,11 @@ function ExerciseBank({
   collapsed: boolean;
   onToggleCollapse: () => void;
 }) {
-  const [exercises, setExercises] = useState<Exercise[]>([]);
+  // Même source que l'autocomplétion « # » : un seul appel réseau pour les deux.
+  const exercises = useExercises();
   const [search, setSearch] = useState("");
   const [filterGroupe, setFilterGroupe] = useState("tous");
   const [bankTab, setBankTab] = useState<"exercices" | "echauffements">("exercices");
-
-  useEffect(() => {
-    fetch("/api/coach/exercices").then(r => r.json()).then(d => setExercises(d.exercises ?? []));
-  }, []);
 
   if (collapsed) {
     return (
@@ -696,7 +895,7 @@ function BlocCard({
             initialHtml={bloc.instructions}
             onHtmlChange={handleDescriptionChange}
             onVideoClick={(url, nom) => setVideoUrl({ url, nom })}
-            placeholder="Redigez la description… Glisse un exercice pour l’insérer en rouge et dans Mouvements."
+            placeholder="Rédigez la description… Tapez # pour chercher un exercice, ou glissez-le depuis la bibliothèque."
             onExerciseDrop={(ex, html) => {
               // UNE seule écriture, à partir du bloc à jour : description +
               // Mouvements ensemble. Deux écritures séparées se seraient
@@ -753,7 +952,9 @@ function BlocCard({
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p
                         onClick={() => hasVideo && setVideoUrl({ url: re.exercise.video_url!, nom: re.exercise.nom })}
-                        style={{ fontSize: 12, fontWeight: 700, color: hasVideo ? "#B22222" : "#F5F5F0", margin: "0 0 4px", fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: hasVideo ? "pointer" : "default" }}>
+                        // Sans vidéo, le nom était en #F5F5F0 sur une carte #f5f5f5 :
+                        // invisible. Reste d'un thème sombre — la carte est claire.
+                        style={{ fontSize: 12, fontWeight: 700, color: hasVideo ? "#B22222" : "#1a1a1a", margin: "0 0 4px", fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: hasVideo ? "pointer" : "default" }}>
                         {re.exercise?.nom}
                       </p>
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
