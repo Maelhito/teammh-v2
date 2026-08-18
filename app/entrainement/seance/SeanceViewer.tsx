@@ -77,78 +77,107 @@ function getAudioCtx(): AudioContext | null {
   } catch { return null; }
 }
 
-function _playOneBip(ctx: AudioContext, freq: number, duration: number, volume: number, startAt: number) {
-  try {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = freq;
-    osc.type = "square"; // plus percutant que "sine"
-    gain.gain.setValueAtTime(volume, startAt);
-    gain.gain.exponentialRampToValueAtTime(0.001, startAt + duration);
-    osc.start(startAt);
-    osc.stop(startAt + duration);
-  } catch {}
-}
-
-// Bip simple (compte à rebours 3/2/1)
-function playBeep(freq = 880, duration = 0.18, volume = 0.9) {
-  const ctx = getAudioCtx();
-  if (!ctx) return;
-  const doPlay = () => _playOneBip(ctx, freq, duration, volume, ctx.currentTime);
-  if (ctx.state === "suspended") { ctx.resume().then(doPlay).catch(() => {}); }
-  else { doPlay(); }
-}
-
-// Triple bip fort pour transition de bloc / passage de minute
+/** Confirmation de changement de bloc / fin de séance : deux impulsions du
+ *  même son que le décompte, pour rester cohérent à l'oreille. */
 function playTransitionBeep() {
   const ctx = getAudioCtx();
-  if (!ctx) return;
-  const doPlay = () => {
-    const now = ctx.currentTime;
-    _playOneBip(ctx, 1047, 0.15, 0.9, now);          // do
-    _playOneBip(ctx, 1175, 0.15, 0.9, now + 0.20);   // ré
-    _playOneBip(ctx, 1319, 0.30, 0.9, now + 0.40);   // mi long
-  };
-  if (ctx.state === "suspended") { ctx.resume().then(doPlay).catch(() => {}); }
-  else { doPlay(); }
+  const t = ctx ? ctx.currentTime : undefined;
+  playBip(t);
+  playBip(t !== undefined ? t + 0.22 : undefined, BIP.volume * 0.85);
 }
 
-/* ---- Voix du décompte ----
- * Fichiers pré-enregistrés plutôt que synthèse vocale du navigateur : même voix
- * sur tous les téléphones, et surtout on peut programmer la lecture à l'avance
- * sur l'horloge audio, ce que la synthèse ne permet pas.
- * Si un fichier manque ou n'a pas fini de charger, on retombe sur les bips :
- * une cliente ne doit jamais se retrouver sans signal en pleine série. */
-const MOTS_VOIX = { 3: "trois", 2: "deux", 1: "un", 0: "top" } as const;
-const voix = new Map<string, AudioBuffer>();
-let voixChargee = false;
+/* ---- Sons du décompte ----
+ * Le bip est SYNTHÉTISÉ (réglages choisis par la coach dans l'atelier) plutôt
+ * qu'un fichier : aucun octet à télécharger, et il démarre à l'instant exact
+ * demandé. Seules les deux voix sont des fichiers.
+ *
+ * Décompte : 3 · 2 · 1 en bips, puis « LET'S GO » quand l'effort (re)démarre,
+ * « STOP » quand le repos commence. Les deux voix sont préchargées ; si l'une
+ * manque, un bip plus grave prend le relais — jamais de silence en pleine série. */
+const BIP = {
+  f0: 510,
+  h: [1, 0.55, 0.45, 0.6, 0.75, 0.85],
+  montee: 0.002, maintien: 0.11, descente: 0.52, courbe: 4,
+  filtre: 800, resonance: 0.55, melange: 0.25, volume: 0.55,
+};
 
-function precharger() {
-  if (voixChargee) return;
-  voixChargee = true;
+export type FinDeChrono = "lets-go" | "stop";
+
+const voix = new Map<string, AudioBuffer>();
+let reverbBuf: AudioBuffer | null = null;
+let prechargeFaite = false;
+
+/** Queue de résonance : bruit décroissant, calculée une seule fois. */
+function getReverb(ctx: AudioContext): AudioBuffer {
+  if (reverbBuf) return reverbBuf;
+  const n = Math.floor(ctx.sampleRate * BIP.resonance);
+  const buf = ctx.createBuffer(2, n, ctx.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2.5);
+  }
+  reverbBuf = buf;
+  return buf;
+}
+
+/** Une impulsion du bip, programmable à l'avance sur l'horloge audio. */
+function playBip(quand?: number, volume = BIP.volume) {
   const ctx = getAudioCtx();
   if (!ctx) return;
-  for (const mot of Object.values(MOTS_VOIX)) {
+  const jouer = () => {
+    const t = quand ?? ctx.currentTime;
+    const maitre = ctx.createGain();
+    maitre.gain.value = volume * 0.35;          // 6 partiels s'additionnent
+    const pb = ctx.createBiquadFilter();
+    pb.type = "lowpass"; pb.frequency.value = BIP.filtre;
+    maitre.connect(pb);
+
+    const sec = ctx.createGain(); sec.gain.value = 1 - BIP.melange;
+    pb.connect(sec); sec.connect(ctx.destination);
+    const conv = ctx.createConvolver(); conv.buffer = getReverb(ctx);
+    const hum = ctx.createGain(); hum.gain.value = BIP.melange;
+    pb.connect(conv); conv.connect(hum); hum.connect(ctx.destination);
+
+    BIP.h.forEach((poids, i) => {
+      if (poids <= 0.001) return;
+      const osc = ctx.createOscillator(); const g = ctx.createGain();
+      osc.type = "sine"; osc.frequency.value = BIP.f0 * (i + 1);
+      osc.connect(g); g.connect(maitre);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0002, poids), t + BIP.montee);
+      g.gain.setValueAtTime(Math.max(0.0002, poids), t + BIP.montee + BIP.maintien);
+      const pas = 24, courbe = new Float32Array(pas);
+      for (let k = 0; k < pas; k++) courbe[k] = Math.max(0.0001, poids * Math.pow(1 - k / (pas - 1), BIP.courbe));
+      g.gain.setValueCurveAtTime(courbe, t + BIP.montee + BIP.maintien, BIP.descente);
+      osc.start(t); osc.stop(t + BIP.montee + BIP.maintien + BIP.descente + 0.05);
+    });
+  };
+  if (ctx.state === "suspended") ctx.resume().then(jouer).catch(() => {});
+  else jouer();
+}
+
+function precharger() {
+  if (prechargeFaite) return;
+  prechargeFaite = true;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  for (const mot of ["lets-go", "stop"]) {
     fetch(`/sons/${mot}.mp3`)
       .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
       .then(b => ctx.decodeAudioData(b))
       .then(buf => voix.set(mot, buf))
-      .catch(() => {}); // silencieux : le repli en bips prend le relais
+      .catch(() => {}); // silencieux : le repli en bip prend le relais
   }
 }
 
-/** Joue un mot. Retourne false si l'audio n'est pas disponible. */
-function direMot(mot: string): boolean {
+/** Joue une voix. Retourne false si elle n'est pas disponible. */
+function direVoix(mot: FinDeChrono): boolean {
   const ctx = getAudioCtx();
   const buf = voix.get(mot);
   if (!ctx || !buf) return false;
   const jouer = () => {
     const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.connect(ctx.destination);
-    src.start(ctx.currentTime);
+    src.buffer = buf; src.connect(ctx.destination); src.start(ctx.currentTime);
   };
   if (ctx.state === "suspended") ctx.resume().then(jouer).catch(() => {});
   else jouer();
@@ -156,16 +185,24 @@ function direMot(mot: string): boolean {
 }
 
 /** Point d'entrée unique du décompte, partagé par les trois chronos.
- *  Appelé à chaque seconde avec le temps restant. */
-function signalerDecompte(secondesRestantes: number) {
+ *  Appelé chaque seconde avec le temps restant ; `fin` dit ce qui suit. */
+function signalerDecompte(secondesRestantes: number, fin: FinDeChrono) {
   if (secondesRestantes > 3) return;
-  // Un compteur qui dépasse zéro reste la fin du temps : on dit « top », comme
-  // l'ancien code bipait sur `next <= 0`.
-  const cle = Math.max(0, secondesRestantes) as 0 | 1 | 2 | 3;
-  if (direMot(MOTS_VOIX[cle])) return;
-  // Repli : les bips d'origine, volume ramené sous le seuil de saturation
-  if (cle === 0) playTransitionBeep();
-  else playBeep(cle === 1 ? 1200 : 880, 0.18, 0.9);
+  if (secondesRestantes > 0) { playBip(); return; }
+  // Zéro (ou en dessous) : la voix annonce ce qui commence.
+  if (direVoix(fin)) return;
+  // Repli sans fichier : deux bips montants pour repartir, un grave pour l'arrêt.
+  const ctx = getAudioCtx();
+  const t = ctx ? ctx.currentTime : undefined;
+  if (fin === "lets-go") { playBip(t); playBip(t !== undefined ? t + 0.18 : undefined); }
+  else playBip(t, BIP.volume * 0.8);
+}
+
+/** Rappel à mi-parcours : UN SEUL bip, identique à ceux du décompte.
+ *  Il tombe à la moitié du temps, donc largement avant les 3 dernières
+ *  secondes : aucun risque de le confondre avec le décompte. */
+function signalerMoitie() {
+  playBip();
 }
 
 function initAudio() {
@@ -339,13 +376,17 @@ function Countdown({ totalSeconds, label }: { totalSeconds: number; label: strin
   const [running, setRunning] = useState(false); // démarrage manuel
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevRemaining = useRef(totalSeconds);
+  // Mi-parcours : on ne le signale que s'il tombe au-dela des 3 dernieres
+  // secondes, sinon il se confondrait avec le decompte. -1 = jamais atteint.
+  const moitie = Math.floor(totalSeconds / 2) > 3 ? Math.floor(totalSeconds / 2) : -1;
 
   useEffect(() => {
     if (running && remaining > 0) {
       ref.current = setInterval(() => {
         setRemaining((r) => {
           const next = Math.max(0, r - 1);
-          signalerDecompte(next);
+          signalerDecompte(next, "stop");
+          if (next === moitie) signalerMoitie();
           prevRemaining.current = next;
           return next;
         });
@@ -379,13 +420,17 @@ function EmomTimer({ intervalSec, rounds }: { intervalSec: number; rounds: numbe
   const [remaining, setRemaining] = useState(intervalSec);
   const [running, setRunning] = useState(false); // démarrage manuel
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Mi-parcours : on ne le signale que s'il tombe au-dela des 3 dernieres
+  // secondes, sinon il se confondrait avec le decompte. -1 = jamais atteint.
+  const moitie = Math.floor(intervalSec / 2) > 3 ? Math.floor(intervalSec / 2) : -1;
 
   useEffect(() => {
     if (running) {
       ref.current = setInterval(() => {
         setRemaining((r) => {
           const next = r - 1;
-          signalerDecompte(next);
+          signalerDecompte(next, "lets-go");
+          if (next === moitie) signalerMoitie();
           if (next <= 0) {
             setCurrentRound((cr) => {
               if (cr >= rounds) { setRunning(false); return cr; }
@@ -426,13 +471,19 @@ function TabataTimer({ workSec, restSec, tours }: { workSec: number; restSec: nu
   const [remaining, setRemaining] = useState(workSec);
   const [running, setRunning] = useState(false); // démarrage manuel
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Mi-parcours : on ne le signale que s'il tombe au-dela des 3 dernieres
+  // secondes, sinon il se confondrait avec le decompte. -1 = jamais atteint.
+  const dureePhase = phase === "work" ? workSec : restSec;
+  const moitie = Math.floor(dureePhase / 2) > 3 ? Math.floor(dureePhase / 2) : -1;
 
   useEffect(() => {
     if (running) {
       ref.current = setInterval(() => {
         setRemaining((r) => {
           const next = r - 1;
-          signalerDecompte(next);
+          // Ce qui suit depend de la phase en cours : on annonce ce qui arrive.
+          signalerDecompte(next, phase === "work" ? "stop" : "lets-go");
+          if (next === moitie) signalerMoitie();
           if (next <= 0) {
             if (phase === "work") { setPhase("rest"); return restSec; }
             else {
