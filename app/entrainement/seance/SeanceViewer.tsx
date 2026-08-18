@@ -211,24 +211,55 @@ function initAudio() {
   precharger();
 }
 
-/* ---- Wake Lock — empêche l'écran de s'éteindre ---- */
+/* ---- Wake Lock — empêche l'écran de s'éteindre pendant la séance ----
+ *
+ * Le système relâche TOUJOURS le verrou quand la page est masquée (écran
+ * éteint, appel entrant, bascule vers une autre app). Il faut donc le
+ * redemander au retour — et pour cela savoir qu'il a été perdu, ce que seul
+ * l'évènement « release » nous dit. Sans lui, la variable pointe sur un verrou
+ * mort et l'écran s'éteint pour le reste de la séance. */
 let wakeLock: WakeLockSentinel | null = null;
+let wakeLockVoulu = false;      // vrai tant que la cliente est en séance
+let ecouteursPoses = false;
+
+function wakeLockSupporte(): boolean {
+  return typeof navigator !== "undefined" && "wakeLock" in navigator;
+}
+
+async function acquerirWakeLock() {
+  if (!wakeLockVoulu || wakeLock || !wakeLockSupporte()) return;
+  try {
+    const verrou = await navigator.wakeLock.request("screen");
+    // Sans ce marquage, on croirait le verrou encore actif après sa perte.
+    verrou.addEventListener("release", () => {
+      if (wakeLock === verrou) wakeLock = null;
+    });
+    wakeLock = verrou;
+  } catch {
+    wakeLock = null;   // refusé (batterie faible, onglet masqué) : on réessaiera
+  }
+}
+
+/** Écouteurs posés UNE SEULE FOIS : ils vivent aussi longtemps que la page. */
+function poserEcouteursWakeLock() {
+  if (ecouteursPoses) return;
+  ecouteursPoses = true;
+  // Retour au premier plan : on reprend le verrou si la séance est en cours.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") acquerirWakeLock();
+  });
+  // Certains navigateurs mobiles ne repassent pas par visibilitychange.
+  window.addEventListener("focus", () => acquerirWakeLock());
+}
 
 async function requestWakeLock() {
-  try {
-    if ("wakeLock" in navigator) {
-      wakeLock = await navigator.wakeLock.request("screen");
-      // iOS/Android re-release le lock quand l'app passe en arrière-plan — on le re-demande
-      document.addEventListener("visibilitychange", async () => {
-        if (document.visibilityState === "visible" && !wakeLock) {
-          try { wakeLock = await navigator.wakeLock.request("screen"); } catch {}
-        }
-      }, { once: false });
-    }
-  } catch {}
+  wakeLockVoulu = true;
+  poserEcouteursWakeLock();
+  await acquerirWakeLock();
 }
 
 function releaseWakeLock() {
+  wakeLockVoulu = false;
   wakeLock?.release().catch(() => {});
   wakeLock = null;
 }
@@ -572,6 +603,11 @@ export default function SeanceViewer({
   const [noteSaved, setNoteSaved] = useState(false);
   const [noteSaving, setNoteSaving] = useState(false);
   const [showAbandonModal, setShowAbandonModal] = useState(false);
+
+  // Filet : si la cliente quitte la page sans terminer (retour arrière,
+  // fermeture), on rend la main au téléphone plutôt que de laisser son écran
+  // allumé indéfiniment.
+  useEffect(() => releaseWakeLock, []);
 
   const allBlocs = seanceData.blocs ?? [];
   const currentBloc = allBlocs[currentBlocIndex];
