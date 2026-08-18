@@ -127,3 +127,24 @@ body {
 .pdf-title { font-size: 0.85rem; font-weight: 600; color: #F5F5F0; flex: 1; }
 .pdf-badge { font-size: 0.72rem; color: #555; flex-shrink: 0; }
 .pdf-block--active .pdf-badge { color: #B22222; }
+
+/* Instructions de bloc (échauffement, corps, finisher) : le HTML vient de
+   l'éditeur de la coach et peut arriver avec ses propres couleurs (texte noir,
+   fond blanc collé depuis un autre outil). Le lecteur de séance est en fond
+   noir : on force le texte en blanc et on efface les fonds hérités. */
+.seance-instructions,
+.seance-instructions * {
+  color: #FFFFFF !important;
+}
+.seance-instructions * {
+  background-color: transparent !important;
+}
+.seance-instructions ul,
+.seance-instructions ol { padding-left: 1.2rem; margin: 0.4rem 0; }
+.seance-instructions p { margin: 0.35rem 0; }
+.seance-instructions p:first-child { margin-top: 0; }
+.seance-instructions p:last-child { margin-bottom: 0; }
+
+/* Note de fin de séance : le gris par défaut du placeholder est illisible sur
+   le fond noir du lecteur. */
+.seance-note::placeholder { color: rgba(255,255,255,0.6); }

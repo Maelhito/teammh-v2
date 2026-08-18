@@ -279,8 +279,8 @@ function VideoModal({ url, onClose }: { url: string; onClose: () => void }) {
     >
       <div style={{ width: "100%", maxWidth: 480, backgroundColor: "#111", borderRadius: 16, overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #1a1a1a" }}>
-          <p className="font-body" style={{ fontSize: "0.8rem", color: "#888", margin: 0 }}>Vidéo exercice</p>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#555", fontSize: "1.3rem", cursor: "pointer", lineHeight: 1 }}>✕</button>
+          <p className="font-body" style={{ fontSize: "0.8rem", color: "#FFFFFF", margin: 0 }}>Vidéo exercice</p>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#FFFFFF", fontSize: "1.3rem", cursor: "pointer", lineHeight: 1 }}>✕</button>
         </div>
         {ytId ? (
           <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
@@ -325,24 +325,24 @@ function ExerciceCard({ ex, done, onToggle, onVideoClick }: {
         )}
         {hasVideo && (
           <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontSize: "1rem" }}>▶</span>
+            <span style={{ width: 22, height: 22, borderRadius: "50%", backgroundColor: "#B22222", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", paddingLeft: 2 }}>▶</span>
           </div>
         )}
       </button>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p className="font-body" style={{ fontWeight: 700, fontSize: "0.9rem", color: done ? "#555" : "#F5F5F0", margin: 0, textDecoration: done ? "line-through" : "none" }}>{nom}</p>
+        <p className="font-body" style={{ fontWeight: 700, fontSize: "0.9rem", color: done ? "rgba(255,255,255,0.55)" : "#FFFFFF", margin: 0, textDecoration: done ? "line-through" : "none" }}>{nom}</p>
         {details.length > 0 && (
-          <p className="font-body" style={{ fontSize: "0.72rem", color: "#666", margin: "3px 0 0" }}>{details.join(" · ")}</p>
+          <p className="font-body" style={{ fontSize: "0.72rem", color: "#FFFFFF", margin: "3px 0 0" }}>{details.join(" · ")}</p>
         )}
-        {ex.notes && <p className="font-body" style={{ fontSize: "0.7rem", color: "#444", margin: "2px 0 0", fontStyle: "italic" }}>{ex.notes}</p>}
+        {ex.notes && <p className="font-body" style={{ fontSize: "0.7rem", color: "#FFFFFF", margin: "2px 0 0", fontStyle: "italic" }}>{ex.notes}</p>}
       </div>
 
       {/* Bouton vidéo si pas de miniature */}
       {hasVideo && !ex.exercise?.miniature_url && (
         <button
           onClick={onVideoClick}
-          style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: "#1a1a1a", border: "1px solid #2a2a2a", color: "#F5F5F0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: "0.85rem" }}
+          style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: "rgba(178,34,34,0.18)", border: "1px solid #B22222", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: "0.85rem" }}
         >
           ▶
         </button>
@@ -384,8 +384,8 @@ function StopwatchBloc({ color }: { color: string }) {
   }, [running]);
   return (
     <div style={{ textAlign: "center", padding: "16px 0" }}>
-      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.1em", margin: "0 0 8px" }}>DURÉE DU BLOC</p>
-      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: "#F5F5F0", lineHeight: 1, margin: "0 0 16px" }}>
+      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.1em", margin: "0 0 8px" }}>DURÉE DU BLOC</p>
+      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: "#FFFFFF", lineHeight: 1, margin: "0 0 16px" }}>
         {formatTime(elapsed)}
       </p>
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
@@ -395,7 +395,7 @@ function StopwatchBloc({ color }: { color: string }) {
         >
           {running ? "⏸ Pause" : elapsed === 0 ? "▶ Démarrer" : "▶ Reprendre"}
         </button>
-        <button onClick={() => { setElapsed(0); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#555", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
+        <button onClick={() => { setElapsed(0); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
       </div>
     </div>
   );
@@ -431,15 +431,15 @@ function Countdown({ totalSeconds, label }: { totalSeconds: number; label: strin
 
   return (
     <div style={{ textAlign: "center", padding: "16px 0" }}>
-      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.1em", margin: "0 0 8px" }}>{label}</p>
-      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: finished ? "#4ADE80" : isAlert ? "#EF4444" : "#F5F5F0", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
+      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.1em", margin: "0 0 8px" }}>{label}</p>
+      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: finished ? "#4ADE80" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
         {formatTime(remaining)}
       </p>
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
         <button onClick={() => setRunning((r) => !r)} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: running ? "#333" : "#B22222", color: "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: "pointer" }}>
           {finished ? "✓ Terminé" : running ? "⏸ Pause" : remaining === totalSeconds ? "▶ Démarrer" : "▶ Reprendre"}
         </button>
-        <button onClick={() => { setRemaining(totalSeconds); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#555", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
+        <button onClick={() => { setRemaining(totalSeconds); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
       </div>
     </div>
   );
@@ -481,15 +481,15 @@ function EmomTimer({ intervalSec, rounds }: { intervalSec: number; rounds: numbe
 
   return (
     <div style={{ textAlign: "center", padding: "16px 0" }}>
-      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.1em", margin: "0 0 4px" }}>EMOM — ROUND {currentRound}/{rounds}</p>
-      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: finished ? "#4ADE80" : isAlert ? "#EF4444" : "#F5F5F0", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
+      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.1em", margin: "0 0 4px" }}>EMOM — ROUND {currentRound}/{rounds}</p>
+      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: finished ? "#4ADE80" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
         {formatTime(remaining)}
       </p>
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
         <button onClick={() => setRunning((r) => !r)} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: running ? "#333" : "#B22222", color: "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: "pointer" }}>
           {finished ? "✓ Terminé" : running ? "⏸ Pause" : currentRound === 1 && remaining === intervalSec ? "▶ Démarrer" : "▶ Reprendre"}
         </button>
-        <button onClick={() => { setCurrentRound(1); setRemaining(intervalSec); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#555", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
+        <button onClick={() => { setCurrentRound(1); setRemaining(intervalSec); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
       </div>
     </div>
   );
@@ -542,14 +542,14 @@ function TabataTimer({ workSec, restSec, tours }: { workSec: number; restSec: nu
       <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: phaseColor, letterSpacing: "0.1em", margin: "0 0 4px" }}>
         TABATA — {phase === "work" ? "TRAVAIL" : "REPOS"} · TOUR {currentTour}/{tours}
       </p>
-      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: finished ? "#4ADE80" : isAlert ? "#EF4444" : "#F5F5F0", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
+      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: finished ? "#4ADE80" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
         {formatTime(remaining)}
       </p>
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
         <button onClick={() => setRunning((r) => !r)} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: running ? "#333" : phaseColor, color: "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: "pointer" }}>
           {finished ? "✓ Terminé" : running ? "⏸ Pause" : currentTour === 1 && phase === "work" && remaining === workSec ? "▶ Démarrer" : "▶ Reprendre"}
         </button>
-        <button onClick={() => { setPhase("work"); setCurrentTour(1); setRemaining(workSec); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#555", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
+        <button onClick={() => { setPhase("work"); setCurrentTour(1); setRemaining(workSec); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
       </div>
     </div>
   );
@@ -697,7 +697,7 @@ export default function SeanceViewer({
           {/* Trophée */}
           <div style={{ fontSize: "4rem", marginBottom: 16 }}>🏆</div>
 
-          <h1 className="font-title" style={{ fontSize: "2rem", color: "#F5F5F0", letterSpacing: "0.06em", margin: "0 0 6px" }}>
+          <h1 className="font-title" style={{ fontSize: "2rem", color: "#FFFFFF", letterSpacing: "0.06em", margin: "0 0 6px" }}>
             SÉANCE TERMINÉE
           </h1>
           <p className="font-body" style={{ fontSize: "0.78rem", fontWeight: 700, color: "#B22222", letterSpacing: "0.08em", margin: "0 0 24px" }}>
@@ -708,14 +708,14 @@ export default function SeanceViewer({
           <div style={{ display: "flex", gap: 10, marginBottom: 20, justifyContent: "center" }}>
             {elapsedMin > 0 && (
               <div style={{ flex: 1, backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 12, padding: "14px 10px", textAlign: "center" }}>
-                <p className="font-title" style={{ fontSize: "1.5rem", color: "#F5F5F0", margin: 0, lineHeight: 1 }}>{elapsedMin}</p>
-                <p className="font-body" style={{ fontSize: "0.65rem", color: "#555", margin: "4px 0 0", letterSpacing: "0.06em" }}>MIN</p>
+                <p className="font-title" style={{ fontSize: "1.5rem", color: "#FFFFFF", margin: 0, lineHeight: 1 }}>{elapsedMin}</p>
+                <p className="font-body" style={{ fontSize: "0.65rem", color: "#FFFFFF", margin: "4px 0 0", letterSpacing: "0.06em" }}>MIN</p>
               </div>
             )}
             {totalExercices > 0 && (
               <div style={{ flex: 1, backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 12, padding: "14px 10px", textAlign: "center" }}>
-                <p className="font-title" style={{ fontSize: "1.5rem", color: "#F5F5F0", margin: 0, lineHeight: 1 }}>{totalExercices}</p>
-                <p className="font-body" style={{ fontSize: "0.65rem", color: "#555", margin: "4px 0 0", letterSpacing: "0.06em" }}>EXERCICES</p>
+                <p className="font-title" style={{ fontSize: "1.5rem", color: "#FFFFFF", margin: 0, lineHeight: 1 }}>{totalExercices}</p>
+                <p className="font-body" style={{ fontSize: "0.65rem", color: "#FFFFFF", margin: "4px 0 0", letterSpacing: "0.06em" }}>EXERCICES</p>
               </div>
             )}
             {streakResult !== null && streakResult > 0 && (
@@ -727,14 +727,14 @@ export default function SeanceViewer({
           </div>
 
           {/* Message motivant */}
-          <p className="font-body" style={{ fontSize: "0.88rem", color: "#777", margin: "0 0 28px", lineHeight: 1.6, fontStyle: "italic" }}>
+          <p className="font-body" style={{ fontSize: "0.88rem", color: "#FFFFFF", margin: "0 0 28px", lineHeight: 1.6, fontStyle: "italic" }}>
             {msg}
           </p>
 
           {/* Note séance */}
           {!noteSaved && (
             <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 16, padding: "20px 16px", marginBottom: 20, textAlign: "left" }}>
-              <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.1em", margin: "0 0 12px", textAlign: "center" }}>
+              <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.1em", margin: "0 0 12px", textAlign: "center" }}>
                 COMMENT S'EST PASSÉE CETTE SÉANCE ?
               </p>
 
@@ -744,7 +744,7 @@ export default function SeanceViewer({
                   <button
                     key={n}
                     onClick={() => setNoteEtoiles(n === noteEtoiles ? 0 : n)}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 4, fontSize: "1.8rem", lineHeight: 1, filter: n <= noteEtoiles ? "none" : "grayscale(1) opacity(0.25)", transition: "filter 0.15s, transform 0.1s", transform: n <= noteEtoiles ? "scale(1.1)" : "scale(1)" }}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 4, fontSize: "1.8rem", lineHeight: 1, filter: n <= noteEtoiles ? "none" : "grayscale(1) opacity(0.45)", transition: "filter 0.15s, transform 0.1s", transform: n <= noteEtoiles ? "scale(1.1)" : "scale(1)" }}
                   >
                     ⭐
                   </button>
@@ -755,21 +755,22 @@ export default function SeanceViewer({
               <textarea
                 value={noteTexte}
                 onChange={(e) => setNoteTexte(e.target.value)}
+                className="seance-note"
                 placeholder="Ajoute une note (points durs, ressenti, charge…)"
-                style={{ width: "100%", minHeight: 80, backgroundColor: "#0D0D0D", border: "1px solid #2a2a2a", borderRadius: 10, padding: "10px 12px", fontSize: "0.85rem", color: "#F5F5F0", fontFamily: "inherit", resize: "none", outline: "none", boxSizing: "border-box" }}
+                style={{ width: "100%", minHeight: 80, backgroundColor: "#0D0D0D", border: "1px solid #2a2a2a", borderRadius: 10, padding: "10px 12px", fontSize: "0.85rem", color: "#FFFFFF", fontFamily: "inherit", resize: "none", outline: "none", boxSizing: "border-box" }}
               />
 
               <button
                 onClick={sauvegarderNote}
                 disabled={noteSaving}
-                style={{ width: "100%", marginTop: 12, padding: "13px", backgroundColor: noteSaving ? "#333" : "#B22222", color: noteSaving ? "#666" : "#fff", border: "none", borderRadius: 12, fontSize: "0.9rem", fontWeight: 700, cursor: noteSaving ? "not-allowed" : "pointer", letterSpacing: "0.05em" }}
+                style={{ width: "100%", marginTop: 12, padding: "13px", backgroundColor: noteSaving ? "#333" : "#B22222", color: "#FFFFFF", border: "none", borderRadius: 12, fontSize: "0.9rem", fontWeight: 700, cursor: noteSaving ? "not-allowed" : "pointer", letterSpacing: "0.05em" }}
               >
                 {noteSaving ? "Enregistrement…" : "SAUVEGARDER & CONTINUER →"}
               </button>
 
               <button
                 onClick={() => router.push("/entrainement")}
-                style={{ width: "100%", marginTop: 8, padding: "10px", backgroundColor: "transparent", color: "#444", border: "none", borderRadius: 12, fontSize: "0.8rem", cursor: "pointer" }}
+                style={{ width: "100%", marginTop: 8, padding: "10px", backgroundColor: "transparent", color: "#FFFFFF", border: "none", borderRadius: 12, fontSize: "0.8rem", cursor: "pointer" }}
               >
                 Passer
               </button>
@@ -795,8 +796,8 @@ export default function SeanceViewer({
         {showAbandonModal && (
           <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.85)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
             <div style={{ backgroundColor: "#111111", borderRadius: 18, padding: "28px 22px", width: "100%", maxWidth: 360, border: "1px solid #2a2a2a" }}>
-              <p className="font-title" style={{ fontSize: "1.1rem", color: "#F5F5F0", letterSpacing: "0.04em", margin: "0 0 8px", textAlign: "center" }}>QUITTER LA SÉANCE ?</p>
-              <p className="font-body" style={{ fontSize: "0.8rem", color: "#666", textAlign: "center", margin: "0 0 24px", lineHeight: 1.5 }}>
+              <p className="font-title" style={{ fontSize: "1.1rem", color: "#FFFFFF", letterSpacing: "0.04em", margin: "0 0 8px", textAlign: "center" }}>QUITTER LA SÉANCE ?</p>
+              <p className="font-body" style={{ fontSize: "0.8rem", color: "#FFFFFF", textAlign: "center", margin: "0 0 24px", lineHeight: 1.5 }}>
                 La séance ne sera pas validée si tu n&apos;arrives pas jusqu&apos;à la fin.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -808,7 +809,7 @@ export default function SeanceViewer({
                 </button>
                 <button
                   onClick={() => router.push(`/entrainement?abandoned=${encodeURIComponent(`${assignmentId}:${gridKey}`)}`)}
-                  style={{ width: "100%", padding: "14px", backgroundColor: "transparent", color: "#555", border: "1px solid #2a2a2a", borderRadius: 12, fontSize: "0.85rem", fontWeight: 600, cursor: "pointer" }}
+                  style={{ width: "100%", padding: "14px", backgroundColor: "transparent", color: "#FFFFFF", border: "1px solid #2a2a2a", borderRadius: 12, fontSize: "0.85rem", fontWeight: 600, cursor: "pointer" }}
                 >
                   ✕ Abandonner la séance
                 </button>
@@ -820,16 +821,16 @@ export default function SeanceViewer({
         {/* Header + chrono global */}
         <div style={{ position: "sticky", top: 0, zIndex: 50, backgroundColor: "#0D0D0D", borderBottom: "1px solid #1a1a1a" }}>
           <div style={{ maxWidth: 480, margin: "0 auto", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-            <button onClick={() => setShowAbandonModal(true)} style={{ background: "none", border: "1px solid #2a2a2a", borderRadius: 9, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#F5F5F0", flexShrink: 0 }}>
+            <button onClick={() => setShowAbandonModal(true)} style={{ background: "none", border: "1px solid #2a2a2a", borderRadius: 9, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#FFFFFF", flexShrink: 0 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
             </button>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#B22222", letterSpacing: "0.08em", margin: "0 0 1px" }}>{nomProgramme.toUpperCase()}</p>
-              <p className="font-title" style={{ fontSize: "1.05rem", color: "#F5F5F0", letterSpacing: "0.04em", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <p className="font-title" style={{ fontSize: "1.05rem", color: "#FFFFFF", letterSpacing: "0.04em", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {(seanceName || seanceData.nom).toUpperCase()}
               </p>
             </div>
-            <StopwatchHeader style={{ fontFamily: "monospace", fontSize: "1.1rem", fontWeight: 700, color: "#F5F5F0", flexShrink: 0, letterSpacing: "0.05em" }} />
+            <StopwatchHeader style={{ fontFamily: "monospace", fontSize: "1.1rem", fontWeight: 700, color: "#FFFFFF", flexShrink: 0, letterSpacing: "0.05em" }} />
           </div>
         </div>
 
@@ -839,9 +840,9 @@ export default function SeanceViewer({
             <span style={{ fontSize: "2.8rem", display: "block", marginBottom: 8 }}>{emoji}</span>
             <h2 className="font-title" style={{ fontSize: "2rem", color: color, letterSpacing: "0.08em", margin: "0 0 4px" }}>{label}</h2>
             {currentBloc.nom && (
-              <p className="font-body" style={{ fontSize: "0.88rem", color: "#888", margin: 0 }}>{currentBloc.nom}</p>
+              <p className="font-body" style={{ fontSize: "0.88rem", color: "#FFFFFF", margin: 0 }}>{currentBloc.nom}</p>
             )}
-            <p className="font-body" style={{ fontSize: "0.7rem", color: "#444", margin: "6px 0 0", letterSpacing: "0.05em" }}>
+            <p className="font-body" style={{ fontSize: "0.7rem", color: "#FFFFFF", margin: "6px 0 0", letterSpacing: "0.05em" }}>
               BLOC {currentBlocIndex + 1}/{allBlocs.length}
             </p>
           </div>
@@ -857,14 +858,14 @@ export default function SeanceViewer({
 
           {/* Instructions */}
           {currentBloc.instructions && (
-            <div className="font-body" style={{ fontSize: "0.82rem", color: "#888", lineHeight: 1.6, marginBottom: 16, padding: "12px 14px", backgroundColor: "#111", borderRadius: 10, border: "1px solid #1a1a1a" }}
+            <div className="font-body seance-instructions" style={{ fontSize: "0.82rem", color: "#FFFFFF", lineHeight: 1.6, marginBottom: 16, padding: "12px 14px", backgroundColor: "#111", borderRadius: 10, border: "1px solid #1a1a1a" }}
               dangerouslySetInnerHTML={{ __html: currentBloc.instructions }} />
           )}
 
           {/* Exercices */}
           {blocExs.length > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.1em", margin: "0 0 10px" }}>
+              <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.1em", margin: "0 0 10px" }}>
                 EXERCICES · {blocExs.length}
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -885,7 +886,7 @@ export default function SeanceViewer({
         <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, backgroundColor: "#0D0D0D", borderTop: "1px solid #1a1a1a", padding: "16px", paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))", zIndex: 50 }}>
           <div style={{ maxWidth: 480, margin: "0 auto" }}>
             {isLastBloc ? (
-              <button onClick={finirSeance} disabled={finishing} style={{ width: "100%", padding: "16px", backgroundColor: finishing ? "#333" : "#4ADE80", color: finishing ? "#666" : "#000", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: finishing ? "not-allowed" : "pointer", letterSpacing: "0.06em" }}>
+              <button onClick={finirSeance} disabled={finishing} style={{ width: "100%", padding: "16px", backgroundColor: finishing ? "#333" : "#4ADE80", color: finishing ? "#FFFFFF" : "#000", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: finishing ? "not-allowed" : "pointer", letterSpacing: "0.06em" }}>
                 {finishing ? "Enregistrement…" : "✓ TERMINER LA SÉANCE"}
               </button>
             ) : (
@@ -909,12 +910,12 @@ export default function SeanceViewer({
       {/* Header */}
       <div style={{ position: "sticky", top: 0, zIndex: 50, backgroundColor: "#0D0D0D", borderBottom: "1px solid #1a1a1a" }}>
         <div style={{ maxWidth: 480, margin: "0 auto", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={() => router.back()} style={{ background: "none", border: "1px solid #2a2a2a", borderRadius: 9, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#F5F5F0", flexShrink: 0 }}>
+          <button onClick={() => router.back()} style={{ background: "none", border: "1px solid #2a2a2a", borderRadius: 9, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#FFFFFF", flexShrink: 0 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#B22222", letterSpacing: "0.08em", margin: "0 0 1px" }}>{nomProgramme.toUpperCase()}</p>
-            <p className="font-title" style={{ fontSize: "1.1rem", color: "#F5F5F0", letterSpacing: "0.04em", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <p className="font-title" style={{ fontSize: "1.1rem", color: "#FFFFFF", letterSpacing: "0.04em", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {(seanceName || seanceData.nom).toUpperCase()}
             </p>
           </div>
@@ -926,21 +927,21 @@ export default function SeanceViewer({
         {/* Infos séance */}
         <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
           {seanceData.duree_estimee && (
-            <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#555", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "5px 12px", borderRadius: 8 }}>⏱ {seanceData.duree_estimee} min</span>
+            <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#FFFFFF", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "5px 12px", borderRadius: 8 }}>⏱ {seanceData.duree_estimee} min</span>
           )}
           {seanceData.categorie && (
-            <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#555", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "5px 12px", borderRadius: 8 }}>{seanceData.categorie}</span>
+            <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#FFFFFF", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "5px 12px", borderRadius: 8 }}>{seanceData.categorie}</span>
           )}
           {totalExercices > 0 && (
-            <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#555", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "5px 12px", borderRadius: 8 }}>{totalExercices} exercice{totalExercices > 1 ? "s" : ""}</span>
+            <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#FFFFFF", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "5px 12px", borderRadius: 8 }}>{totalExercices} exercice{totalExercices > 1 ? "s" : ""}</span>
           )}
-          <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#555", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "5px 12px", borderRadius: 8 }}>{allBlocs.length} bloc{allBlocs.length > 1 ? "s" : ""}</span>
+          <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#FFFFFF", backgroundColor: "#111", border: "1px solid #1a1a1a", padding: "5px 12px", borderRadius: 8 }}>{allBlocs.length} bloc{allBlocs.length > 1 ? "s" : ""}</span>
         </div>
 
         {/* Note de séance */}
         {seanceData.note && (
           <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 12, padding: "12px 16px", marginBottom: 20 }}>
-            <p className="font-body" style={{ fontSize: "0.82rem", color: "#888", lineHeight: 1.6, margin: 0 }}>{seanceData.note}</p>
+            <p className="font-body" style={{ fontSize: "0.82rem", color: "#FFFFFF", lineHeight: 1.6, margin: 0 }}>{seanceData.note}</p>
           </div>
         )}
 
@@ -966,12 +967,12 @@ export default function SeanceViewer({
                     <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: color, letterSpacing: "0.08em", margin: "0 0 2px" }}>
                       {label} · {i + 1}/{allBlocs.length}
                     </p>
-                    <p className="font-body" style={{ fontSize: "0.9rem", fontWeight: 700, color: "#F5F5F0", margin: 0 }}>{bloc.nom || label}</p>
+                    <p className="font-body" style={{ fontSize: "0.9rem", fontWeight: 700, color: "#FFFFFF", margin: 0 }}>{bloc.nom || label}</p>
                     {getBlocExs(bloc).length > 0 && (
-                      <p className="font-body" style={{ fontSize: "0.7rem", color: "#555", margin: "2px 0 0" }}>{getBlocExs(bloc).length} exercice{getBlocExs(bloc).length > 1 ? "s" : ""}</p>
+                      <p className="font-body" style={{ fontSize: "0.7rem", color: "#FFFFFF", margin: "2px 0 0" }}>{getBlocExs(bloc).length} exercice{getBlocExs(bloc).length > 1 ? "s" : ""}</p>
                     )}
                   </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }}>
                     <polyline points="6 9 12 15 18 9" />
                   </svg>
                 </button>
@@ -980,7 +981,7 @@ export default function SeanceViewer({
                 {isOpen && (
                   <div style={{ padding: "0 16px 16px" }}>
                     {bloc.instructions && (
-                      <div className="font-body" style={{ fontSize: "0.82rem", color: "#888", lineHeight: 1.6, marginBottom: 12, padding: "10px 12px", backgroundColor: "#0D0D0D", borderRadius: 10 }}
+                      <div className="font-body seance-instructions" style={{ fontSize: "0.82rem", color: "#FFFFFF", lineHeight: 1.6, marginBottom: 12, padding: "10px 12px", backgroundColor: "#0D0D0D", borderRadius: 10 }}
                         dangerouslySetInnerHTML={{ __html: bloc.instructions }} />
                     )}
                     {getBlocExs(bloc).length > 0 && (
