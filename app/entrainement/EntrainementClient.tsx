@@ -8,6 +8,7 @@ import {
   gridKeyFor,
   itemsForDate,
 } from "@/lib/programme-planning";
+import { couleurEvenement } from "@/lib/couleurs-calendrier";
 
 const MONTH_NAMES = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const DAY_NAMES = ["L", "M", "M", "J", "V", "S", "D"];
@@ -48,10 +49,9 @@ function isEventOnDay(event: CalendarEvent, day: Date): boolean {
   }
 }
 
+// Couleurs : lib/couleurs-calendrier (source unique).
 function eventColor(evt: CalendarEvent): string {
-  if (evt.event_type === "coaching_groupe") return "#3B82F6";
-  if (evt.event_type === "nutrition") return "#22C55E";
-  return "#B22222";
+  return couleurEvenement(evt.event_type);
 }
 
 function itemNom(item: CellItem): string {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { couleurEvenement } from "@/lib/couleurs-calendrier";
 
 interface CalEvent {
   id: string;
@@ -36,16 +37,14 @@ interface Props {
   seancesDone: number;
 }
 
+// Couleurs : lib/couleurs-calendrier. Avant, seuls le coaching de groupe et la
+// nutrition avaient leur teinte ; tout le reste tombait dans le rouge de l'app.
 function dotColor(eventType: string | null): string {
-  if (eventType === "coaching_groupe") return "#3B82F6";
-  if (eventType === "nutrition") return "#22C55E";
-  return "#B22222";
+  return couleurEvenement(eventType);
 }
 
 function evtBorderColor(eventType: string | null): string {
-  if (eventType === "coaching_groupe") return "#3B82F6";
-  if (eventType === "nutrition") return "#22C55E";
-  return "#B22222";
+  return couleurEvenement(eventType);
 }
 
 const JOURS_COURTS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
