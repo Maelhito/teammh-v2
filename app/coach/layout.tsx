@@ -7,7 +7,9 @@ export default function CoachLayout({ children }: { children: ReactNode }) {
   return (
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f5f7" }}>
       <CoachSidebar />
-      <main className="coach-layout-main" style={{ flex: 1, minWidth: 0, overflowY: "auto" }}>
+      {/* Pas d'overflow-y ici : il créerait un conteneur de défilement qui
+          neutraliserait le `position: sticky` de l'en-tête de fiche cliente. */}
+      <main className="coach-layout-main" style={{ flex: 1, minWidth: 0 }}>
         {children}
       </main>
     </div>

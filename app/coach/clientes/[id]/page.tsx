@@ -1359,7 +1359,10 @@ export default function ClienteFichePage() {
   }, [id]);
 
   useEffect(() => {
-    fetch("/api/coach/clientes").then(r => r.json()).then(d => setCliente((d.clientes ?? []).find((c: Cliente) => c.id === id) ?? null));
+    fetch(`/api/coach/clientes/${id}`)
+      .then(r => r.json())
+      .then(d => setCliente(d.cliente ?? null))
+      .catch(() => setCliente(null));
     loadAssignments();
     loadCalEvents();
   }, [id, loadAssignments, loadCalEvents]);
