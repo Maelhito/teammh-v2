@@ -71,8 +71,13 @@ body {
 
 /* ── Coach portail — responsive mobile ── */
 
-/* Layout principal */
-.coach-layout-main { padding: 32px 24px; }
+/* Layout principal. Les variables --fiche-* pilotent l'en-tête collant de la
+   fiche cliente (voir .coach-cliente-header). */
+.coach-layout-main {
+  padding: 32px 24px;
+  --fiche-pad-y: 32px; --fiche-pad-x: 24px; --fiche-top: 0px;
+  --fiche-bg: #f4f5f7; --fiche-border: #e8e8e8;
+}
 
 /* Dashboard h1 et stats */
 .coach-dash-h1 { font-size: 2rem; font-weight: 800; color: #1a1a1a; margin: 0 0 2px; font-family: system-ui; letter-spacing: -0.02em; }
@@ -101,12 +106,18 @@ body {
 /* Header coach — fiche cliente.
    Collant en haut : la fiche est longue (mesures, calendrier, programmes) et on
    doit pouvoir vérifier d'un coup d'œil sur quelle cliente on travaille. */
+/* La fiche cliente est servie par DEUX layouts (portail coach et portail admin),
+   qui n'ont ni le même fond, ni le même padding, ni la même barre mobile.
+   Chacun règle donc ces variables ; on ne code plus les valeurs en dur ici.
+   --fiche-top vaut « hauteur de la barre fixe − padding haut du conteneur »,
+   pour que l'en-tête collé vienne se poser pile sous cette barre. */
 .coach-cliente-header {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  position: sticky; top: 0; z-index: 30;
-  background-color: #f4f5f7;
-  margin: -32px -24px 22px; padding: 32px 24px 14px;
-  border-bottom: 1px solid #e8e8e8;
+  position: sticky; top: var(--fiche-top, 0px); z-index: 30;
+  background-color: var(--fiche-bg, #f4f5f7);
+  margin: calc(-1 * var(--fiche-pad-y, 32px)) calc(-1 * var(--fiche-pad-x, 24px)) 22px;
+  padding: var(--fiche-pad-y, 32px) var(--fiche-pad-x, 24px) 14px;
+  border-bottom: 1px solid var(--fiche-border, #e8e8e8);
 }
 .coach-cliente-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 /* Paires de cartes de la fiche cliente (objectifs, indicateurs, courbes) :
@@ -114,7 +125,11 @@ body {
 .coach-cliente-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
 @media (max-width: 768px) {
-  .coach-layout-main { padding: 64px 12px 16px; }
+  /* barre mobile du portail coach : 62px de haut → top = 62 - 64 */
+  .coach-layout-main {
+    padding: 64px 12px 16px;
+    --fiche-pad-y: 64px; --fiche-pad-x: 12px; --fiche-top: -2px;
+  }
   .coach-dash-h1 { font-size: 1.4rem; }
   .coach-stat-num { font-size: 26px; }
   .coach-stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -122,9 +137,7 @@ body {
   .coach-meta-4col { grid-template-columns: 1fr 1fr; }
   .coach-name-grid { grid-template-columns: 1fr; }
   .coach-cliente-actions { margin-left: 0; width: 100%; gap: 6px; }
-  /* La barre noire mobile fait 62px. padding-top 64 + top -2 = le contenu de
-     l'en-tête vient se poser juste dessous, sans bande vide. */
-  .coach-cliente-header { top: -2px; margin: -64px -12px 14px; padding: 64px 12px 10px; gap: 8px; }
+  .coach-cliente-header { margin-bottom: 14px; padding-bottom: 10px; gap: 8px; }
   /* Compact : l'en-tête est collant, chaque pixel qu'il prend est pris au
      contenu (le questionnaire passait dessous). Les boutons ont des styles
      inline, d'où les !important. */
@@ -136,8 +149,10 @@ body {
 }
 
 @media (max-width: 480px) {
-  .coach-layout-main { padding: 60px 10px 16px; }
-  .coach-cliente-header { top: -2px; margin: -60px -10px 14px; padding: 64px 10px 10px; }
+  .coach-layout-main {
+    padding: 60px 10px 16px;
+    --fiche-pad-y: 60px; --fiche-pad-x: 10px; --fiche-top: 2px;
+  }
   .coach-stats-grid { grid-template-columns: 1fr 1fr; }
   .coach-meta-4col { grid-template-columns: 1fr 1fr; }
 }
