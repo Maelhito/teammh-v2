@@ -464,6 +464,11 @@ export default function SeanceViewer({
   const [streakResult, setStreakResult] = useState<number | null>(null);
   const startTimeRef = useRef<number>(Date.now());
   const [elapsedMin, setElapsedMin] = useState(0);
+  const [logId, setLogId] = useState<string | null>(null);
+  const [noteEtoiles, setNoteEtoiles] = useState(0);
+  const [noteTexte, setNoteTexte] = useState("");
+  const [noteSaved, setNoteSaved] = useState(false);
+  const [noteSaving, setNoteSaving] = useState(false);
 
   const allBlocs = seanceData.blocs ?? [];
   const currentBloc = allBlocs[currentBlocIndex];
@@ -486,9 +491,25 @@ export default function SeanceViewer({
       });
       const data = await res.json().catch(() => ({}));
       if (typeof data.streak === "number") setStreakResult(data.streak);
+      if (typeof data.logId === "string") setLogId(data.logId);
     } catch {}
     setDone(true);
     setFinishing(false);
+  }
+
+  async function sauvegarderNote() {
+    if (!logId) { router.push("/entrainement"); return; }
+    setNoteSaving(true);
+    try {
+      await fetch("/api/entrainement/noter", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logId, note_etoiles: noteEtoiles || null, note_texte: noteTexte, duration_min: elapsedMin || null }),
+      });
+    } catch {}
+    setNoteSaved(true);
+    setNoteSaving(false);
+    router.push("/entrainement");
   }
 
   /* ---- Écran terminé ---- */
@@ -567,16 +588,54 @@ export default function SeanceViewer({
           </div>
 
           {/* Message motivant */}
-          <p className="font-body" style={{ fontSize: "0.88rem", color: "#777", margin: "0 0 32px", lineHeight: 1.6, fontStyle: "italic" }}>
+          <p className="font-body" style={{ fontSize: "0.88rem", color: "#777", margin: "0 0 28px", lineHeight: 1.6, fontStyle: "italic" }}>
             {msg}
           </p>
 
-          <button
-            onClick={() => router.push("/entrainement")}
-            style={{ width: "100%", padding: "16px", backgroundColor: "#B22222", color: "#fff", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}
-          >
-            CONTINUER →
-          </button>
+          {/* Note séance */}
+          {!noteSaved && (
+            <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 16, padding: "20px 16px", marginBottom: 20, textAlign: "left" }}>
+              <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#555", letterSpacing: "0.1em", margin: "0 0 12px", textAlign: "center" }}>
+                COMMENT S'EST PASSÉE CETTE SÉANCE ?
+              </p>
+
+              {/* Étoiles */}
+              <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 16 }}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setNoteEtoiles(n === noteEtoiles ? 0 : n)}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 4, fontSize: "1.8rem", lineHeight: 1, filter: n <= noteEtoiles ? "none" : "grayscale(1) opacity(0.25)", transition: "filter 0.15s, transform 0.1s", transform: n <= noteEtoiles ? "scale(1.1)" : "scale(1)" }}
+                  >
+                    ⭐
+                  </button>
+                ))}
+              </div>
+
+              {/* Zone de texte */}
+              <textarea
+                value={noteTexte}
+                onChange={(e) => setNoteTexte(e.target.value)}
+                placeholder="Ajoute une note (points durs, ressenti, charge…)"
+                style={{ width: "100%", minHeight: 80, backgroundColor: "#0D0D0D", border: "1px solid #2a2a2a", borderRadius: 10, padding: "10px 12px", fontSize: "0.85rem", color: "#F5F5F0", fontFamily: "inherit", resize: "none", outline: "none", boxSizing: "border-box" }}
+              />
+
+              <button
+                onClick={sauvegarderNote}
+                disabled={noteSaving}
+                style={{ width: "100%", marginTop: 12, padding: "13px", backgroundColor: noteSaving ? "#333" : "#B22222", color: noteSaving ? "#666" : "#fff", border: "none", borderRadius: 12, fontSize: "0.9rem", fontWeight: 700, cursor: noteSaving ? "not-allowed" : "pointer", letterSpacing: "0.05em" }}
+              >
+                {noteSaving ? "Enregistrement…" : "SAUVEGARDER & CONTINUER →"}
+              </button>
+
+              <button
+                onClick={() => router.push("/entrainement")}
+                style={{ width: "100%", marginTop: 8, padding: "10px", backgroundColor: "transparent", color: "#444", border: "none", borderRadius: 12, fontSize: "0.8rem", cursor: "pointer" }}
+              >
+                Passer
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );

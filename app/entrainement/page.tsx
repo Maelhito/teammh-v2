@@ -3,13 +3,15 @@ import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import EntrainementClient from "./EntrainementClient";
+import PreviewBanner from "@/components/PreviewBanner";
+import { getEffectiveUser } from "@/lib/preview";
 
 export const dynamic = "force-dynamic";
 
 export default async function EntrainementPage() {
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
-  const userId = session?.user.id ?? "";
+  const { userId, firstName, isPreview } = await getEffectiveUser(session);
 
   let programme = null;
   let calendarEvents: object[] = [];
@@ -86,6 +88,7 @@ export default async function EntrainementPage() {
 
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 90 }}>
+      {isPreview && <PreviewBanner name={firstName} />}
       <AppHeader />
       <div style={{ padding: "60px 16px 16px", maxWidth: 480, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>

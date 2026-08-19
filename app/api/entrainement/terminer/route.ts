@@ -48,5 +48,30 @@ export async function POST(req: NextRequest) {
 
   const streak = await updateStreak(session.user.id);
 
-  return NextResponse.json({ success: true, streak });
+  // Insérer dans seances_log
+  const seanceName = (() => {
+    try {
+      const grid: Record<string, unknown> = JSON.parse(
+        assignment.grid_data?.startsWith("{") ? assignment.grid_data
+          : (assignment.programme as { description?: string })?.description ?? "{}"
+      );
+      const gridItems = (grid.grid as Record<string, Array<{ seanceName?: string; nom?: string; titre?: string }>> | undefined)?.[gridKey];
+      const first = gridItems?.[0];
+      if (!first) return null;
+      return first.seanceName ?? first.nom ?? first.titre ?? null;
+    } catch { return null; }
+  })();
+
+  const { data: logRow } = await admin
+    .from("seances_log")
+    .insert({
+      user_id: session.user.id,
+      assignment_id: assignmentId,
+      grid_key: gridKey ?? null,
+      seance_nom: seanceName,
+    })
+    .select("id")
+    .single();
+
+  return NextResponse.json({ success: true, streak, logId: logRow?.id ?? null });
 }
