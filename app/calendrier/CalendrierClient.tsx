@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import {
   COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, ORDRE_LEGENDE, couleurEvenement,
 } from "@/lib/couleurs-calendrier";
+import { estSeanceValidee } from "@/lib/seances-validees";
 
 interface CalendarEvent {
   id: string;
@@ -64,15 +65,8 @@ function isSeanceValidee(
   completedSeances: { grid_key: string | null; assignment_id: string | null; nom: string | null }[]
 ): boolean {
   if (evt.event_type !== "seance") return false;
-  return completedSeances.some((c) => {
-    // Correspondance exacte via grid_key + assignment_id (séances générées depuis la grille du programme)
-    if (c.grid_key && c.assignment_id && evt.grid_key && evt.assignment_id) {
-      return c.grid_key === evt.grid_key && c.assignment_id === evt.assignment_id;
-    }
-    // Repli : correspondance par nom (au cas où l'événement ne porte pas grid_key/assignment_id)
-    if (c.nom && evt.titre) return c.nom.trim().toLowerCase() === evt.titre.trim().toLowerCase();
-    return false;
-  });
+  // Règle partagée avec le portail coach (voir lib/seances-validees).
+  return estSeanceValidee(completedSeances, evt.assignment_id, evt.grid_key);
 }
 
 /**

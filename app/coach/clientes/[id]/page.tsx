@@ -8,9 +8,10 @@ import QuestionnaireCliente from "./QuestionnaireCliente";
 import { adapterCles, adapterGrille, joursDeLaGrille, type MappingJours } from "@/lib/programme-planning";
 import MesuresCliente from "./MesuresCliente";
 import {
-  COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, COULEUR_VIDEO, ORDRE_LEGENDE,
+  COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, COULEUR_SEANCE_VALIDEE, COULEUR_VIDEO, ORDRE_LEGENDE,
   couleurEvenement, couleurProgramme, labelEvenement,
 } from "@/lib/couleurs-calendrier";
+import { estSeanceValidee, type SeanceValidee } from "@/lib/seances-validees";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Cliente { id: string; email: string; prenom: string | null; nom: string | null; statut: string; acces_app?: boolean; date_demarrage: string | null; }
@@ -43,34 +44,6 @@ function decodeGrid(description: string | null): Grid {
   try { return JSON.parse(description).grid ?? {}; } catch { return {}; }
 }
 
-/** Une validation de séance, telle que l'app cliente l'enregistre. */
-interface SeanceValidee { grid_key: string | null; assignment_id: string | null; seance_nom: string | null }
-
-/**
- * Est-ce que la cliente a validé cette séance ?
- *
- * Règle recopiée à l'identique de l'app cliente (app/calendrier/page.tsx) : on
- * tente d'abord la correspondance exacte assignation + case de grille, puis on
- * retombe sur le nom de la séance. Sans ce repli, le coach et la cliente ne
- * verraient pas les mêmes séances validées — par exemple quand la validation a
- * été faite sur une autre assignation du même programme.
- */
-function estSeanceValidee(
-  validees: SeanceValidee[],
-  assignmentId: string,
-  cellKey: string | null,
-  nomSeance: string | null
-): boolean {
-  return validees.some(v => {
-    if (v.assignment_id && v.grid_key && cellKey) {
-      if (v.assignment_id === assignmentId && v.grid_key === cellKey) return true;
-    }
-    if (v.seance_nom && nomSeance) {
-      return v.seance_nom.trim().toLowerCase() === nomSeance.trim().toLowerCase();
-    }
-    return false;
-  });
-}
 // Parse une date "YYYY-MM-DD" en heure locale (évite le décalage UTC)
 function parseLocalDate(s: string): Date {
   const [y, m, d] = s.split("-").map(Number);
@@ -541,7 +514,7 @@ function MonthCalendar({ layers, today, events, seancesValidees, onEditItem, onM
             </span>
           ))}
           <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#666", fontFamily: "system-ui" }}>
-            <span style={{ backgroundColor: "#0D0D0D", border: `1.5px solid ${COULEURS_EVENEMENT.seance.base}`, borderRadius: 4, padding: "1px 5px", color: COULEURS_EVENEMENT.seance.clair, fontWeight: 800, fontSize: 9 }}>✓</span>
+            <span style={{ backgroundColor: "#fff", border: `1.5px solid ${COULEUR_SEANCE_VALIDEE}`, borderRadius: 4, padding: "1px 5px", color: COULEUR_SEANCE_VALIDEE, fontWeight: 800, fontSize: 9 }}>✓</span>
             Séance validée par la cliente
           </span>
         </div>
@@ -636,7 +609,7 @@ function MonthCalendar({ layers, today, events, seancesValidees, onEditItem, onM
                   // reste lisible dans l'infobulle de la case.
                   const color = item.type === "video" ? COULEUR_VIDEO : COULEURS_EVENEMENT.seance.base;
                   // Validée par la cliente : même repère que dans son app, une coche.
-                  const validee = item.type !== "video" && estSeanceValidee(seancesValidees, layer.id, cellKey, getItemName(item));
+                  const validee = item.type !== "video" && estSeanceValidee(seancesValidees, layer.id, cellKey);
                   return (
                     <div key={`${layer.id}-${item._key}`}
                       draggable
@@ -645,15 +618,15 @@ function MonthCalendar({ layers, today, events, seancesValidees, onEditItem, onM
                       onClick={() => { if (cellKey) onEditItem(layer.id, cellKey, item); }}
                       title={`${layer.nom}${validee ? " · ✓ validée par la cliente" : ""} · Cliquer pour modifier · Glisser pour déplacer`}
                       style={validee
-                        // Séance validée : bloc noir cerclé de bleu. C'est le seul
-                        // élément sombre du calendrier coach, donc le plus visible
-                        // — c'est justement ce qu'on veut repérer d'un coup d'œil.
-                        ? { padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: "#0D0D0D", border: `1.5px solid ${COULEURS_EVENEMENT.seance.base}`, transition: "opacity 0.1s" }
+                        // Séance validée : fond blanc cerclé de vert. Le vert du
+                        // « fait » est universel, et le contour plein la distingue
+                        // des séances à venir, qui n'ont qu'un liseré à gauche.
+                        ? { padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: "#fff", border: `1.5px solid ${COULEUR_SEANCE_VALIDEE}`, transition: "opacity 0.1s" }
                         : { padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: isPast ? "#f5f5f5" : `${color}0f`, borderLeft: `2px solid ${isPast ? "#ddd" : color}`, transition: "opacity 0.1s" }}
                       onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.opacity = "0.75"}
                       onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.opacity = "1"}
                     >
-                      <p style={{ fontSize: 8, fontWeight: 700, color: validee ? COULEURS_EVENEMENT.seance.clair : isPast ? "#bbb" : color, margin: 0, fontFamily: "system-ui", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none" }}>
+                      <p style={{ fontSize: 8, fontWeight: 700, color: validee ? COULEUR_SEANCE_VALIDEE : isPast ? "#bbb" : color, margin: 0, fontFamily: "system-ui", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none" }}>
                         {validee && <span style={{ marginRight: 2 }}>✓</span>}{label}
                       </p>
                     </div>

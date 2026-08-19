@@ -60,9 +60,17 @@ export const COULEUR_AUJOURDHUI = "#B22222";
 export const COULEUR_INCONNUE = COULEURS_EVENEMENT.perso.base;
 
 /**
- * Une séance validée n'est pas un autre type : c'est la même séance dans un
- * autre état. Même bleu, plus une coche — d'où l'absence de couleur dédiée.
+ * Séance validée. Côté cliente, c'est le bleu des séances plus une coche : c'est
+ * la même séance dans un autre état. Côté coach, où il faut repérer d'un coup
+ * d'œil ce qui a été fait dans un mois entier, elle prend un contour vert — le
+ * vert du « c'est fait ».
+ *
+ * Cette teinte est aussi celle de la nutrition. Le risque de confusion est
+ * écarté par la forme : la nutrition est une pastille ronde, la séance validée
+ * un bloc rectangulaire cerclé, portant une coche et le nom de la séance.
  */
+export const COULEUR_SEANCE_VALIDEE = COULEURS_EVENEMENT.nutrition.base;
+
 export const SEANCE_VALIDEE_COCHE = "✓";
 
 function estType(v: string | null | undefined): v is TypeEvenement {
