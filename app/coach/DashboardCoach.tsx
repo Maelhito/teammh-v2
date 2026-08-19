@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { teinteEvenement } from "@/lib/couleurs-calendrier";
 
 const TIMEZONES = [
   { value: "Australia/Darwin",    label: "Darwin — UTC+9:30" },
@@ -44,10 +45,11 @@ function initials(c: Client) {
   return `${c.prenom.charAt(0)}${c.nom.charAt(0)}`.toUpperCase() || "?";
 }
 
+// Avant, seuls le coaching de groupe et la nutrition avaient leur teinte : coach,
+// séances et tâches tombaient toutes dans le même bleu par défaut, indistinguables.
 function eventColor(type: string) {
-  if (type === "coaching_groupe") return { bg: "#EDE9FE", border: "#7C3AED", text: "#5B21B6" };
-  if (type === "nutrition")       return { bg: "#D1FAE5", border: "#059669", text: "#065F46" };
-  return { bg: "#DBEAFE", border: "#2563EB", text: "#1E40AF" };
+  const t = teinteEvenement(type);
+  return { bg: t.fond, border: t.base, text: t.texte };
 }
 
 // Les heures sont saisies en heure Nouméa (Pacific/Noumea, UTC+11)

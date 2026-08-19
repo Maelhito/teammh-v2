@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { contientRecherche } from "@/lib/recherche";
+import { COULEURS_EVENEMENT, ORDRE_LEGENDE, couleurEvenement } from "@/lib/couleurs-calendrier";
 
 interface Client {
   id: string;
@@ -41,15 +42,10 @@ interface Props {
 const MOIS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const JOURS_COURT = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
 
-const EV_COLOR: Record<string, string> = {
-  coach:           "#B22222",
-  nutrition:       "#22C55E",
-  coaching_groupe: "#3B82F6",
-  tache:           "#8B5CF6",
-};
-
+// Couleurs : lib/couleurs-calendrier. Avant, `seance` manquait dans cette liste
+// et les séances s'affichaient en gris.
 function evColor(e: CalEvent) {
-  return EV_COLOR[e.event_type ?? ""] ?? "#888";
+  return couleurEvenement(e.event_type);
 }
 
 function clientLabel(c: Client) {
@@ -232,15 +228,10 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
         {/* Légende + bouton */}
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            {[
-              { color: "#B22222", label: "Coach" },
-              { color: "#22C55E", label: "Nutrition" },
-              { color: "#3B82F6", label: "Coaching groupe" },
-              { color: "#8B5CF6", label: "Tâche" },
-            ].map(({ color, label }) => (
-              <span key={label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#555", fontFamily: "system-ui" }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: color, display: "inline-block" }} />
-                {label}
+            {ORDRE_LEGENDE.map(type => (
+              <span key={type} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#9CA3AF", fontFamily: "system-ui" }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT[type].base, display: "inline-block" }} />
+                {COULEURS_EVENEMENT[type].label}
               </span>
             ))}
           </div>
@@ -419,8 +410,8 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {(["coach", "nutrition", "coaching_groupe"] as const).map(type => {
                     const active = form.event_type === type;
-                    const color = type === "coach" ? "#B22222" : type === "nutrition" ? "#22C55E" : "#3B82F6";
-                    const label = type === "coach" ? "Coach" : type === "nutrition" ? "Nutrition" : "Coaching de groupe";
+                    const color = COULEURS_EVENEMENT[type].base;
+                    const label = COULEURS_EVENEMENT[type].label;
                     const member = (type !== "coaching_groupe")
                       ? getMemberForType(type, targetMode === "specific" ? selectedClientId : "")
                       : undefined;

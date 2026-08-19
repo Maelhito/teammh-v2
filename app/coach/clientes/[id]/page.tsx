@@ -7,6 +7,9 @@ import SeanceBuildComp, { type SeanceData } from "../../seances/SeanceBuilder";
 import QuestionnaireCliente from "./QuestionnaireCliente";
 import { adapterCles, adapterGrille, joursDeLaGrille, type MappingJours } from "@/lib/programme-planning";
 import MesuresCliente from "./MesuresCliente";
+import {
+  COULEURS_EVENEMENT, ORDRE_LEGENDE, couleurEvenement, couleurProgramme, labelEvenement,
+} from "@/lib/couleurs-calendrier";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Cliente { id: string; email: string; prenom: string | null; nom: string | null; statut: string; acces_app?: boolean; date_demarrage: string | null; }
@@ -78,25 +81,9 @@ function isEventOnDay(ev: CalendarEvent, day: Date): boolean {
     default:        return false;
   }
 }
-// Palette couleurs par type d'événement
-const EV_COLORS: Record<string, string> = {
-  seance:          "#F97316", // 🟠 Séance de sport
-  coach:           "#B22222", // 🔴 Rendez-vous coach
-  nutrition:       "#22C55E", // 🟢 Nutrition
-  coaching_groupe: "#3B82F6", // 🔵 Coaching de groupe
-  tache:           "#8B5CF6", // 🟣 Tâche
-};
-const EV_LABELS: Record<string, string> = {
-  seance:          "Séance de sport",
-  coach:           "Rendez-vous coach",
-  nutrition:       "Nutrition",
-  coaching_groupe: "Coaching de groupe",
-  tache:           "Tâche",
-};
-
+// Les couleurs et libellés viennent de lib/couleurs-calendrier (source unique)
 function evColor(ev: CalendarEvent): string {
-  if (ev.created_by === "cliente") return "#7C3AED";
-  return EV_COLORS[ev.event_type ?? ""] ?? "#B22222";
+  return couleurEvenement(ev.event_type, ev.created_by);
 }
 function toLocalDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -117,9 +104,10 @@ interface ProgrammeLayer {
 }
 
 // Couleurs de distinction des programmes sur le calendrier coach
-const PROG_COLORS = ["#F97316", "#0EA5E9", "#EC4899", "#84CC16", "#F59E0B", "#14B8A6"];
+// Couleurs de programme : voir COULEURS_PROGRAMME, tenues à distance de la
+// palette d'événements avec laquelle elles partagent la légende.
 function progColor(index: number): string {
-  return PROG_COLORS[index % PROG_COLORS.length];
+  return couleurProgramme(index);
 }
 
 /**
@@ -413,9 +401,9 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
               <label style={lbl}>Type de rendez-vous</label>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {[
-                  { type: "coach",           label: "🔴 Coach",              info: team.coach     ? `${team.coach.nom}${team.coach.lien_zoom ? " · 🔗 Zoom prêt" : " · ⚠️ Pas de lien Zoom"}` : "Aucun coach attitré", color: "#B22222" },
-                  { type: "nutrition",       label: "🟢 Nutrition",           info: team.nutrition ? `${team.nutrition.nom}${team.nutrition.lien_zoom ? " · 🔗 Zoom prêt" : " · ⚠️ Pas de lien Zoom"}` : "Aucun coach nutrition attitré", color: "#22C55E" },
-                  { type: "coaching_groupe", label: "🔵 Coaching de groupe",  info: "Lien à renseigner manuellement", color: "#3B82F6" },
+                  { type: "coach",           label: "Coach",              info: team.coach     ? `${team.coach.nom}${team.coach.lien_zoom ? " · 🔗 Zoom prêt" : " · ⚠️ Pas de lien Zoom"}` : "Aucun coach attitré", color: COULEURS_EVENEMENT.coach.base },
+                  { type: "nutrition",       label: "Nutrition",           info: team.nutrition ? `${team.nutrition.nom}${team.nutrition.lien_zoom ? " · 🔗 Zoom prêt" : " · ⚠️ Pas de lien Zoom"}` : "Aucun coach nutrition attitré", color: COULEURS_EVENEMENT.nutrition.base },
+                  { type: "coaching_groupe", label: "Coaching de groupe",  info: "Lien à renseigner manuellement", color: COULEURS_EVENEMENT.coaching_groupe.base },
                 ].map(({ type, label, info, color }) => {
                   const active = evForm.event_type === type;
                   return (
@@ -520,16 +508,12 @@ function MonthCalendar({ layers, today, events, onEditItem, onMoveItem, onAddEve
               {layer.nom}
             </span>
           ))}
-          {Object.entries(EV_LABELS).filter(([type]) => type !== "seance").map(([type, label]) => (
+          {ORDRE_LEGENDE.filter(type => type !== "seance").map(type => (
             <span key={type} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#666", fontFamily: "system-ui" }}>
-              <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: EV_COLORS[type], display: "inline-block", flexShrink: 0 }} />
-              {label}
+              <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT[type].base, display: "inline-block", flexShrink: 0 }} />
+              {COULEURS_EVENEMENT[type].label}
             </span>
           ))}
-          <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#666", fontFamily: "system-ui" }}>
-            <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#7C3AED", display: "inline-block", flexShrink: 0 }} />
-            Cliente
-          </span>
         </div>
       </div>
       {/* Ligne 2 : navigation mois + bouton ajouter */}
@@ -726,7 +710,7 @@ function JournalSeances({ clienteId }: { clienteId: string }) {
 
 // ─── Historique accordion ─────────────────────────────────────────────────────
 const STATUT_LABEL: Record<string, { label: string; color: string }> = {
-  en_cours: { label: "En cours",  color: "#B22222" },
+  en_cours: { label: "En cours",  color: COULEURS_EVENEMENT.coach.base },
   pause:    { label: "En pause",  color: "#F59E0B" },
   termine:  { label: "Terminé",   color: "#10B981" },
 };
@@ -1264,8 +1248,8 @@ function EventEditModal({ ev, clienteId, onClose, onUpdated }: {
     else { const d = await res.json().catch(() => ({})); setError(d.error ?? "Erreur"); setDeleting(false); }
   }
 
-  const typeColor = EV_COLORS[ev.event_type ?? ""] ?? "#B22222";
-  const typeLabel = EV_LABELS[ev.event_type ?? ""] ?? "Événement";
+  const typeColor = couleurEvenement(ev.event_type, ev.created_by);
+  const typeLabel = labelEvenement(ev.event_type);
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 350, backgroundColor: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>

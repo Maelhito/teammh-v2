@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import {
+  COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, ORDRE_LEGENDE, couleurEvenement,
+} from "@/lib/couleurs-calendrier";
 
 interface CalendarEvent {
   id: string;
@@ -72,16 +75,12 @@ function isSeanceValidee(
   });
 }
 
-function eventColor(evt: CalendarEvent, completedSeances: { grid_key: string | null; assignment_id: string | null; nom: string | null }[] = []): string {
-  if (evt.event_type === "seance") {
-    return isSeanceValidee(evt, completedSeances) ? "#16A34A" /* 🟢 Validée */ : "#F97316"; // 🟠 Séance de sport
-  }
-  if (evt.event_type === "coach")           return "#B22222"; // 🔴 Coach
-  if (evt.event_type === "nutrition")       return "#22C55E"; // 🟢 Nutrition
-  if (evt.event_type === "coaching_groupe") return "#3B82F6"; // 🔵 Coaching de groupe
-  if (evt.event_type === "tache")           return "#8B5CF6"; // 🟣 Tâche
-  if (evt.created_by === "cliente")         return "#7C3AED"; // violet legacy
-  return "#B22222";
+/**
+ * Une séance validée garde le bleu des séances : c'est la même séance, marquée
+ * d'une coche. Les couleurs viennent toutes de lib/couleurs-calendrier.
+ */
+function eventColor(evt: CalendarEvent): string {
+  return couleurEvenement(evt.event_type, evt.created_by);
 }
 
 const MONTH_NAMES = [
@@ -316,7 +315,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
               <span style={{
                 fontSize: "0.85rem",
                 fontWeight: isToday ? 700 : 400,
-                color: isToday ? "#B22222" : "#F5F5F0",
+                color: isToday ? COULEUR_AUJOURDHUI : "#F5F5F0",
                 lineHeight: 1,
               }}>
                 {day}
@@ -324,16 +323,16 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
               {(hasSeance || hasSeanceValidee || hasCoach || hasCoachingGroupe || hasNutrition || hasTache || hasPersonal) && (
                 <div style={{ display: "flex", gap: 2, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }}>
                   {hasSeanceValidee && (
-                    <span style={{ width: 9, height: 9, borderRadius: "50%", backgroundColor: "#16A34A", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ width: 9, height: 9, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.seance.base, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <span style={{ fontSize: 7, lineHeight: 1, color: "#0D0D0D", fontWeight: 900 }}>✓</span>
                     </span>
                   )}
-                  {hasSeance        && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#F97316" }} />}
-                  {hasCoach         && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#B22222" }} />}
-                  {hasCoachingGroupe && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#3B82F6" }} />}
-                  {hasNutrition     && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#22C55E" }} />}
-                  {hasTache         && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#8B5CF6" }} />}
-                  {hasPersonal      && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#7C3AED" }} />}
+                  {hasSeance        && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.seance.base }} />}
+                  {hasCoach         && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.coach.base }} />}
+                  {hasCoachingGroupe && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.coaching_groupe.base }} />}
+                  {hasNutrition     && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.nutrition.base }} />}
+                  {hasTache         && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.tache.base }} />}
+                  {hasPersonal      && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.perso.base }} />}
                 </div>
               )}
             </button>
@@ -343,19 +342,18 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
 
       {/* Légende */}
       <div style={{ display: "flex", gap: 10, marginTop: 16, paddingBottom: 4, flexWrap: "wrap" }}>
-        {[
-          { color: "#F97316", label: "Séance" },
-          { color: "#16A34A", label: "Séance validée ✓" },
-          { color: "#B22222", label: "Coach" },
-          { color: "#3B82F6", label: "Coaching groupe" },
-          { color: "#22C55E", label: "Nutrition" },
-          { color: "#8B5CF6", label: "Tâche" },
-        ].map(({ color, label }) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: color, display: "inline-block", flexShrink: 0 }} />
-            <span style={{ fontSize: "0.72rem", color: "#555" }}>{label}</span>
+        {ORDRE_LEGENDE.map((type) => (
+          <div key={type} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT[type].base, display: "inline-block", flexShrink: 0 }} />
+            <span style={{ fontSize: "0.72rem", color: "#9CA3AF" }}>{COULEURS_EVENEMENT[type].label}</span>
           </div>
         ))}
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.seance.base, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <span style={{ fontSize: 6, lineHeight: 1, color: "#0D0D0D", fontWeight: 900 }}>✓</span>
+          </span>
+          <span style={{ fontSize: "0.72rem", color: "#9CA3AF" }}>Séance validée</span>
+        </div>
       </div>
 
       {/* Selected day panel */}
@@ -384,7 +382,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
                 padding: "10px 12px",
                 backgroundColor: "#0D0D0D",
                 borderRadius: 8,
-                borderLeft: `3px solid ${eventColor(evt, completedSeances)}`,
+                borderLeft: `3px solid ${eventColor(evt)}`,
               }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                   <p style={{ fontWeight: 600, color: "#F5F5F0", fontSize: "0.9rem", margin: 0, flex: 1 }}>
@@ -393,15 +391,15 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
                   {isSeanceValidee(evt, completedSeances) && (
                     <span style={{
                       display: "inline-flex", alignItems: "center", gap: 4,
-                      fontSize: "0.68rem", fontWeight: 700, color: "#16A34A",
-                      backgroundColor: "rgba(22,163,74,0.12)", borderRadius: 999,
+                      fontSize: "0.68rem", fontWeight: 700, color: COULEURS_EVENEMENT.seance.base,
+                      backgroundColor: "rgba(37,99,235,0.15)", borderRadius: 999,
                       padding: "2px 8px", flexShrink: 0,
                     }}>
                       ✓ Validée
                     </span>
                   )}
                   {evt.heure && (
-                    <span style={{ fontSize: "0.75rem", color: eventColor(evt, completedSeances), fontWeight: 600, flexShrink: 0 }}>
+                    <span style={{ fontSize: "0.75rem", color: eventColor(evt), fontWeight: 600, flexShrink: 0 }}>
                       {evt.heure.slice(0, 5)}
                     </span>
                   )}
@@ -540,9 +538,9 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
               {/* Sélecteur de type */}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {[
-                  { type: "coaching_groupe", label: "🔵 Coaching de Groupe", color: "#3B82F6", titre: "Coaching de Groupe", memberId: null as string | null },
-                  { type: "coach", label: "🔴 Coach", color: "#B22222", titre: "", memberId: coachId },
-                  { type: "nutrition", label: "🟢 Nutrition", color: "#22C55E", titre: "", memberId: nutritionId },
+                  { type: "coaching_groupe", label: "Coaching de Groupe", color: COULEURS_EVENEMENT.coaching_groupe.base, titre: "Coaching de Groupe", memberId: null as string | null },
+                  { type: "coach", label: "Coach", color: COULEURS_EVENEMENT.coach.base, titre: "", memberId: coachId },
+                  { type: "nutrition", label: "Nutrition", color: COULEURS_EVENEMENT.nutrition.base, titre: "", memberId: nutritionId },
                 ].map(({ type, label, color, titre, memberId }) => (
                   <button
                     key={type}

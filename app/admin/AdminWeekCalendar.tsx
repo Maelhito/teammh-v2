@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { COULEURS_EVENEMENT, couleurEvenement } from "@/lib/couleurs-calendrier";
 
 type CalEvent = {
   id: string;
@@ -66,11 +67,13 @@ export default function AdminWeekCalendar({ events, inscriptions, teamMembers, w
     return map;
   }, [events, inscriptions, weekDates]);
 
+  // Le type d'événement prime ; à défaut on retombe sur la couleur du coach.
   function eventColor(ev: CalEvent): string {
-    if (ev.event_type === "coaching_groupe") return "#60A5FA";
-    if (ev.event_type === "nutrition") return "#10B981";
+    if (ev.event_type && ev.event_type in COULEURS_EVENEMENT) {
+      return couleurEvenement(ev.event_type);
+    }
     if (ev.coach_team_id && COACH_COLORS[ev.coach_team_id]) return COACH_COLORS[ev.coach_team_id];
-    return "#888";
+    return couleurEvenement(null);
   }
 
   function eventLabel(ev: CalEvent): string {
@@ -94,7 +97,7 @@ export default function AdminWeekCalendar({ events, inscriptions, teamMembers, w
           {[
             { color: "#EF4444", label: "Inscription cliente" },
             { color: "#F97316", label: "Inscription coach" },
-            { color: "#60A5FA", label: "Visio groupe" },
+            { color: COULEURS_EVENEMENT.coaching_groupe.base, label: "Visio groupe" },
           ].map(l => (
             <span key={l.label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--admin-text-muted)", fontFamily: "system-ui" }}>
               <span style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: l.color, display: "inline-block" }} />
