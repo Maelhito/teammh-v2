@@ -2,35 +2,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkCoachAccess } from "@/lib/check-coach-access";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
-export async function GET() {
+type Params = { params: Promise<{ id: string; pid: string }> };
+
+export async function PATCH(req: NextRequest, { params }: Params) {
   const user = await checkCoachAccess();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
-
-  const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("programmes")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ programmes: data ?? [] });
-}
-
-export async function POST(req: NextRequest) {
-  const user = await checkCoachAccess();
-  if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  const { pid } = await params;
 
   const body = await req.json();
-  const { nom, categorie, niveau, duree_semaines, description } = body;
-  if (!nom?.trim()) return NextResponse.json({ error: "Nom requis." }, { status: 400 });
-
   const admin = createSupabaseAdminClient();
+
   const { data, error } = await admin
-    .from("programmes")
-    .insert({ nom: nom.trim(), categorie, niveau, duree_semaines: duree_semaines ?? 4, description })
-    .select()
+    .from("client_programmes")
+    .update(body)
+    .eq("id", pid)
+    .select("*, programme:programmes(id, nom, niveau, duree_semaines, description)")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ programme: data }, { status: 201 });
+  return NextResponse.json({ assignment: data });
+}
+
+export async function DELETE(_: NextRequest, { params }: Params) {
+  const user = await checkCoachAccess();
+  if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  const { pid } = await params;
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.from("client_programmes").delete().eq("id", pid);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
 }
