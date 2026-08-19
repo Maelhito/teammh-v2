@@ -170,14 +170,27 @@ function precharger() {
   }
 }
 
-/** Joue une voix. Retourne false si elle n'est pas disponible. */
+/** Joue une voix. Retourne false si elle n'est pas disponible.
+ *
+ * Certains enregistrements (« STOP », qui finit sur une consonne dure) sont
+ * exportés en s'arrêtant net à pleine amplitude au lieu de retomber vers le
+ * silence : ça s'entend comme une coupure sèche. On adoucit systématiquement
+ * les 90 dernières ms avec un fondu de sortie, sans toucher à la voix elle-même. */
 function direVoix(mot: FinDeChrono): boolean {
   const ctx = getAudioCtx();
   const buf = voix.get(mot);
   if (!ctx || !buf) return false;
   const jouer = () => {
+    const t = ctx.currentTime;
     const src = ctx.createBufferSource();
-    src.buffer = buf; src.connect(ctx.destination); src.start(ctx.currentTime);
+    const g = ctx.createGain();
+    src.buffer = buf;
+    src.connect(g); g.connect(ctx.destination);
+    const fondu = Math.min(0.09, buf.duration * 0.3);
+    g.gain.setValueAtTime(1, t);
+    g.gain.setValueAtTime(1, t + buf.duration - fondu);
+    g.gain.linearRampToValueAtTime(0, t + buf.duration);
+    src.start(t);
   };
   if (ctx.state === "suspended") ctx.resume().then(jouer).catch(() => {});
   else jouer();
