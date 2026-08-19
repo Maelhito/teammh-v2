@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { sansAccesRevoque } from "@/lib/acces-app";
 import { redirect } from "next/navigation";
 import DashboardCoach from "./DashboardCoach";
 
@@ -28,12 +29,13 @@ export default async function CoachPage() {
   const { data: profiles } = clientIds.length
     ? await admin
         .from("user_profiles")
-        .select("user_id, prenom, nom, statut")
+        .select("user_id, prenom, nom, statut, acces_app")
         .in("user_id", clientIds)
         .eq("statut", "active")
     : { data: [] };
 
-  const activeClients = (profiles ?? []).map(p => {
+  // Une cliente révoquée depuis l'admin n'apparaît plus côté coach
+  const activeClients = sansAccesRevoque(profiles ?? []).map(p => {
     const u = users.find(u => u.id === p.user_id);
     return {
       id: p.user_id,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkCoachAccess } from "@/lib/check-coach-access";
+import { clienteRevoquee } from "@/lib/acces-app";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { signPhotos } from "@/lib/photos-progression";
 import { isMissingTableError } from "@/lib/questionnaire-missing-table";
@@ -12,6 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
   const { id: clienteId } = await params;
+  if (await clienteRevoquee(clienteId)) return NextResponse.json({ error: "Accès révoqué" }, { status: 403 });
   const admin = createSupabaseAdminClient();
 
   const [mesuresRes, photosRes] = await Promise.all([

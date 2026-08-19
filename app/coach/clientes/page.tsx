@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { sansAccesRevoque } from "@/lib/acces-app";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +52,7 @@ export default async function CoachClientesPage({
     coach_id: string | null;
     nutrition_id: string | null;
     date_demarrage: string | null;
+    acces_app: boolean | null;
   }[] = [];
 
   if (teamMemberIds.length > 0) {
@@ -59,16 +61,16 @@ export default async function CoachClientesPage({
       .join(",");
     const { data } = await admin
       .from("user_profiles")
-      .select("user_id, prenom, nom, statut, coach_id, nutrition_id, date_demarrage")
+      .select("user_id, prenom, nom, statut, coach_id, nutrition_id, date_demarrage, acces_app")
       .or(orFilter)
       .not("role", "in", '("coach","admin","nutrition")');
-    profiles = data ?? [];
+    profiles = sansAccesRevoque(data ?? []);
   } else {
     const { data } = await admin
       .from("user_profiles")
-      .select("user_id, prenom, nom, statut, coach_id, nutrition_id, date_demarrage")
+      .select("user_id, prenom, nom, statut, coach_id, nutrition_id, date_demarrage, acces_app")
       .not("role", "in", '("coach","admin","nutrition")');
-    profiles = data ?? [];
+    profiles = sansAccesRevoque(data ?? []);
   }
 
   const { data: { users: authUsers } } = await admin.auth.admin.listUsers({ perPage: 500 });

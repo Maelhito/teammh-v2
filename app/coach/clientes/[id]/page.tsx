@@ -1324,6 +1324,8 @@ export default function ClienteFichePage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const [cliente, setCliente] = useState<Cliente | null>(null);
+  // L'admin a révoqué l'accès : la fiche n'est plus consultable (les routes refusent)
+  const [revoquee, setRevoquee] = useState(false);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   // Une grille par assignation active (plusieurs programmes peuvent tourner ensemble)
   const [gridsByAssignment, setGridsByAssignment] = useState<Record<string, Grid>>({});
@@ -1347,6 +1349,7 @@ export default function ClienteFichePage() {
 
   const loadAssignments = useCallback(async () => {
     const res = await fetch(`/api/coach/clientes/${id}/programmes`);
+    if (res.status === 403) { setRevoquee(true); return; }
     const d = await res.json();
     const list: Assignment[] = d.assignments ?? [];
     setAssignments(list);
@@ -1482,6 +1485,27 @@ export default function ClienteFichePage() {
   }
 
   const lbl10: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "system-ui" };
+
+  if (revoquee) {
+    return (
+      <div style={{ maxWidth: 480, margin: "80px auto", textAlign: "center", fontFamily: "system-ui" }}>
+        <p style={{ fontSize: 40, margin: "0 0 12px" }}>🔒</p>
+        <h1 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#1a1a1a", margin: "0 0 8px" }}>
+          Fiche non accessible
+        </h1>
+        <p style={{ fontSize: 14, color: "#888", margin: "0 0 24px", lineHeight: 1.5 }}>
+          L&apos;accès à l&apos;application a été révoqué pour cette cliente.
+          Contacte l&apos;administrateur si c&apos;est une erreur.
+        </p>
+        <button
+          onClick={() => router.push("/coach/clientes")}
+          style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: 7, padding: "9px 18px", fontSize: 13, color: "#888", cursor: "pointer", fontFamily: "system-ui" }}
+        >
+          ← Retour à mes clientes
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>

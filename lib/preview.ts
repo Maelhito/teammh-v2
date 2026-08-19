@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { checkCoachAccess } from "./check-coach-access";
 import { createSupabaseAdminClient } from "./supabase-admin";
+import { accesRevoque } from "./acces-app";
 
 export interface EffectiveUser {
   userId: string;
@@ -25,15 +26,18 @@ export async function getEffectiveUser(
       const admin = createSupabaseAdminClient();
       const { data } = await admin
         .from("user_profiles")
-        .select("prenom")
+        .select("prenom, acces_app")
         .eq("user_id", previewUserId)
         .single();
-      return {
-        userId: previewUserId,
-        firstName: data?.prenom ?? "Cliente",
-        email: "",
-        isPreview: true,
-      };
+      // Aperçu ouvert avant la révocation : le cookie dure 4 h, on l'ignore
+      if (!data || !accesRevoque(data)) {
+        return {
+          userId: previewUserId,
+          firstName: data?.prenom ?? "Cliente",
+          email: "",
+          isPreview: true,
+        };
+      }
     }
   }
 

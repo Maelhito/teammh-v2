@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkCoachAccess } from "@/lib/check-coach-access";
+import { clienteRevoquee } from "@/lib/acces-app";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { adapterGrille, joursDeLaGrille, mappingIdentite, type MappingJours } from "@/lib/programme-planning";
 
@@ -9,6 +10,7 @@ export async function GET(_: NextRequest, { params }: Params) {
   const user = await checkCoachAccess();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   const { id } = await params;
+  if (await clienteRevoquee(id)) return NextResponse.json({ error: "Accès révoqué" }, { status: 403 });
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
@@ -25,6 +27,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   const user = await checkCoachAccess();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   const { id } = await params;
+  if (await clienteRevoquee(id)) return NextResponse.json({ error: "Accès révoqué" }, { status: 403 });
 
   const {
     programme_id,

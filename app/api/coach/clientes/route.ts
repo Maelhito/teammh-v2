@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkCoachAccess } from "@/lib/check-coach-access";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { accesRevoque } from "@/lib/acces-app";
 
 export async function GET() {
   const user = await checkCoachAccess();
@@ -21,12 +22,14 @@ export async function GET() {
 
   const { data: profiles } = await admin
     .from("user_profiles")
-    .select("user_id, prenom, nom, statut, date_demarrage, coach_id")
+    .select("user_id, prenom, nom, statut, date_demarrage, coach_id, acces_app")
     .in("user_id", ids);
 
-  // Filtrer uniquement les clientes assignées à ce coach
+  // Filtrer uniquement les clientes assignées à ce coach, accès non révoqué
   const assignedIds = new Set(
-    (profiles ?? []).filter(p => p.coach_id === user.id).map(p => p.user_id)
+    (profiles ?? [])
+      .filter(p => p.coach_id === user.id && !accesRevoque(p))
+      .map(p => p.user_id)
   );
   const clientes = allClientes.filter(u => assignedIds.has(u.id));
 
