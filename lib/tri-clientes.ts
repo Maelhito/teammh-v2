@@ -36,6 +36,41 @@ function cleArrivee(c: ClienteTriable): string {
   return c.date_demarrage ?? c.created_at ?? "9999-12-31";
 }
 
+/**
+ * Libellé affiché d'une cliente. Vit ici (et non dans le composant de grille)
+ * pour rester appelable côté serveur : un composant serveur ne peut pas appeler
+ * une fonction exportée d'un module « use client ».
+ */
+export function clientLabel(c: { prenom: string | null; nom: string | null; email: string }) {
+  return c.prenom && c.nom ? `${c.prenom} ${c.nom}` : c.email;
+}
+
+/** Texte comparable : sans accents ni casse, pour trier et chercher. */
+export function normaliser(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Tri du portail coach : par ordre alphabétique, mais les clientes dont l'accès
+ * est révoqué passent toujours en fin de liste.
+ * `nom` est le libellé affiché (prénom + nom, ou l'e-mail à défaut).
+ */
+export function trierClientesAlpha<T extends ClienteTriable>(
+  clientes: T[],
+  nom: (c: T) => string
+): T[] {
+  return [...clientes].sort((a, b) => {
+    const ra = a.acces_app === false ? 1 : 0;
+    const rb = b.acces_app === false ? 1 : 0;
+    if (ra !== rb) return ra - rb;
+    return normaliser(nom(a)).localeCompare(normaliser(nom(b)), "fr");
+  });
+}
+
 /** Trie une copie de la liste : état croissant, puis arrivée croissante. */
 export function trierClientes<T extends ClienteTriable>(clientes: T[]): T[] {
   return [...clientes].sort((a, b) => {

@@ -1,12 +1,9 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
-import Link from "next/link";
-import { trierClientes } from "@/lib/tri-clientes";
+import { clientLabel, trierClientesAlpha } from "@/lib/tri-clientes";
+import ClientesGrid from "./ClientesGrid";
 
 export const dynamic = "force-dynamic";
-
-const STATUT_LABEL: Record<string, string> = { active: "Active", pause: "Pause", terminee: "Terminée" };
-const STATUT_COLOR: Record<string, string> = { active: "#22C55E", pause: "#F97316", terminee: "#aaa" };
 
 // Coachs disponibles pour l'impersonation dev
 const DEV_COACHES = [
@@ -16,10 +13,6 @@ const DEV_COACHES = [
   { label: "Emeline (coach)", ids: ["b7c69134-29fd-4882-afae-7e96caafa4cf"] },
   { label: "Julie (coach + nutrition)", ids: ["b9dd9b84-ee78-427f-a331-d0c3562c3144", "c357c267-f9d8-4f97-a430-d267671753fe"] },
 ];
-
-function clientLabel(c: { prenom: string | null; nom: string | null; email: string }) {
-  return c.prenom && c.nom ? `${c.prenom} ${c.nom}` : c.email;
-}
 
 export default async function CoachClientesPage({
   searchParams,
@@ -78,9 +71,9 @@ export default async function CoachClientesPage({
 
   const createdMap = Object.fromEntries(authUsers.map(u => [u.id, u.created_at ?? null]));
 
-  // Actives, puis suspendues, puis révoquées — et dans chaque groupe, par ordre
-  // d'arrivée (voir lib/tri-clientes).
-  const clients = trierClientes(
+  // Ordre alphabétique, avec les clientes révoquées reléguées en fin de liste
+  // (voir lib/tri-clientes).
+  const clients = trierClientesAlpha(
     profiles.map(p => ({
       id: p.user_id,
       email: emailMap[p.user_id] ?? "",
@@ -93,7 +86,8 @@ export default async function CoachClientesPage({
       date_demarrage: p.date_demarrage,
       created_at: createdMap[p.user_id] ?? null,
       dateDemarrage: p.date_demarrage,
-    }))
+    })),
+    clientLabel
   );
 
   return (
@@ -140,62 +134,7 @@ export default async function CoachClientesPage({
         <p style={{ color: "#aaa", fontSize: 14, fontFamily: "system-ui" }}>Aucune cliente assignée pour le moment.</p>
       )}
 
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-        gap: 12,
-      }}>
-        {clients.map(c => {
-          const isActive = c.statut === "active";
-          return (
-            <Link key={c.id} href={`/coach/clientes/${c.id}`} style={{ textDecoration: "none" }}>
-              <div style={{
-                aspectRatio: "1 / 1",
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                gap: 8, textAlign: "center",
-                backgroundColor: "#fff", borderRadius: 14, padding: 16,
-                border: "1px solid #e8e8e8", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                cursor: "pointer", position: "relative",
-              }}>
-                <span style={{
-                  position: "absolute", top: 10, right: 10,
-                  width: 9, height: 9, borderRadius: "50%",
-                  backgroundColor: isActive ? "#22C55E" : "#ccc",
-                }} title={isActive ? "Active" : "Inactive"} />
-                <div style={{
-                  width: 48, height: 48, borderRadius: "50%",
-                  backgroundColor: "#FEF2F2", flexShrink: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 18, fontWeight: 700, color: "#B22222", fontFamily: "system-ui",
-                }}>
-                  {clientLabel(c).charAt(0).toUpperCase()}
-                </div>
-                <p style={{
-                  fontSize: 13, fontWeight: 700, color: "#1a1a1a", margin: 0, fontFamily: "system-ui",
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%",
-                }}>
-                  {clientLabel(c)}
-                </p>
-                <p style={{ fontSize: 11, color: "#aaa", margin: 0, fontFamily: "system-ui" }}>
-                  {c.dateDemarrage
-                    ? `Démarrage : ${new Date(c.dateDemarrage).toLocaleDateString("fr-FR")}`
-                    : "Pas de date de démarrage"}
-                </p>
-                {/* L'accès révoqué n'a rien à voir avec le statut : une cliente
-                    peut rester « active » et n'avoir plus accès à l'app. */}
-                <span style={{
-                  fontSize: 10, fontWeight: 600,
-                  color: c.accesApp ? STATUT_COLOR[c.statut] : "#B91C1C",
-                  backgroundColor: c.accesApp ? `${STATUT_COLOR[c.statut]}20` : "rgba(185,28,28,0.12)",
-                  padding: "2px 9px", borderRadius: 20, fontFamily: "system-ui",
-                }}>
-                  {c.accesApp ? (STATUT_LABEL[c.statut] ?? c.statut) : "Accès révoqué"}
-                </span>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+      <ClientesGrid clients={clients} />
     </div>
   );
 }
