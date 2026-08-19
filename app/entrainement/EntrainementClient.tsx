@@ -358,20 +358,22 @@ export default function EntrainementClient({
                 {selectedDayItems.map((item, idx) => {
                   const dayKey = dateDebut ? dateToGridKey(selectedDay!, dateDebut) : null;
                   return (
-                    <div key={idx} style={{ backgroundColor: "#0D0D0D", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, border: "1px solid #1a1a1a" }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: item.type === "video" ? "#0a0a1a" : "#1a0505", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", flexShrink: 0 }}>
-                        {item.type === "video" ? "▶" : "💪"}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p className="font-body" style={{ fontWeight: 700, fontSize: "0.86rem", color: "#F5F5F0", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{itemNom(item)}</p>
-                        {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "#555", margin: "2px 0 0" }}>{itemDuree(item)} min</p>}
+                    <div key={idx} style={{ backgroundColor: "#0D0D0D", borderRadius: 10, border: "1px solid #1a1a1a", overflow: "hidden" }}>
+                      <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: item.type === "video" ? "#0a0a1a" : "#1a0505", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", flexShrink: 0 }}>
+                          {item.type === "video" ? "▶" : "💪"}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p className="font-body" style={{ fontWeight: 700, fontSize: "0.86rem", color: "#F5F5F0", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{itemNom(item)}</p>
+                          {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "#555", margin: "2px 0 0" }}>{itemDuree(item)} min</p>}
+                        </div>
                       </div>
                       {item.type !== "video" && dayKey && programme && (
                         <Link
                           href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${dayKey}&itemIndex=${idx}`}
-                          style={{ padding: "7px 12px", backgroundColor: "#B22222", borderRadius: 8, color: "#FFF", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                          style={{ display: "block", width: "100%", padding: "11px 14px", backgroundColor: "#B22222", color: "#FFF", fontSize: "0.8rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.08em", textAlign: "center" }}
                         >
-                          ▶
+                          ▶ DÉMARRER
                         </Link>
                       )}
                     </div>
