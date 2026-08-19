@@ -267,7 +267,7 @@ export default function MesuresCliente({ clienteId }: { clienteId: string }) {
 
       {/* Indicateurs clés */}
       {mesures.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div className="coach-cliente-2col">
           {CHAMPS.filter((c) => c.cle).map(({ champ, label, unite }) => {
             const e = ecarts(mesures, champ);
             return (
@@ -295,7 +295,7 @@ export default function MesuresCliente({ clienteId }: { clienteId: string }) {
 
       {/* Courbes — visibles d'emblée : c'est ce qui se lit le plus vite */}
       {mesures.length >= 2 && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 14 }}>
+        <div className="coach-cliente-2col" style={{ marginTop: 14 }}>
           {CHAMPS.filter((c) => c.cle).map(({ champ, label, unite }) => (
             <div key={champ} style={{ backgroundColor: "#fafafa", borderRadius: 10, padding: "12px 14px" }}>
               <p style={{ fontSize: 10, fontWeight: 700, color: "#888", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 8px", fontFamily: "system-ui" }}>

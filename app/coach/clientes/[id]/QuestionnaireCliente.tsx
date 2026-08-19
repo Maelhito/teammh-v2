@@ -137,7 +137,7 @@ export default function QuestionnaireCliente({ clienteId }: { clienteId: string 
       </div>
 
       {/* Objectifs — toujours visibles */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+      <div className="coach-cliente-2col">
         <div style={{ backgroundColor: "#fafafa", borderRadius: 10, padding: "12px 14px" }}>
           <p style={{ fontSize: 10, fontWeight: 700, color: "#B45309", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 10px", fontFamily: "system-ui" }}>
             Objectifs 4 mois

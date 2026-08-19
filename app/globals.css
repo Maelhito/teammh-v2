@@ -109,6 +109,9 @@ body {
   border-bottom: 1px solid #e8e8e8;
 }
 .coach-cliente-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* Paires de cartes de la fiche cliente (objectifs, indicateurs, courbes) :
+   deux colonnes au large, une seule sur téléphone. */
+.coach-cliente-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
 @media (max-width: 768px) {
   .coach-layout-main { padding: 64px 12px 16px; }
@@ -118,14 +121,23 @@ body {
   .coach-meta-2col { grid-template-columns: 1fr; }
   .coach-meta-4col { grid-template-columns: 1fr 1fr; }
   .coach-name-grid { grid-template-columns: 1fr; }
-  .coach-cliente-actions { margin-left: 0; width: 100%; }
-  /* top négatif : une fois collé, l'en-tête vient se poser sous la barre mobile */
-  .coach-cliente-header { top: -14px; margin: -64px -12px 16px; padding: 64px 12px 10px; }
+  .coach-cliente-actions { margin-left: 0; width: 100%; gap: 6px; }
+  /* La barre noire mobile fait 62px. padding-top 64 + top -2 = le contenu de
+     l'en-tête vient se poser juste dessous, sans bande vide. */
+  .coach-cliente-header { top: -2px; margin: -64px -12px 14px; padding: 64px 12px 10px; gap: 8px; }
+  /* Compact : l'en-tête est collant, chaque pixel qu'il prend est pris au
+     contenu (le questionnaire passait dessous). Les boutons ont des styles
+     inline, d'où les !important. */
+  .coach-cliente-header h1 { font-size: 0.95rem !important; }
+  .coach-cliente-header button { padding: 6px 10px !important; font-size: 11.5px !important; }
+  .coach-cliente-actions > div { padding: 4px 10px !important; }
+  .coach-cliente-actions > div p:last-child { font-size: 11px !important; }
+  .coach-cliente-2col { grid-template-columns: 1fr; gap: 10px; }
 }
 
 @media (max-width: 480px) {
   .coach-layout-main { padding: 60px 10px 16px; }
-  .coach-cliente-header { top: -10px; margin: -60px -10px 16px; padding: 60px 10px 10px; }
+  .coach-cliente-header { top: -2px; margin: -60px -10px 14px; padding: 64px 10px 10px; }
   .coach-stats-grid { grid-template-columns: 1fr 1fr; }
   .coach-meta-4col { grid-template-columns: 1fr 1fr; }
 }
