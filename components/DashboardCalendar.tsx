@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { couleurEvenement } from "@/lib/couleurs-calendrier";
+import { COULEURS_EVENEMENT, couleurEvenement } from "@/lib/couleurs-calendrier";
 
 interface CalEvent {
   id: string;
@@ -114,7 +114,7 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
                   {/* Séances */}
                   {day.seances.slice(0, 2).map((s, si) => (
                     s.validated ? (
-                      <span key={`s${si}`} style={{ fontSize: "0.55rem", color: "#FB923C", lineHeight: 1, display: "block" }}>✓</span>
+                      <span key={`s${si}`} style={{ fontSize: "0.55rem", color: COULEURS_EVENEMENT.seance.base, lineHeight: 1, display: "block" }}>✓</span>
                     ) : (
                       <span key={`s${si}`} style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#FB923C", display: "block", opacity: 0.5 }} />
                     )
@@ -182,7 +182,7 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
                     )}
                   </div>
                   {s.validated && (
-                    <span style={{ fontSize: "0.65rem", color: "#FB923C", fontWeight: 700 }}>Validée</span>
+                    <span style={{ fontSize: "0.65rem", color: COULEURS_EVENEMENT.seance.base, fontWeight: 700 }}>Validée</span>
                   )}
                 </div>
               )

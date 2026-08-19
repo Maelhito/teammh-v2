@@ -8,7 +8,7 @@ import {
   gridKeyFor,
   itemsForDate,
 } from "@/lib/programme-planning";
-import { couleurEvenement } from "@/lib/couleurs-calendrier";
+import { COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, couleurEvenement } from "@/lib/couleurs-calendrier";
 
 const MONTH_NAMES = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const DAY_NAMES = ["L", "M", "M", "J", "V", "S", "D"];
@@ -233,7 +233,7 @@ export default function EntrainementClient({
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {groupItems.map(({ item, itemIndex }) => (
                       <div key={itemIndex} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontSize: "1rem", color: "#FB923C" }}>✓</span>
+                        <span style={{ fontSize: "1rem", color: COULEURS_EVENEMENT.seance.base }}>✓</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#FB923C", margin: 0 }}>{itemNom(item)}</p>
                           {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(251,146,60,0.45)", margin: "1px 0 0" }}>{itemDuree(item)} min</p>}
@@ -423,17 +423,17 @@ export default function EntrainementClient({
               <span style={{
                 fontSize: "0.9rem",
                 fontWeight: isToday ? 700 : 400,
-                color: isToday ? "#B22222" : isPast ? "#444" : "#F5F5F0",
+                color: isToday ? COULEUR_AUJOURDHUI : isPast ? "#444" : "#F5F5F0",
                 lineHeight: 1,
               }}>
                 {day}
               </span>
               {/* Indicateurs */}
               {isTerminee ? (
-                <span style={{ fontSize: "0.6rem", color: "#FB923C", lineHeight: 1 }}>✓</span>
+                <span style={{ fontSize: "0.6rem", color: COULEURS_EVENEMENT.seance.base, lineHeight: 1 }}>✓</span>
               ) : (hasSeance || hasEvent) ? (
                 <div style={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center" }}>
-                  {hasSeance && <span style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: "#B22222", display: "block" }} />}
+                  {hasSeance && <span style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.seance.base, display: "block" }} />}
                   {dayEvts.slice(0, 2).map((e) => (
                     <span key={e.id} style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: eventColor(e), display: "block" }} />
                   ))}
@@ -473,7 +473,7 @@ export default function EntrainementClient({
                     {programme.nom.toUpperCase()}
                   </p>
                   {isTerm && (
-                    <span className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: "#FB923C", letterSpacing: "0.06em" }}>✓ TERMINÉE</span>
+                    <span className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: COULEURS_EVENEMENT.seance.base, letterSpacing: "0.06em" }}>✓ TERMINÉE</span>
                   )}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
