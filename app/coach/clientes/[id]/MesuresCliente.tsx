@@ -19,12 +19,42 @@ function couleur(v: number | null): string {
 
 
 
+/** Formulaire de saisie : une date + une valeur texte par champ */
+type Saisie = Record<string, string>;
+
+function saisieVide(): Saisie {
+  return { date: new Date().toISOString().slice(0, 10), note: "" };
+}
+
+function saisieDepuis(m: Mesure): Saisie {
+  const s: Saisie = { date: m.date, note: m.note ?? "" };
+  for (const { champ } of CHAMPS) s[champ] = m[champ] != null ? String(m[champ]) : "";
+  return s;
+}
+
 export default function MesuresCliente({ clienteId }: { clienteId: string }) {
   const [mesures, setMesures] = useState<Mesure[]>([]);
   const [photos, setPhotos] = useState<PhotoProgression[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+
+  const [saisie, setSaisie] = useState<Saisie | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  async function charger() {
+    try {
+      const res = await fetch(`/api/coach/clientes/${clienteId}/mesures`);
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) { setMesures(d.mesures ?? []); setPhotos(d.photos ?? []); setError(null); }
+      else setError(d.error ?? "Erreur de chargement");
+    } catch {
+      setError("Impossible de charger les mesures");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +74,45 @@ export default function MesuresCliente({ clienteId }: { clienteId: string }) {
     return () => { cancelled = true; };
   }, [clienteId]);
 
+  async function enregistrer() {
+    if (!saisie) return;
+    setSaving(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/coach/clientes/${clienteId}/mesures`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(saisie),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setMsg({ type: "ok", text: `✓ Mesures du ${labelDate(saisie.date)} enregistrées.` });
+        setSaisie(null);
+        setShowAll(true);
+        await charger();
+      } else {
+        setMsg({ type: "err", text: d.error ?? "Enregistrement impossible." });
+      }
+    } catch {
+      setMsg({ type: "err", text: "Erreur réseau : rien n'a été enregistré." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function supprimer(m: Mesure) {
+    if (!confirm(`Supprimer les mesures du ${labelDate(m.date)} ?`)) return;
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/coach/clientes/${clienteId}/mesures?mesureId=${m.id}`, { method: "DELETE" });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) { await charger(); setMsg({ type: "ok", text: "✓ Ligne supprimée." }); }
+      else setMsg({ type: "err", text: d.error ?? "Suppression impossible." });
+    } catch {
+      setMsg({ type: "err", text: "Erreur réseau : rien n'a été supprimé." });
+    }
+  }
+
   const card: React.CSSProperties = {
     backgroundColor: "#fff", borderRadius: 14, border: "1px solid #efefef",
     padding: "16px 18px", marginBottom: 12,
@@ -59,12 +128,115 @@ export default function MesuresCliente({ clienteId }: { clienteId: string }) {
   if (error) {
     return <div style={card}><p style={lbl}>Suivi des mesures</p><p style={{ fontSize: 12, color: "#F87171", margin: "8px 0 0", fontFamily: "system-ui" }}>⚠ {error}</p></div>;
   }
-  if (!mesures.length && !photos.length) {
-    return <div style={card}><p style={lbl}>Suivi des mesures</p><p style={{ fontSize: 12, color: "#bbb", margin: "8px 0 0", fontFamily: "system-ui" }}>Aucune mesure enregistrée pour l&apos;instant.</p></div>;
-  }
-
   const historique = trierParDate(mesures).slice().reverse();
   const derniere = historique[0];
+
+  const champInput: React.CSSProperties = {
+    width: 96, backgroundColor: "#fff", border: "1px solid #e8e8e8", borderRadius: 8,
+    padding: "7px 9px", color: "#1a1a1a", fontSize: 12, outline: "none",
+    textAlign: "right", fontFamily: "system-ui",
+  };
+
+  /** Saisie libre : n'importe quelle date, n'importe quels champs */
+  const editeur = saisie && (
+    <div style={{ backgroundColor: "#fafafa", borderRadius: 10, padding: "14px 16px", marginBottom: 12 }}>
+      <p style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a", margin: "0 0 2px", fontFamily: "system-ui" }}>
+        Saisie des mesures
+      </p>
+      <p style={{ fontSize: 11, color: "#aaa", margin: "0 0 12px", fontFamily: "system-ui" }}>
+        Aucun champ obligatoire. Une date déjà enregistrée est remplacée.
+      </p>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <label style={{ flex: 1, fontSize: 12, color: "#888", fontFamily: "system-ui" }}>Date</label>
+        <input
+          type="date"
+          value={saisie.date}
+          onChange={(e) => { setSaisie((s) => ({ ...s!, date: e.target.value })); setMsg(null); }}
+          style={{ ...champInput, width: 148, textAlign: "left" }}
+        />
+        <span style={{ width: 22 }} />
+      </div>
+
+      {CHAMPS.map(({ champ, label, unite, placeholder }) => (
+        <div key={champ} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <label style={{ flex: 1, fontSize: 12, color: "#888", fontFamily: "system-ui" }}>{label}</label>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={saisie[champ] ?? ""}
+            onChange={(e) => { setSaisie((s) => ({ ...s!, [champ]: e.target.value })); setMsg(null); }}
+            placeholder={placeholder}
+            style={champInput}
+          />
+          <span style={{ width: 22, fontSize: 11, color: "#aaa", fontFamily: "system-ui" }}>{unite}</span>
+        </div>
+      ))}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+        <label style={{ flex: 1, fontSize: 12, color: "#888", fontFamily: "system-ui" }}>Note</label>
+        <input
+          type="text"
+          value={saisie.note ?? ""}
+          onChange={(e) => { setSaisie((s) => ({ ...s!, note: e.target.value })); setMsg(null); }}
+          placeholder="Reprise ancienne appli…"
+          style={{ ...champInput, width: 200, textAlign: "left" }}
+        />
+        <span style={{ width: 22 }} />
+      </div>
+
+      {msg && (
+        <p style={{ fontSize: 11, margin: "12px 0 0", fontFamily: "system-ui", color: msg.type === "ok" ? "#10B981" : "#F87171" }}>
+          {msg.text}
+        </p>
+      )}
+
+      <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+        <button
+          onClick={() => { setSaisie(null); setMsg(null); }}
+          style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: "1px solid #e8e8e8", backgroundColor: "#fff", color: "#888", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}
+        >
+          Annuler
+        </button>
+        <button
+          onClick={enregistrer}
+          disabled={saving}
+          style={{ flex: 2, padding: "9px 0", borderRadius: 8, border: "none", backgroundColor: saving ? "#ccc" : "#B45309", color: "#fff", fontSize: 12, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "system-ui" }}
+        >
+          {saving ? "Enregistrement…" : "Enregistrer"}
+        </button>
+      </div>
+    </div>
+  );
+
+  const boutonAjouter = !saisie && (
+    <button
+      onClick={() => { setSaisie(saisieVide()); setMsg(null); }}
+      style={{ padding: "5px 11px", borderRadius: 7, border: "1px solid #B45309", backgroundColor: "#fff", color: "#B45309", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui", flexShrink: 0 }}
+    >
+      + Ajouter une mesure
+    </button>
+  );
+
+  if (!mesures.length && !photos.length) {
+    return (
+      <div style={card}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+          <p style={lbl}>Suivi des mesures</p>
+          {boutonAjouter}
+        </div>
+        {editeur}
+        {!saisie && (
+          <p style={{ fontSize: 12, color: "#bbb", margin: 0, fontFamily: "system-ui" }}>
+            Aucune mesure enregistrée pour l&apos;instant.
+          </p>
+        )}
+        {!saisie && msg && (
+          <p style={{ fontSize: 11, marginTop: 8, fontFamily: "system-ui", color: msg.type === "ok" ? "#10B981" : "#F87171" }}>{msg.text}</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={card}>
@@ -73,15 +245,25 @@ export default function MesuresCliente({ clienteId }: { clienteId: string }) {
           Suivi des mesures
           {derniere && <span style={{ marginLeft: 8, color: "#888", letterSpacing: 0, fontWeight: 400 }}>dernière le {labelDate(derniere.date)}</span>}
         </p>
-        {(historique.length > 0 || photos.length > 0) && (
-          <button
-            onClick={() => setShowAll((s) => !s)}
-            style={{ padding: "5px 11px", borderRadius: 7, border: "1px solid #e8e8e8", backgroundColor: "#fafafa", color: "#888", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui", flexShrink: 0 }}
-          >
-            {showAll ? "Réduire le détail ▲" : "Voir le détail ▼"}
-          </button>
-        )}
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          {boutonAjouter}
+          {(historique.length > 0 || photos.length > 0) && (
+            <button
+              onClick={() => setShowAll((s) => !s)}
+              style={{ padding: "5px 11px", borderRadius: 7, border: "1px solid #e8e8e8", backgroundColor: "#fafafa", color: "#888", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui", flexShrink: 0 }}
+            >
+              {showAll ? "Réduire le détail ▲" : "Voir le détail ▼"}
+            </button>
+          )}
+        </div>
       </div>
+
+      {editeur}
+      {!saisie && msg && (
+        <p style={{ fontSize: 11, margin: "0 0 12px", fontFamily: "system-ui", color: msg.type === "ok" ? "#10B981" : "#F87171" }}>
+          {msg.text}
+        </p>
+      )}
 
       {/* Indicateurs clés */}
       {mesures.length > 0 && (
@@ -136,7 +318,24 @@ export default function MesuresCliente({ clienteId }: { clienteId: string }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: photos.length ? 16 : 0 }}>
                 {historique.map((m) => (
                   <div key={m.id} style={{ borderBottom: "1px solid #f5f5f5", paddingBottom: 8 }}>
-                    <p style={{ fontSize: 11, color: "#888", margin: "0 0 3px", fontWeight: 700, fontFamily: "system-ui" }}>{labelDate(m.date)}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 3px" }}>
+                      <p style={{ fontSize: 11, color: "#888", margin: 0, fontWeight: 700, fontFamily: "system-ui", flex: 1 }}>{labelDate(m.date)}</p>
+                      <button
+                        onClick={() => { setSaisie(saisieDepuis(m)); setMsg(null); }}
+                        style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #e8e8e8", backgroundColor: "#fafafa", color: "#888", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        onClick={() => supprimer(m)}
+                        style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #fbdcdc", backgroundColor: "#fff", color: "#D9534F", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                    {m.note && (
+                      <p style={{ fontSize: 11, color: "#bbb", margin: "0 0 3px", fontFamily: "system-ui", fontStyle: "italic" }}>{m.note}</p>
+                    )}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "3px 12px" }}>
                       {CHAMPS.filter(({ champ }) => m[champ] != null).map(({ champ, label, unite }) => (
                         <span key={champ} style={{ fontSize: 11, color: "#aaa", fontFamily: "system-ui" }}>
