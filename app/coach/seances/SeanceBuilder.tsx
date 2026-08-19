@@ -979,7 +979,7 @@ export default function SeanceBuilder({ data, onChange }: SeanceBuilderProps) {
   });
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: bankCollapsed ? "32px 1fr" : "260px 1fr", border: "1px solid #1a1a1a", borderRadius: 12, overflow: "hidden", minHeight: 560, transition: "grid-template-columns 0.2s ease" }}>
+    <div style={{ display: "grid", gridTemplateColumns: bankCollapsed ? "32px 1fr" : "260px 1fr", border: "1px solid #1a1a1a", borderRadius: 12, overflow: "hidden", height: "100%", transition: "grid-template-columns 0.2s ease" }}>
       <ExerciseBank
         activeBlocKey={activeBlocKey}
         onDragStart={() => {}}

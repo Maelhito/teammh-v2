@@ -64,9 +64,9 @@ export default function NouvelleSeancePage() {
   };
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {/* ── Header ── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button onClick={() => router.push("/coach/seances")}
             style={{ background: "none", border: "1px solid #222", borderRadius: 7, padding: "7px 14px", fontSize: 12, color: "#888", cursor: "pointer", fontFamily: "system-ui" }}>
@@ -90,7 +90,7 @@ export default function NouvelleSeancePage() {
       </div>
 
       {/* ── Info section ── */}
-      <div className="coach-meta-2col">
+      <div className="coach-meta-2col" style={{ flexShrink: 0 }}>
 
         {/* Left: metadata */}
         <div style={{ backgroundColor: "#111", borderRadius: 12, border: "1px solid #1a1a1a", padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -150,7 +150,9 @@ export default function NouvelleSeancePage() {
       </div>
 
       {/* ── Builder ── */}
-      <SeanceBuilder data={seanceData} onChange={setSeanceData} />
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <SeanceBuilder data={seanceData} onChange={setSeanceData} />
+      </div>
     </div>
   );
 }
