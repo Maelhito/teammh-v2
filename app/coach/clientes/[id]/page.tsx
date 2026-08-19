@@ -9,7 +9,7 @@ import { adapterCles, adapterGrille, joursDeLaGrille, type MappingJours } from "
 import MesuresCliente from "./MesuresCliente";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface Cliente { id: string; email: string; prenom: string | null; nom: string | null; statut: string; date_demarrage: string | null; }
+interface Cliente { id: string; email: string; prenom: string | null; nom: string | null; statut: string; acces_app?: boolean; date_demarrage: string | null; }
 interface Programme { id: string; nom: string; niveau: string; duree_semaines: number; description: string | null; }
 interface CalendarEvent {
   id: string; titre: string; date: string; heure: string | null;
@@ -1504,6 +1504,15 @@ export default function ClienteFichePage() {
             <div>
               <h1 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#1a1a1a", margin: 0, fontFamily: "system-ui" }}>{displayName(cliente)}</h1>
               <p style={{ fontSize: 11, color: "#aaa", margin: 0, fontFamily: "system-ui" }}>{cliente.email}</p>
+              {cliente.acces_app === false && (
+                <span style={{
+                  display: "inline-block", marginTop: 3, fontSize: 10, fontWeight: 700,
+                  color: "#B91C1C", backgroundColor: "rgba(185,28,28,0.12)",
+                  padding: "2px 8px", borderRadius: 20, fontFamily: "system-ui",
+                }}>
+                  Accès à l&apos;app révoqué
+                </span>
+              )}
             </div>
           </div>
         )}

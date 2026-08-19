@@ -48,6 +48,7 @@ export default async function CoachClientesPage({
     prenom: string | null;
     nom: string | null;
     statut: string;
+    acces_app: boolean | null;
     coach_id: string | null;
     nutrition_id: string | null;
     date_demarrage: string | null;
@@ -59,14 +60,14 @@ export default async function CoachClientesPage({
       .join(",");
     const { data } = await admin
       .from("user_profiles")
-      .select("user_id, prenom, nom, statut, coach_id, nutrition_id, date_demarrage")
+      .select("user_id, prenom, nom, statut, acces_app, coach_id, nutrition_id, date_demarrage")
       .or(orFilter)
       .not("role", "in", '("coach","admin","nutrition")');
     profiles = data ?? [];
   } else {
     const { data } = await admin
       .from("user_profiles")
-      .select("user_id, prenom, nom, statut, coach_id, nutrition_id, date_demarrage")
+      .select("user_id, prenom, nom, statut, acces_app, coach_id, nutrition_id, date_demarrage")
       .not("role", "in", '("coach","admin","nutrition")');
     profiles = data ?? [];
   }
@@ -80,6 +81,8 @@ export default async function CoachClientesPage({
     prenom: p.prenom,
     nom: p.nom,
     statut: p.statut as "active" | "pause" | "terminee",
+    // null = jamais renseigné = accès autorisé (même défaut que l'API admin)
+    accesApp: p.acces_app !== false,
     dateDemarrage: p.date_demarrage,
   }));
 
@@ -168,12 +171,15 @@ export default async function CoachClientesPage({
                     ? `Démarrage : ${new Date(c.dateDemarrage).toLocaleDateString("fr-FR")}`
                     : "Pas de date de démarrage"}
                 </p>
+                {/* L'accès révoqué n'a rien à voir avec le statut : une cliente
+                    peut rester « active » et n'avoir plus accès à l'app. */}
                 <span style={{
-                  fontSize: 10, fontWeight: 600, color: STATUT_COLOR[c.statut],
-                  backgroundColor: `${STATUT_COLOR[c.statut]}20`,
+                  fontSize: 10, fontWeight: 600,
+                  color: c.accesApp ? STATUT_COLOR[c.statut] : "#B91C1C",
+                  backgroundColor: c.accesApp ? `${STATUT_COLOR[c.statut]}20` : "rgba(185,28,28,0.12)",
                   padding: "2px 9px", borderRadius: 20, fontFamily: "system-ui",
                 }}>
-                  {STATUT_LABEL[c.statut] ?? c.statut}
+                  {c.accesApp ? (STATUT_LABEL[c.statut] ?? c.statut) : "Accès révoqué"}
                 </span>
               </div>
             </Link>

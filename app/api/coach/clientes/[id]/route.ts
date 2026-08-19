@@ -29,7 +29,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: profile } = await admin
     .from("user_profiles")
-    .select("prenom, nom, statut, date_demarrage")
+    .select("prenom, nom, statut, date_demarrage, acces_app")
     .eq("user_id", id)
     .maybeSingle();
 
@@ -40,6 +40,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       prenom: profile?.prenom ?? null,
       nom: profile?.nom ?? null,
       statut: profile?.statut ?? "active",
+      // null = jamais renseigné = accès autorisé (même défaut que l'API admin)
+      acces_app: profile?.acces_app !== false,
       date_demarrage: profile?.date_demarrage ?? null,
     },
   });

@@ -65,7 +65,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Non connecté → /login (en dev, on laisse naviguer sans session pour tester les pages)
-  const PROTECTED = ["/dashboard", "/admin", "/profil", "/modules", "/calendrier", "/mesures", "/coach", "/tts"];
+  const PROTECTED = ["/dashboard", "/admin", "/profil", "/modules", "/calendrier", "/mesures", "/entrainement", "/coach", "/tts"];
   if (!isDev && !user && PROTECTED.some((p) => pathname.startsWith(p))) {
     return redirect("/login");
   }
@@ -73,7 +73,9 @@ export async function middleware(request: NextRequest) {
   if (!user) return response;
 
   // Rôle lu depuis la DB à chaque requête → changement immédiat sans reconnexion
-  const NEEDS_ROLE = ["/dashboard", "/admin", "/coach", "/profil", "/modules", "/calendrier", "/mesures", "/tts"];
+  // /entrainement est une page cliente : sans elle ici, une cliente suspendue ou
+  // révoquée gardait la séance du jour accessible.
+  const NEEDS_ROLE = ["/dashboard", "/admin", "/coach", "/profil", "/modules", "/calendrier", "/mesures", "/entrainement", "/tts"];
   let role = "cliente";
   if (!isAdmin && NEEDS_ROLE.some((p) => pathname.startsWith(p))) {
     try {
