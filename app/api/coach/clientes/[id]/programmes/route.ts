@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkCoachAccess } from "@/lib/check-coach-access";
+import { coachPeutVoirCliente } from "@/lib/check-cliente-assignee";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { adapterGrille, joursDeLaGrille, mappingIdentite, type MappingJours } from "@/lib/programme-planning";
 
@@ -9,6 +10,9 @@ export async function GET(_: NextRequest, { params }: Params) {
   const user = await checkCoachAccess();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   const { id } = await params;
+  if (!(await coachPeutVoirCliente(user, id))) {
+    return NextResponse.json({ error: "Cette cliente ne t'est pas attribuée." }, { status: 403 });
+  }
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
@@ -25,6 +29,9 @@ export async function POST(req: NextRequest, { params }: Params) {
   const user = await checkCoachAccess();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   const { id } = await params;
+  if (!(await coachPeutVoirCliente(user, id))) {
+    return NextResponse.json({ error: "Cette cliente ne t'est pas attribuée." }, { status: 403 });
+  }
 
   const {
     programme_id,

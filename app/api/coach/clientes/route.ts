@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkCoachAccess } from "@/lib/check-coach-access";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { isAdminUser } from "@/lib/is-admin";
 
 export async function GET() {
   const user = await checkCoachAccess();
@@ -21,14 +22,25 @@ export async function GET() {
 
   const { data: profiles } = await admin
     .from("user_profiles")
-    .select("user_id, prenom, nom, statut, date_demarrage, coach_id")
+    .select("user_id, prenom, nom, statut, date_demarrage, coach_id, nutrition_id")
     .in("user_id", ids);
 
-  // Filtrer uniquement les clientes assignées à ce coach
-  const assignedIds = new Set(
-    (profiles ?? []).filter(p => p.coach_id === user.id).map(p => p.user_id)
-  );
-  const clientes = allClientes.filter(u => assignedIds.has(u.id));
+  // Filtrer uniquement les clientes assignées à ce coach.
+  // `coach_id` / `nutrition_id` désignent des `team_members`, pas des comptes
+  // auth : la comparaison se fait donc sur user_metadata.team_member_ids, comme
+  // dans la liste du portail coach. (Comparer à user.id ne matchait jamais.)
+  const meta = user.user_metadata as Record<string, unknown> | undefined;
+  const teamMemberIds: string[] = (meta?.team_member_ids as string[] | undefined) ?? [];
+  const clientes = isAdminUser(user)
+    ? allClientes
+    : allClientes.filter(u => {
+        const p = (profiles ?? []).find(x => x.user_id === u.id);
+        if (!p) return false;
+        return (
+          (p.coach_id !== null && teamMemberIds.includes(p.coach_id)) ||
+          (p.nutrition_id !== null && teamMemberIds.includes(p.nutrition_id))
+        );
+      });
 
   const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.user_id, p]));
 

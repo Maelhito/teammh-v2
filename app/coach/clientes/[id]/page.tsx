@@ -1360,12 +1360,17 @@ export default function ClienteFichePage() {
 
   useEffect(() => {
     fetch(`/api/coach/clientes/${id}`)
-      .then(r => r.json())
-      .then(d => setCliente(d.cliente ?? null))
+      .then(async r => {
+        // Cliente non attribuée à ce coach : on ne laisse pas une fiche vide
+        // à l'écran, on renvoie vers la liste.
+        if (r.status === 403) { router.replace("/coach/clientes"); return null; }
+        return r.json();
+      })
+      .then(d => setCliente(d?.cliente ?? null))
       .catch(() => setCliente(null));
     loadAssignments();
     loadCalEvents();
-  }, [id, loadAssignments, loadCalEvents]);
+  }, [id, loadAssignments, loadCalEvents, router]);
 
   // Tous les programmes actifs, du plus ancien au plus récent (ordre = couleurs)
   const actifs = assignments

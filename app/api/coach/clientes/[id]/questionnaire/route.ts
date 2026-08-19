@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkCoachAccess } from "@/lib/check-coach-access";
+import { coachPeutVoirCliente } from "@/lib/check-cliente-assignee";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { isMissingTableError } from "@/lib/questionnaire-missing-table";
 
@@ -9,6 +10,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
   const { id: clienteId } = await params;
+  if (!(await coachPeutVoirCliente(user, clienteId))) {
+    return NextResponse.json({ error: "Cette cliente ne t'est pas attribuée." }, { status: 403 });
+  }
   const admin = createSupabaseAdminClient();
 
   const { data, error } = await admin

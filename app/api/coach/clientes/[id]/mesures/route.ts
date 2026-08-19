@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkCoachAccess } from "@/lib/check-coach-access";
+import { coachPeutVoirCliente } from "@/lib/check-cliente-assignee";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { signPhotos } from "@/lib/photos-progression";
 import { isMissingTableError } from "@/lib/questionnaire-missing-table";
@@ -13,6 +14,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
   const { id: clienteId } = await params;
+  if (!(await coachPeutVoirCliente(user, clienteId))) {
+    return NextResponse.json({ error: "Cette cliente ne t'est pas attribuée." }, { status: 403 });
+  }
   const admin = createSupabaseAdminClient();
 
   const [mesuresRes, photosRes] = await Promise.all([
@@ -51,6 +55,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
   const { id: clienteId } = await params;
+  if (!(await coachPeutVoirCliente(user, clienteId))) {
+    return NextResponse.json({ error: "Cette cliente ne t'est pas attribuée." }, { status: 403 });
+  }
   const body = await request.json().catch(() => ({}));
 
   if (typeof body.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.date)) {
@@ -93,6 +100,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
   const { id: clienteId } = await params;
+  if (!(await coachPeutVoirCliente(user, clienteId))) {
+    return NextResponse.json({ error: "Cette cliente ne t'est pas attribuée." }, { status: 403 });
+  }
   const mesureId = request.nextUrl.searchParams.get("mesureId");
   if (!mesureId) return NextResponse.json({ error: "mesureId requis" }, { status: 400 });
 

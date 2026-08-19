@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkCoachAccess } from "@/lib/check-coach-access";
+import { coachPeutVoirCliente } from "@/lib/check-cliente-assignee";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
 type Params = { params: Promise<{ id: string }> };
@@ -9,6 +10,9 @@ export async function GET(_: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
   const { id: clientId } = await params;
+  if (!(await coachPeutVoirCliente(user, clientId))) {
+    return NextResponse.json({ error: "Cette cliente ne t'est pas attribuée." }, { status: 403 });
+  }
   const admin = createSupabaseAdminClient();
 
   // Récupère coach_id et nutrition_id de la cliente

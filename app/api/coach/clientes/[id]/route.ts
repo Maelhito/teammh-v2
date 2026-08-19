@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkCoachAccess } from "@/lib/check-coach-access";
+import { coachPeutVoirCliente } from "@/lib/check-cliente-assignee";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
   const { id } = await params;
+  if (!(await coachPeutVoirCliente(user, id))) {
+    return NextResponse.json({ error: "Cette cliente ne t'est pas attribuée." }, { status: 403 });
+  }
   const admin = createSupabaseAdminClient();
 
   const { data: authData, error: authError } = await admin.auth.admin.getUserById(id);

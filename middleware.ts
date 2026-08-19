@@ -78,7 +78,7 @@ export async function middleware(request: NextRequest) {
   if (!isAdmin && NEEDS_ROLE.some((p) => pathname.startsWith(p))) {
     try {
       const profileRes = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${user.id}&select=statut,role`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${user.id}&select=statut,role,acces_app`,
         {
           headers: {
             apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -92,6 +92,14 @@ export async function middleware(request: NextRequest) {
       // Statut suspendu
       const statut = profile?.statut ?? "active";
       if (!isDev && (statut === "pause" || statut === "terminee")) return redirect("/acces-suspendu");
+
+      // Accès révoqué depuis l'admin (bascule « accès à l'app »).
+      // Ne s'applique qu'aux clientes : un coach ou un admin n'a pas forcément
+      // ce drapeau à true dans son profil, et le verrouiller l'enfermerait dehors.
+      // Absent = accès autorisé, comme le fait déjà l'API admin.
+      if (!isDev && role === "cliente" && profile?.acces_app === false) {
+        return redirect("/acces-suspendu");
+      }
     } catch {
       role = user.user_metadata?.role ?? "cliente";
     }
