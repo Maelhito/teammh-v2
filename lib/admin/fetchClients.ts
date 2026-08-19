@@ -4,6 +4,7 @@ import { getOffresMap } from "@/lib/offers/queries";
 import type { ClientData } from "@/app/admin/ClientsTable";
 import fs from "fs";
 import path from "path";
+import { trierClientes } from "@/lib/tri-clientes";
 
 const ADMIN_EMAIL = "mael.ld@hotmail.fr";
 
@@ -62,8 +63,10 @@ export async function fetchClients(): Promise<{ clients: ClientData[]; error: st
     completionCount[c.user_id] = (completionCount[c.user_id] ?? 0) + 1;
   }
 
+  // Actives, puis suspendues, puis révoquées ; par ordre d'arrivée dans
+  // chaque groupe (règle partagée avec le portail coach).
   return {
-    clients: clients.map((u) => ({
+    clients: trierClientes(clients.map((u) => ({
       id: u.id,
       email: u.email ?? "",
       created_at: u.created_at,
@@ -80,7 +83,7 @@ export async function fetchClients(): Promise<{ clients: ClientData[]; error: st
       nutrition_id: profileMap[u.id]?.nutrition_id ?? null,
       offre: offreMap[u.id]?.offre ?? null,
       phase: offreMap[u.id]?.phase ?? "demarree",
-    })),
+    }))),
     error: null,
   };
 }

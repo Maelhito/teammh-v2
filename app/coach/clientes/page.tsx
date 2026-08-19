@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import Link from "next/link";
+import { trierClientes } from "@/lib/tri-clientes";
 
 export const dynamic = "force-dynamic";
 
@@ -75,16 +76,25 @@ export default async function CoachClientesPage({
   const { data: { users: authUsers } } = await admin.auth.admin.listUsers({ perPage: 500 });
   const emailMap = Object.fromEntries(authUsers.map(u => [u.id, u.email ?? ""]));
 
-  const clients = profiles.map(p => ({
-    id: p.user_id,
-    email: emailMap[p.user_id] ?? "",
-    prenom: p.prenom,
-    nom: p.nom,
-    statut: p.statut as "active" | "pause" | "terminee",
-    // null = jamais renseigné = accès autorisé (même défaut que l'API admin)
-    accesApp: p.acces_app !== false,
-    dateDemarrage: p.date_demarrage,
-  }));
+  const createdMap = Object.fromEntries(authUsers.map(u => [u.id, u.created_at ?? null]));
+
+  // Actives, puis suspendues, puis révoquées — et dans chaque groupe, par ordre
+  // d'arrivée (voir lib/tri-clientes).
+  const clients = trierClientes(
+    profiles.map(p => ({
+      id: p.user_id,
+      email: emailMap[p.user_id] ?? "",
+      prenom: p.prenom,
+      nom: p.nom,
+      statut: p.statut as "active" | "pause" | "terminee",
+      // null = jamais renseigné = accès autorisé (même défaut que l'API admin)
+      acces_app: p.acces_app,
+      accesApp: p.acces_app !== false,
+      date_demarrage: p.date_demarrage,
+      created_at: createdMap[p.user_id] ?? null,
+      dateDemarrage: p.date_demarrage,
+    }))
+  );
 
   return (
     <div>
