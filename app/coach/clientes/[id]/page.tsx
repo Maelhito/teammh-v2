@@ -541,7 +541,7 @@ function MonthCalendar({ layers, today, events, seancesValidees, onEditItem, onM
             </span>
           ))}
           <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#666", fontFamily: "system-ui" }}>
-            <span style={{ color: COULEURS_EVENEMENT.seance.base, fontWeight: 800 }}>✓</span>
+            <span style={{ backgroundColor: "#0D0D0D", border: `1.5px solid ${COULEURS_EVENEMENT.seance.base}`, borderRadius: 4, padding: "1px 5px", color: COULEURS_EVENEMENT.seance.clair, fontWeight: 800, fontSize: 9 }}>✓</span>
             Séance validée par la cliente
           </span>
         </div>
@@ -644,11 +644,16 @@ function MonthCalendar({ layers, today, events, seancesValidees, onEditItem, onM
                       onDragEnd={() => setDragOver(null)}
                       onClick={() => { if (cellKey) onEditItem(layer.id, cellKey, item); }}
                       title={`${layer.nom}${validee ? " · ✓ validée par la cliente" : ""} · Cliquer pour modifier · Glisser pour déplacer`}
-                      style={{ padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: isPast && !validee ? "#f5f5f5" : `${color}0f`, borderLeft: `2px solid ${isPast && !validee ? "#ddd" : color}`, transition: "opacity 0.1s" }}
+                      style={validee
+                        // Séance validée : bloc noir cerclé de bleu. C'est le seul
+                        // élément sombre du calendrier coach, donc le plus visible
+                        // — c'est justement ce qu'on veut repérer d'un coup d'œil.
+                        ? { padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: "#0D0D0D", border: `1.5px solid ${COULEURS_EVENEMENT.seance.base}`, transition: "opacity 0.1s" }
+                        : { padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: isPast ? "#f5f5f5" : `${color}0f`, borderLeft: `2px solid ${isPast ? "#ddd" : color}`, transition: "opacity 0.1s" }}
                       onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.opacity = "0.75"}
                       onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.opacity = "1"}
                     >
-                      <p style={{ fontSize: 8, fontWeight: 700, color: isPast && !validee ? "#bbb" : color, margin: 0, fontFamily: "system-ui", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none" }}>
+                      <p style={{ fontSize: 8, fontWeight: 700, color: validee ? COULEURS_EVENEMENT.seance.clair : isPast ? "#bbb" : color, margin: 0, fontFamily: "system-ui", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none" }}>
                         {validee && <span style={{ marginRight: 2 }}>✓</span>}{label}
                       </p>
                     </div>

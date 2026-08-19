@@ -25,6 +25,11 @@ export type TypeEvenement =
 export interface TeinteEvenement {
   /** Couleur pleine : pastilles, points, bordures. */
   base: string;
+  /**
+   * Même teinte, éclaircie pour rester lisible SUR FOND SOMBRE. `base` y perd
+   * du contraste (3,8 contre 7,6 pour le bleu des séances).
+   */
+  clair: string;
   /** Fond très clair, pour les blocs d'événement sur surface blanche. */
   fond: string;
   /** Texte lisible sur `fond`. */
@@ -33,12 +38,12 @@ export interface TeinteEvenement {
 }
 
 export const COULEURS_EVENEMENT: Record<TypeEvenement, TeinteEvenement> = {
-  seance:          { base: "#2563EB", fond: "#DBEAFE", texte: "#1E40AF", label: "Séance" },
-  coach:           { base: "#EA580C", fond: "#FFEDD5", texte: "#9A3412", label: "Rendez-vous coach" },
-  nutrition:       { base: "#16A34A", fond: "#DCFCE7", texte: "#166534", label: "Nutrition" },
-  coaching_groupe: { base: "#7C3AED", fond: "#EDE9FE", texte: "#5B21B6", label: "Coaching de groupe" },
-  tache:           { base: "#DB2777", fond: "#FCE7F3", texte: "#9D174D", label: "Tâche" },
-  perso:           { base: "#64748B", fond: "#F1F5F9", texte: "#334155", label: "Événement perso" },
+  seance:          { base: "#2563EB", clair: "#60A5FA", fond: "#DBEAFE", texte: "#1E40AF", label: "Séance" },
+  coach:           { base: "#EA580C", clair: "#FB923C", fond: "#FFEDD5", texte: "#9A3412", label: "Rendez-vous coach" },
+  nutrition:       { base: "#16A34A", clair: "#4ADE80", fond: "#DCFCE7", texte: "#166534", label: "Nutrition" },
+  coaching_groupe: { base: "#7C3AED", clair: "#A78BFA", fond: "#EDE9FE", texte: "#5B21B6", label: "Coaching de groupe" },
+  tache:           { base: "#DB2777", clair: "#F472B6", fond: "#FCE7F3", texte: "#9D174D", label: "Tâche" },
+  perso:           { base: "#64748B", clair: "#94A3B8", fond: "#F1F5F9", texte: "#334155", label: "Événement perso" },
 };
 
 /**
