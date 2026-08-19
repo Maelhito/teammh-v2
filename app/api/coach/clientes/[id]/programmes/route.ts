@@ -22,7 +22,16 @@ export async function GET(_: NextRequest, { params }: Params) {
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ assignments: data ?? [] });
+
+  // Séances validées par la cliente. Le coach doit voir exactement ce que la
+  // cliente voit dans son app : on renvoie donc la même source (seances_log),
+  // et la fiche applique la même règle de correspondance.
+  const { data: logs } = await admin
+    .from("seances_log")
+    .select("grid_key, assignment_id, seance_nom")
+    .eq("user_id", id);
+
+  return NextResponse.json({ assignments: data ?? [], seancesValidees: logs ?? [] });
 }
 
 export async function POST(req: NextRequest, { params }: Params) {

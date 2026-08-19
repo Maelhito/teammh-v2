@@ -42,6 +42,35 @@ function decodeGrid(description: string | null): Grid {
   if (!description?.startsWith("{")) return {};
   try { return JSON.parse(description).grid ?? {}; } catch { return {}; }
 }
+
+/** Une validation de séance, telle que l'app cliente l'enregistre. */
+interface SeanceValidee { grid_key: string | null; assignment_id: string | null; seance_nom: string | null }
+
+/**
+ * Est-ce que la cliente a validé cette séance ?
+ *
+ * Règle recopiée à l'identique de l'app cliente (app/calendrier/page.tsx) : on
+ * tente d'abord la correspondance exacte assignation + case de grille, puis on
+ * retombe sur le nom de la séance. Sans ce repli, le coach et la cliente ne
+ * verraient pas les mêmes séances validées — par exemple quand la validation a
+ * été faite sur une autre assignation du même programme.
+ */
+function estSeanceValidee(
+  validees: SeanceValidee[],
+  assignmentId: string,
+  cellKey: string | null,
+  nomSeance: string | null
+): boolean {
+  return validees.some(v => {
+    if (v.assignment_id && v.grid_key && cellKey) {
+      if (v.assignment_id === assignmentId && v.grid_key === cellKey) return true;
+    }
+    if (v.seance_nom && nomSeance) {
+      return v.seance_nom.trim().toLowerCase() === nomSeance.trim().toLowerCase();
+    }
+    return false;
+  });
+}
 // Parse une date "YYYY-MM-DD" en heure locale (évite le décalage UTC)
 function parseLocalDate(s: string): Date {
   const [y, m, d] = s.split("-").map(Number);
@@ -466,11 +495,13 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
 }
 
 // ─── Calendrier mensuel avec drag & drop ──────────────────────────────────────
-function MonthCalendar({ layers, today, events, onEditItem, onMoveItem, onAddEvent, onEventClick }: {
+function MonthCalendar({ layers, today, events, seancesValidees, onEditItem, onMoveItem, onAddEvent, onEventClick }: {
   /** Un calque par programme actif — chacun avec sa date de début et sa grille */
   layers: ProgrammeLayer[];
   today: Date;
   events: CalendarEvent[];
+  /** Séances que la cliente a validées depuis son app */
+  seancesValidees: SeanceValidee[];
   onEditItem: (assignmentId: string, cellKey: string, item: CellItem) => void;
   onMoveItem: (assignmentId: string, fromKey: string, itemKey: string, toKey: string) => void;
   onAddEvent: (date: Date) => void;
@@ -509,6 +540,10 @@ function MonthCalendar({ layers, today, events, onEditItem, onMoveItem, onAddEve
               {COULEURS_EVENEMENT[type].label}
             </span>
           ))}
+          <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#666", fontFamily: "system-ui" }}>
+            <span style={{ color: COULEURS_EVENEMENT.seance.base, fontWeight: 800 }}>✓</span>
+            Séance validée par la cliente
+          </span>
         </div>
       </div>
       {/* Ligne 2 : navigation mois + bouton ajouter */}
@@ -600,18 +635,22 @@ function MonthCalendar({ layers, today, events, onEditItem, onMoveItem, onAddEve
                   // est la même côté coach et côté cliente. Le programme d'origine
                   // reste lisible dans l'infobulle de la case.
                   const color = item.type === "video" ? COULEUR_VIDEO : COULEURS_EVENEMENT.seance.base;
+                  // Validée par la cliente : même repère que dans son app, une coche.
+                  const validee = item.type !== "video" && estSeanceValidee(seancesValidees, layer.id, cellKey, getItemName(item));
                   return (
                     <div key={`${layer.id}-${item._key}`}
                       draggable
                       onDragStart={() => { if (cellKey) dragRef.current = { assignmentId: layer.id, cellKey, itemKey: item._key }; }}
                       onDragEnd={() => setDragOver(null)}
                       onClick={() => { if (cellKey) onEditItem(layer.id, cellKey, item); }}
-                      title={`${layer.nom} · Cliquer pour modifier · Glisser pour déplacer`}
-                      style={{ padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: isPast ? "#f5f5f5" : `${color}0f`, borderLeft: `2px solid ${isPast ? "#ddd" : color}`, transition: "opacity 0.1s" }}
+                      title={`${layer.nom}${validee ? " · ✓ validée par la cliente" : ""} · Cliquer pour modifier · Glisser pour déplacer`}
+                      style={{ padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: isPast && !validee ? "#f5f5f5" : `${color}0f`, borderLeft: `2px solid ${isPast && !validee ? "#ddd" : color}`, transition: "opacity 0.1s" }}
                       onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.opacity = "0.75"}
                       onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.opacity = "1"}
                     >
-                      <p style={{ fontSize: 8, fontWeight: 700, color: isPast ? "#bbb" : color, margin: 0, fontFamily: "system-ui", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none" }}>{label}</p>
+                      <p style={{ fontSize: 8, fontWeight: 700, color: isPast && !validee ? "#bbb" : color, margin: 0, fontFamily: "system-ui", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none" }}>
+                        {validee && <span style={{ marginRight: 2 }}>✓</span>}{label}
+                      </p>
                     </div>
                   );
                 })
@@ -1309,6 +1348,8 @@ export default function ClienteFichePage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   // Une grille par assignation active (plusieurs programmes peuvent tourner ensemble)
   const [gridsByAssignment, setGridsByAssignment] = useState<Record<string, Grid>>({});
+  // Séances validées par la cliente (source : seances_log, comme son app)
+  const [seancesValidees, setSeancesValidees] = useState<SeanceValidee[]>([]);
   const [editTarget, setEditTarget] = useState<{ assignmentId: string; cellKey: string; item: CellItem } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [adjustTarget, setAdjustTarget] = useState<Assignment | null>(null);
@@ -1338,6 +1379,7 @@ export default function ClienteFichePage() {
       grids[a.id] = decodeGrid(src ?? null);
     }
     setGridsByAssignment(grids);
+    setSeancesValidees(d.seancesValidees ?? []);
   }, [id]);
 
   useEffect(() => {
@@ -1524,7 +1566,7 @@ export default function ClienteFichePage() {
 
       {/* Calendrier */}
       <MonthCalendar
-        layers={layers} today={today}
+        layers={layers} today={today} seancesValidees={seancesValidees}
         events={calEvents}
         onEditItem={(assignmentId, cellKey, item) => setEditTarget({ assignmentId, cellKey, item })}
         onMoveItem={handleMoveItem}
