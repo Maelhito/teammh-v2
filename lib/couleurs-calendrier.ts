@@ -41,6 +41,13 @@ export const COULEURS_EVENEMENT: Record<TypeEvenement, TeinteEvenement> = {
   perso:           { base: "#64748B", fond: "#F1F5F9", texte: "#334155", label: "Événement perso" },
 };
 
+/**
+ * Contenu vidéo posé dans un programme. Ce n'est pas un événement, mais ça
+ * s'affiche dans les mêmes cases de calendrier : la teinte est donc choisie à
+ * distance de toute la palette ci-dessus (écart minimal 37).
+ */
+export const COULEUR_VIDEO = "#A16207";
+
 /** Rouge de l'app : réservé au jour courant, jamais à un type d'événement. */
 export const COULEUR_AUJOURDHUI = "#B22222";
 
@@ -93,10 +100,13 @@ export const ORDRE_LEGENDE: TypeEvenement[] = [
 ];
 
 /**
- * Couleurs des programmes assignés à une cliente (fiche coach). Elles cohabitent
- * avec la palette ci-dessus dans la même légende : elles en sont donc tenues à
- * distance (écart ≥ 29). Les programmes s'affichent en carrés, les événements en
- * ronds — la forme aide aussi à les distinguer.
+ * Couleurs d'identification des programmes assignés à une cliente.
+ *
+ * Elles ne colorent PLUS rien dans les calendriers : une séance est bleue,
+ * qu'elle vienne d'un programme ou d'un autre, côté coach comme côté cliente.
+ * Elles ne servent qu'à distinguer les cartes de programme sous le calendrier
+ * (liseré et barre de progression). Elles restent malgré tout tenues à distance
+ * de la palette d'événements, pour ne jamais évoquer un type d'événement.
  */
 export const COULEURS_PROGRAMME = [
   "#E236D1",

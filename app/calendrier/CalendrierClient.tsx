@@ -368,7 +368,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
                 setForm((f) => ({ ...f, date: toLocalDate(selectedDay) }));
                 setShowAddModal(true);
               }}
-              style={{ width: 28, height: 28, borderRadius: "50%", backgroundColor: "#7C3AED", color: "#fff", border: "none", cursor: "pointer", fontSize: "1.1rem", display: "flex", alignItems: "center", justifyContent: "center" }}
+              style={{ width: 28, height: 28, borderRadius: "50%", backgroundColor: "#B22222", color: "#fff", border: "none", cursor: "pointer", fontSize: "1.1rem", display: "flex", alignItems: "center", justifyContent: "center" }}
             >
               +
             </button>
@@ -448,7 +448,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
                   <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                     <button
                       onClick={() => openReschedule(evt)}
-                      style={actionBtnStyle("#7C3AED")}
+                      style={actionBtnStyle("#B22222")}
                     >
                       Reprogrammer
                     </button>
@@ -495,7 +495,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
             width: 52,
             height: 52,
             borderRadius: "50%",
-            backgroundColor: "#7C3AED",
+            backgroundColor: "#B22222",
             color: "#fff",
             border: "none",
             cursor: "pointer",
@@ -639,7 +639,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
                 disabled={saving}
                 style={{
                   padding: "12px",
-                  backgroundColor: "#7C3AED",
+                  backgroundColor: "#B22222",
                   color: "#fff",
                   border: "none",
                   borderRadius: 8,
@@ -705,7 +705,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
                 disabled={rescheduleSaving}
                 style={{
                   padding: "12px",
-                  backgroundColor: "#7C3AED",
+                  backgroundColor: "#B22222",
                   color: "#fff",
                   border: "none",
                   borderRadius: 8,

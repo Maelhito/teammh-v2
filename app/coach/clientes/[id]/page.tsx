@@ -8,7 +8,8 @@ import QuestionnaireCliente from "./QuestionnaireCliente";
 import { adapterCles, adapterGrille, joursDeLaGrille, type MappingJours } from "@/lib/programme-planning";
 import MesuresCliente from "./MesuresCliente";
 import {
-  COULEURS_EVENEMENT, ORDRE_LEGENDE, couleurEvenement, couleurProgramme, labelEvenement,
+  COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, COULEUR_VIDEO, ORDRE_LEGENDE,
+  couleurEvenement, couleurProgramme, labelEvenement,
 } from "@/lib/couleurs-calendrier";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -502,13 +503,7 @@ function MonthCalendar({ layers, today, events, onEditItem, onMoveItem, onAddEve
           <p style={{ fontSize: 15, fontWeight: 800, color: "#1a1a1a", margin: "2px 0 0", fontFamily: "system-ui" }}>{MOIS_LONG[month]} {year}</p>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {layers.map(layer => (
-            <span key={layer.id} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#666", fontFamily: "system-ui" }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: layer.color, display: "inline-block", flexShrink: 0 }} />
-              {layer.nom}
-            </span>
-          ))}
-          {ORDRE_LEGENDE.filter(type => type !== "seance").map(type => (
+          {ORDRE_LEGENDE.map(type => (
             <span key={type} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#666", fontFamily: "system-ui" }}>
               <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT[type].base, display: "inline-block", flexShrink: 0 }} />
               {COULEURS_EVENEMENT[type].label}
@@ -577,7 +572,7 @@ function MonthCalendar({ layers, today, events, onEditItem, onMoveItem, onAddEve
               }}
               style={{
                 borderRadius: 8, minHeight: 72, padding: "6px 5px",
-                border: isDragTarget ? "2px dashed #B22222" : isToday ? "2px solid #B22222" : "1px solid #f0f0f0",
+                border: isDragTarget ? `2px dashed ${COULEUR_AUJOURDHUI}` : isToday ? `2px solid ${COULEUR_AUJOURDHUI}` : "1px solid #f0f0f0",
                 backgroundColor: isDragTarget ? "rgba(178,34,34,0.06)" : isToday ? "rgba(178,34,34,0.03)" : !isCurrentMonth ? "#fafafa" : "#fff",
                 opacity: !isCurrentMonth ? 0.4 : 1,
                 transition: "border 0.1s, background 0.1s",
@@ -589,7 +584,7 @@ function MonthCalendar({ layers, today, events, onEditItem, onMoveItem, onAddEve
                     <span key={j} title={ev.titre} style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: evColor(ev), display: "inline-block", flexShrink: 0 }} />
                   ))}
                 </div>
-                <span style={{ width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: isToday ? "#B22222" : "transparent", fontSize: 11, fontWeight: isToday ? 800 : 500, color: isToday ? "#fff" : isPast ? "#bbb" : "#1a1a1a", fontFamily: "system-ui" }}>
+                <span style={{ width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: isToday ? COULEUR_AUJOURDHUI : "transparent", fontSize: 11, fontWeight: isToday ? 800 : 500, color: isToday ? "#fff" : isPast ? "#bbb" : "#1a1a1a", fontFamily: "system-ui" }}>
                   {day.getDate()}
                 </span>
               </div>
@@ -601,7 +596,10 @@ function MonthCalendar({ layers, today, events, onEditItem, onMoveItem, onAddEve
               {dayLayers.map(({ layer, cellKey, items }) =>
                 items.map(item => {
                   const label = item.type === "seance" ? item.seanceName : item.type === "seance_locale" ? item.nom : `🎬 ${item.titre}`;
-                  const color = item.type === "video" ? "#8B5CF6" : layer.color;
+                  // Une séance est bleue quel que soit son programme : la palette
+                  // est la même côté coach et côté cliente. Le programme d'origine
+                  // reste lisible dans l'infobulle de la case.
+                  const color = item.type === "video" ? COULEUR_VIDEO : COULEURS_EVENEMENT.seance.base;
                   return (
                     <div key={`${layer.id}-${item._key}`}
                       draggable
@@ -843,7 +841,7 @@ function SeanceListPanel({ grid, dureeSemaines, onEditItem, onClose }: {
                           }}
                         >
                           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                            <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: item.type === "video" ? "#8B5CF6" : "#F97316", flexShrink: 0 }} />
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: item.type === "video" ? COULEUR_VIDEO : COULEURS_EVENEMENT.seance.base, flexShrink: 0 }} />
                             <span style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>

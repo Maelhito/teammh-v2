@@ -116,7 +116,7 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
                     s.validated ? (
                       <span key={`s${si}`} style={{ fontSize: "0.55rem", color: COULEURS_EVENEMENT.seance.base, lineHeight: 1, display: "block" }}>✓</span>
                     ) : (
-                      <span key={`s${si}`} style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#FB923C", display: "block", opacity: 0.5 }} />
+                      <span key={`s${si}`} style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.seance.base, display: "block", opacity: 0.5 }} />
                     )
                   ))}
                   {/* Événements calendrier */}
@@ -148,7 +148,7 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
                     padding: "9px 12px",
                     backgroundColor: "#0D0D0D",
                     borderRadius: 9,
-                    borderLeft: "3px solid #FB923C",
+                    borderLeft: `3px solid ${COULEURS_EVENEMENT.seance.base}`,
                     textDecoration: "none",
                   }}
                 >
@@ -160,7 +160,7 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
                       <p className="font-body" style={{ fontSize: "0.68rem", color: "#555", margin: "1px 0 0" }}>{s.duree} min</p>
                     )}
                   </div>
-                  <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#FB923C", flexShrink: 0 }}>▶ Démarrer</span>
+                  <span style={{ fontSize: "0.7rem", fontWeight: 700, color: COULEURS_EVENEMENT.seance.base, flexShrink: 0 }}>▶ Démarrer</span>
                 </Link>
               ) : (
                 <div
@@ -170,11 +170,11 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
                     padding: "9px 12px",
                     backgroundColor: "#0D0D0D",
                     borderRadius: 9,
-                    borderLeft: s.validated ? "3px solid #FB923C" : "3px solid #333",
+                    borderLeft: s.validated ? `3px solid ${COULEURS_EVENEMENT.seance.base}` : "3px solid #333",
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p className="font-body" style={{ fontSize: "0.8rem", fontWeight: 600, color: s.validated ? "#FB923C" : "#555", margin: 0 }}>
+                    <p className="font-body" style={{ fontSize: "0.8rem", fontWeight: 600, color: s.validated ? COULEURS_EVENEMENT.seance.base : "#555", margin: 0 }}>
                       {s.validated ? "✓" : "💪"} {s.nom}
                     </p>
                     {s.duree && (

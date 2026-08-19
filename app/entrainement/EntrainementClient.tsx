@@ -235,12 +235,12 @@ export default function EntrainementClient({
                       <div key={itemIndex} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{ fontSize: "1rem", color: COULEURS_EVENEMENT.seance.base }}>✓</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#FB923C", margin: 0 }}>{itemNom(item)}</p>
+                          <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: COULEURS_EVENEMENT.seance.base, margin: 0 }}>{itemNom(item)}</p>
                           {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(251,146,60,0.45)", margin: "1px 0 0" }}>{itemDuree(item)} min</p>}
                         </div>
                         <Link
                           href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${todayKey}&itemIndex=${itemIndex}`}
-                          style={{ padding: "8px 14px", backgroundColor: "rgba(251,146,60,0.08)", border: "1px solid rgba(251,146,60,0.25)", borderRadius: 9, color: "#FB923C", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                          style={{ padding: "8px 14px", backgroundColor: "rgba(37,99,235,0.10)", border: "1px solid rgba(37,99,235,0.30)", borderRadius: 9, color: COULEURS_EVENEMENT.seance.base, fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
                         >
                           ↺ Redémarrer
                         </Link>
@@ -457,7 +457,7 @@ export default function EntrainementClient({
                 setAddForm((f) => ({ ...f, date: toLocalDate(selectedDay) }));
                 setShowAddModal(true);
               }}
-              style={{ width: 28, height: 28, borderRadius: "50%", backgroundColor: "#7C3AED", color: "#fff", border: "none", cursor: "pointer", fontSize: "1.1rem", display: "flex", alignItems: "center", justifyContent: "center" }}
+              style={{ width: 28, height: 28, borderRadius: "50%", backgroundColor: "#B22222", color: "#fff", border: "none", cursor: "pointer", fontSize: "1.1rem", display: "flex", alignItems: "center", justifyContent: "center" }}
             >
               +
             </button>
@@ -479,7 +479,7 @@ export default function EntrainementClient({
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {groupItems.map(({ item, itemIndex }) => (
                     <div key={itemIndex} style={{ backgroundColor: "#0D0D0D", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, border: "1px solid #1a1a1a" }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: item.type === "video" ? "#0a0a1a" : "#1a0505", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", flexShrink: 0 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: item.type === "video" ? "#1a1405" : "#0b1223", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", flexShrink: 0 }}>
                         {item.type === "video" ? "▶" : "💪"}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -489,7 +489,7 @@ export default function EntrainementClient({
                       {item.type !== "video" && (
                         <Link
                           href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${gridKey}&itemIndex=${itemIndex}`}
-                          style={{ padding: "7px 12px", backgroundColor: isTerm ? "rgba(251,146,60,0.15)" : "#B22222", border: isTerm ? "1px solid rgba(251,146,60,0.4)" : "none", borderRadius: 8, color: isTerm ? "#FB923C" : "#FFF", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                          style={{ padding: "7px 12px", backgroundColor: isTerm ? "rgba(37,99,235,0.15)" : "#B22222", border: isTerm ? "1px solid rgba(37,99,235,0.4)" : "none", borderRadius: 8, color: isTerm ? COULEURS_EVENEMENT.seance.base : "#FFF", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
                         >
                           {isTerm ? "↺" : "▶"}
                         </Link>
@@ -571,7 +571,7 @@ export default function EntrainementClient({
               </select>
               <textarea placeholder="Note (optionnel)" value={addForm.message} onChange={(e) => setAddForm((f) => ({ ...f, message: e.target.value }))} style={{ ...inputStyle, minHeight: 56, resize: "none" }} />
               {addError && <p style={{ color: "#F87171", fontSize: "0.8rem", margin: 0 }}>{addError}</p>}
-              <button type="submit" disabled={addSaving} style={{ padding: "12px", backgroundColor: "#7C3AED", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, cursor: addSaving ? "not-allowed" : "pointer", opacity: addSaving ? 0.6 : 1, fontSize: "0.88rem", letterSpacing: "0.05em" }}>
+              <button type="submit" disabled={addSaving} style={{ padding: "12px", backgroundColor: "#B22222", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, cursor: addSaving ? "not-allowed" : "pointer", opacity: addSaving ? 0.6 : 1, fontSize: "0.88rem", letterSpacing: "0.05em" }}>
                 {addSaving ? "Enregistrement…" : "AJOUTER"}
               </button>
             </form>
