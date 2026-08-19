@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { contientRecherche } from "@/lib/recherche";
-import { COULEURS_EVENEMENT, ORDRE_LEGENDE, couleurEvenement } from "@/lib/couleurs-calendrier";
+import { COULEURS_EVENEMENT, ORDRE_LEGENDE, couleurEvenement, estRendezVous } from "@/lib/couleurs-calendrier";
 
 interface Client {
   id: string;
@@ -166,6 +166,12 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
 
   async function handleSave() {
     if (!form.titre || !form.date) { setSaveError("Titre et date requis"); return; }
+    // Sans heure, la cliente ne voit qu'un titre sur son calendrier et son
+    // accueil : c'est précisément ce qu'elle vient y chercher.
+    if (estRendezVous(form.event_type) && !form.heure) {
+      setSaveError("Indique l'heure du rendez-vous — sans elle, la cliente ne la verra nulle part.");
+      return;
+    }
     if (targetMode === "specific" && !selectedClientId) { setSaveError("Sélectionne une cliente"); return; }
     setSaving(true); setSaveError("");
     const res = await fetch("/api/admin/calendrier", {
@@ -388,8 +394,8 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
                   <input type="date" style={inp} value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
                 </div>
                 <div>
-                  <label style={lbl}>Heure</label>
-                  <input type="time" style={{ ...inp, color: form.heure ? "#F5F5F0" : "#555" }} value={form.heure} onChange={e => setForm(f => ({ ...f, heure: e.target.value }))} />
+                  <label style={lbl}>Heure *</label>
+                  <input type="time" required style={{ ...inp, color: form.heure ? "#F5F5F0" : "#555", borderColor: form.heure ? "#2a2a2a" : "#7A3B3B" }} value={form.heure} onChange={e => setForm(f => ({ ...f, heure: e.target.value }))} />
                 </div>
               </div>
 

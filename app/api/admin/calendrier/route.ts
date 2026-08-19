@@ -2,6 +2,7 @@ import { isAdminUser } from "@/lib/is-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { estRendezVous } from "@/lib/couleurs-calendrier";
 
 
 
@@ -46,6 +47,13 @@ export async function POST(request: NextRequest) {
   const validEventTypes = ["coach", "nutrition", "coaching_groupe"];
   const resolvedEventType = validEventTypes.includes(event_type) ? event_type : "coach";
   const rappelMinutes = typeof rappel_minutes === "number" ? rappel_minutes : 0;
+
+  // Un rendez-vous sans heure ne dit rien à la cliente : son calendrier et son
+  // accueil n'affichaient qu'un titre. L'heure est donc exigée ici, pas
+  // seulement suggérée par le formulaire.
+  if (estRendezVous(resolvedEventType) && !heure) {
+    return NextResponse.json({ error: "Heure requise pour un rendez-vous" }, { status: 400 });
+  }
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { COULEURS_EVENEMENT, couleurEvenement } from "@/lib/couleurs-calendrier";
+import { COULEURS_EVENEMENT, couleurEvenement, teinteEvenement, estRendezVous, formatHeureCourte } from "@/lib/couleurs-calendrier";
 
 interface CalEvent {
   id: string;
@@ -188,27 +188,47 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
               )
             ))}
 
-            {/* Événements calendrier */}
-            {selectedDay.events.slice(0, 3).map((evt) => (
-              <div key={evt.id} style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: "8px 12px",
-                backgroundColor: "#0D0D0D",
-                borderRadius: 9,
-                borderLeft: `3px solid ${evtBorderColor(evt.event_type)}`,
-              }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p className="font-body" style={{ fontSize: "0.8rem", fontWeight: 600, color: "#F5F5F0", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {evt.titre}
-                  </p>
+            {/* Événements calendrier — l'heure d'abord, c'est ce qu'on vient y lire */}
+            {selectedDay.events.slice(0, 3).map((evt) => {
+              const couleur = evtBorderColor(evt.event_type);
+              // `clair` : la teinte pensée pour rester lisible sur le fond noir.
+              const couleurTexte = teinteEvenement(evt.event_type).clair;
+              const heure = formatHeureCourte(evt.heure);
+              const rdv = estRendezVous(evt.event_type);
+              return (
+                <div key={evt.id} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "8px 12px",
+                  backgroundColor: "#0D0D0D",
+                  borderRadius: 9,
+                  borderLeft: `3px solid ${couleur}`,
+                }}>
+                  {(heure || rdv) && (
+                    <span className="font-body" style={{
+                      flexShrink: 0,
+                      minWidth: 46,
+                      textAlign: "center",
+                      padding: "3px 7px",
+                      borderRadius: 6,
+                      backgroundColor: heure ? `${couleur}26` : "transparent",
+                      border: heure ? "1px solid transparent" : "1px dashed #3a3a3a",
+                      fontSize: heure ? "0.78rem" : "0.62rem",
+                      fontWeight: 700,
+                      color: heure ? couleurTexte : "#666",
+                      letterSpacing: heure ? "0.02em" : "0.04em",
+                      lineHeight: 1.3,
+                    }}>
+                      {heure ?? "à venir"}
+                    </span>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p className="font-body" style={{ fontSize: "0.8rem", fontWeight: 600, color: "#F5F5F0", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {evt.titre}
+                    </p>
+                  </div>
                 </div>
-                {evt.heure && (
-                  <span className="font-body" style={{ fontSize: "0.7rem", color: evtBorderColor(evt.event_type), fontWeight: 700, flexShrink: 0 }}>
-                    {evt.heure.slice(0, 5)}
-                  </span>
-                )}
-              </div>
-            ))}
+              );
+            })}
 
           </div>
         )}

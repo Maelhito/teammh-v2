@@ -133,3 +133,25 @@ export const COULEURS_PROGRAMME = [
 export function couleurProgramme(index: number): string {
   return COULEURS_PROGRAMME[index % COULEURS_PROGRAMME.length];
 }
+
+/**
+ * Types d'événement qui sont un vrai rendez-vous : ils ont lieu à une heure
+ * précise, et la cliente doit la lire sans avoir à demander. Les tâches et les
+ * séances n'ont pas d'heure — elles se font dans la journée.
+ *
+ * C'est cette liste qui rend le champ « Heure » obligatoire à la création, côté
+ * coach comme côté admin, et qui déclenche l'affichage de l'heure côté cliente.
+ */
+export const TYPES_RENDEZ_VOUS: TypeEvenement[] = ["coach", "nutrition", "coaching_groupe"];
+
+export function estRendezVous(eventType: string | null | undefined): boolean {
+  return !!eventType && (TYPES_RENDEZ_VOUS as string[]).includes(eventType);
+}
+
+/** "10:00:00" → "10:00". Une heure absente reste absente (jamais "00:00"). */
+export function formatHeureCourte(heure: string | null | undefined): string | null {
+  if (!heure) return null;
+  const m = /^(\d{1,2}):(\d{2})/.exec(heure);
+  if (!m) return null;
+  return `${m[1].padStart(2, "0")}:${m[2]}`;
+}

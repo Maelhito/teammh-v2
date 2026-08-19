@@ -9,7 +9,7 @@ import { adapterCles, adapterGrille, joursDeLaGrille, type MappingJours } from "
 import MesuresCliente from "./MesuresCliente";
 import {
   COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, COULEUR_SEANCE_VALIDEE, COULEUR_VIDEO, ORDRE_LEGENDE,
-  couleurEvenement, couleurProgramme, labelEvenement,
+  couleurEvenement, couleurProgramme, labelEvenement, estRendezVous,
 } from "@/lib/couleurs-calendrier";
 import { estSeanceValidee, type SeanceValidee } from "@/lib/seances-validees";
 
@@ -343,6 +343,12 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
       : { ...evForm, heure: evForm.heure || null };
 
     if (!body.titre) { setError("Titre requis"); return; }
+    // Sans heure, la cliente ne voit qu'un titre sur son calendrier et son
+    // accueil : c'est précisément ce qu'elle vient y chercher.
+    if (estRendezVous(body.event_type) && !body.heure) {
+      setError("Indique l'heure du rendez-vous — sans elle, la cliente ne la verra nulle part.");
+      return;
+    }
     setSaving(true); setError("");
     const res = await fetch(`/api/coach/clientes/${clienteId}/evenements`, {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -396,8 +402,8 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
               <div><label style={lbl}>Date *</label>
                 <input type="date" style={inp} value={evForm.date} onChange={e => setEvForm(f => ({ ...f, date: e.target.value }))} />
               </div>
-              <div><label style={lbl}>Heure</label>
-                <input type="time" style={{ ...inp, color: evForm.heure ? "#1a1a1a" : "#bbb" }} value={evForm.heure} onChange={e => setEvForm(f => ({ ...f, heure: e.target.value }))} />
+              <div><label style={lbl}>Heure *</label>
+                <input type="time" required style={{ ...inp, color: evForm.heure ? "#1a1a1a" : "#bbb", borderColor: evForm.heure ? "#ddd" : "#E8B4B4" }} value={evForm.heure} onChange={e => setEvForm(f => ({ ...f, heure: e.target.value }))} />
               </div>
             </div>
             <div>
@@ -1245,6 +1251,10 @@ function EventEditModal({ ev, clienteId, onClose, onUpdated }: {
 
   async function handleSave() {
     if (!titre) { setError("Titre requis"); return; }
+    if (estRendezVous(ev.event_type) && !heure) {
+      setError("Indique l'heure du rendez-vous — sans elle, la cliente ne la verra nulle part.");
+      return;
+    }
     setSaving(true); setError("");
     const res = await fetch(`/api/coach/clientes/${clienteId}/evenements?event_id=${ev.id}`, {
       method: "PATCH",
@@ -1287,8 +1297,8 @@ function EventEditModal({ ev, clienteId, onClose, onUpdated }: {
               <input type="date" style={inp} value={date} onChange={e => setDate(e.target.value)} />
             </div>
             {!isTache && (
-              <div><label style={lbl}>Heure</label>
-                <input type="time" style={inp} value={heure} onChange={e => setHeure(e.target.value)} />
+              <div><label style={lbl}>Heure {estRendezVous(ev.event_type) ? "*" : ""}</label>
+                <input type="time" style={{ ...inp, borderColor: (!estRendezVous(ev.event_type) || heure) ? "#2a2a2a" : "#7A3B3B" }} value={heure} onChange={e => setHeure(e.target.value)} />
               </div>
             )}
           </div>

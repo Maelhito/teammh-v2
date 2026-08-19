@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkCoachAccess } from "@/lib/check-coach-access";
 import { coachPeutVoirCliente } from "@/lib/check-cliente-assignee";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { estRendezVous } from "@/lib/couleurs-calendrier";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -115,6 +116,14 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const validRecurrences = ["none", "daily", "weekly", "monthly"];
   const validEventTypes  = ["coach", "nutrition", "coaching_groupe", "tache", "seance"];
+  const resolvedEventType = validEventTypes.includes(event_type) ? event_type : "coach";
+
+  // Un rendez-vous sans heure ne dit rien à la cliente : son calendrier et son
+  // accueil n'affichaient qu'un titre. L'heure est donc exigée ici, pas
+  // seulement suggérée par le formulaire. Tâches et séances n'en ont pas.
+  if (estRendezVous(resolvedEventType) && !heure) {
+    return NextResponse.json({ error: "Heure requise pour un rendez-vous" }, { status: 400 });
+  }
 
   const { data, error } = await admin
     .from("calendar_events")
@@ -130,7 +139,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       rappel:         rappel === true,
       rappel_minutes: typeof rappel_minutes === "number" ? rappel_minutes : 0,
       created_by:     "admin",
-      event_type:     validEventTypes.includes(event_type) ? event_type : "coach",
+      event_type:     resolvedEventType,
     })
     .select()
     .single();
@@ -155,6 +164,17 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!titre || !date) return NextResponse.json({ error: "Titre et date requis" }, { status: 400 });
 
   const admin = createSupabaseAdminClient();
+
+  // Modifier un rendez-vous ne doit pas pouvoir lui retirer son heure.
+  const { data: existant } = await admin
+    .from("calendar_events")
+    .select("event_type")
+    .eq("id", eventId)
+    .eq("target_user_id", clientId)
+    .single();
+  if (estRendezVous(existant?.event_type) && !heure) {
+    return NextResponse.json({ error: "Heure requise pour un rendez-vous" }, { status: 400 });
+  }
   const { data, error } = await admin
     .from("calendar_events")
     .update({

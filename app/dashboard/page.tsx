@@ -16,6 +16,7 @@ import DashboardCalendar, { type DayData } from "@/components/DashboardCalendar"
 import PreviewBanner from "@/components/PreviewBanner";
 import { getEffectiveUser } from "@/lib/preview";
 import { decodeAssignments, gridKeyFor, itemsForDate, semaineCourante } from "@/lib/programme-planning";
+import { estRendezVous } from "@/lib/couleurs-calendrier";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ interface CalendarEvent {
   heure: string | null;
   recurrence: "none" | "daily" | "weekly" | "monthly";
   message: string | null;
-  event_type: "coach" | "nutrition" | "coaching_groupe" | null;
+  event_type: "coach" | "nutrition" | "coaching_groupe" | "tache" | "seance" | null;
   target_user_id: string | null;
 }
 
@@ -105,7 +106,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     return {
       date: d,
       dayIndex: i,
-      events: allEventsRaw.filter((e) => isEventOnDay(e, d)),
+      // Les séances viennent de la grille du programme et sont rendues à part :
+      // les lignes `seance` de calendar_events feraient doublon, et prenaient
+      // les places du panneau au détriment des rendez-vous.
+      events: allEventsRaw
+        .filter((e) => e.event_type !== "seance" && isEventOnDay(e, d))
+        // Le rendez-vous d'abord, puis par heure : c'est ce que la cliente vient lire.
+        .sort((a, b) => {
+          const rang = (e: CalendarEvent) => (estRendezVous(e.event_type) ? 0 : 1);
+          if (rang(a) !== rang(b)) return rang(a) - rang(b);
+          return (a.heure ?? "99").localeCompare(b.heure ?? "99");
+        }),
     };
   });
 

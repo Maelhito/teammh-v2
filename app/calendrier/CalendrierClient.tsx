@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, ORDRE_LEGENDE, couleurEvenement,
+  teinteEvenement, estRendezVous, formatHeureCourte,
 } from "@/lib/couleurs-calendrier";
 import { estSeanceValidee } from "@/lib/seances-validees";
 
@@ -378,7 +379,30 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
                 borderRadius: 8,
                 borderLeft: `3px solid ${eventColor(evt)}`,
               }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                {/* L'heure passe devant le titre : sur un rendez-vous, c'est
+                    l'information qu'on vient chercher. */}
+                <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                  {(() => {
+                    const heure = formatHeureCourte(evt.heure);
+                    if (!heure && !estRendezVous(evt.event_type)) return null;
+                    return (
+                      <span style={{
+                        flexShrink: 0,
+                        minWidth: 52,
+                        textAlign: "center",
+                        padding: "4px 8px",
+                        borderRadius: 7,
+                        backgroundColor: heure ? `${eventColor(evt)}26` : "transparent",
+                        border: heure ? "1px solid transparent" : "1px dashed #333",
+                        fontSize: heure ? "0.88rem" : "0.65rem",
+                        fontWeight: 700,
+                        color: heure ? teinteEvenement(evt.event_type, evt.created_by).clair : "#666",
+                        lineHeight: 1.3,
+                      }}>
+                        {heure ?? "à venir"}
+                      </span>
+                    );
+                  })()}
                   <p style={{ fontWeight: 600, color: "#F5F5F0", fontSize: "0.9rem", margin: 0, flex: 1 }}>
                     {evt.titre}
                   </p>
@@ -390,11 +414,6 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
                       padding: "2px 8px", flexShrink: 0,
                     }}>
                       ✓ Validée
-                    </span>
-                  )}
-                  {evt.heure && (
-                    <span style={{ fontSize: "0.75rem", color: eventColor(evt), fontWeight: 600, flexShrink: 0 }}>
-                      {evt.heure.slice(0, 5)}
                     </span>
                   )}
                 </div>
