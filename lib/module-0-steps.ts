@@ -20,6 +20,10 @@ export interface Module0Step {
   description: string;
   /** affiche le questionnaire de démarrage sous le contenu */
   hasQuestionnaire?: boolean;
+  /** affiche un bloc de téléchargement de document (PDF) sous le contenu */
+  hasPdf?: boolean;
+  /** libellé du document, utilisé en admin et côté cliente */
+  pdfLabel?: string;
 }
 
 export const MODULE_0_STEPS: Module0Step[] = [
@@ -53,6 +57,8 @@ export const MODULE_0_STEPS: Module0Step[] = [
     emoji: "🥗",
     type: "content",
     description: "Comprends comment fonctionne ton plan alimentaire avant de le mettre en place.",
+    hasPdf: true,
+    pdfLabel: "Modèles de batch cooking",
   },
   {
     key: "questionnaire",

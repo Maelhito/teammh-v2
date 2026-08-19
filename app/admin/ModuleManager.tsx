@@ -374,7 +374,7 @@ function sanitizeFilename(name: string): string {
 
 // ─── PDF Section ─────────────────────────────────────────────────────────────
 
-function PdfSection({
+export function PdfSection({
   label,
   slug,
   slot,

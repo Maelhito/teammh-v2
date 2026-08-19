@@ -114,6 +114,50 @@ export default async function Module0StepPage({ params }: PageProps) {
           </div>
         )}
 
+        {/* Document (ex: modèles de batch cooking) */}
+        {step.hasPdf && (
+          dbContent?.pdf_url ? (
+            <a
+              href={dbContent.pdf_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                marginTop: videos.length ? 14 : 0,
+                padding: "16px 20px",
+                backgroundColor: "#111111",
+                border: "1px solid #F59E0B",
+                borderRadius: 14,
+                color: "#F59E0B",
+                fontSize: "0.92rem",
+                fontWeight: 700,
+                textDecoration: "none",
+                letterSpacing: "0.03em",
+              }}
+            >
+              ↓ {dbContent.pdf_name ?? step.pdfLabel ?? "Télécharger le document"}
+            </a>
+          ) : (
+            <div
+              style={{
+                marginTop: videos.length ? 14 : 0,
+                padding: "16px 20px",
+                backgroundColor: "#111111",
+                border: "1px dashed #333",
+                borderRadius: 14,
+                color: "#6B7280",
+                fontSize: "0.85rem",
+                textAlign: "center",
+              }}
+            >
+              {step.pdfLabel ?? "Le document"} arrive bientôt.
+            </div>
+          )
+        )}
+
         {/* Lien externe (questionnaire alimentaire) */}
         {step.type === "external" && (
           lienExterne ? (
@@ -166,7 +210,7 @@ export default async function Module0StepPage({ params }: PageProps) {
         )}
 
         {/* Aucun contenu encore configuré */}
-        {videos.length === 0 && step.type === "content" && !step.hasQuestionnaire && (
+        {videos.length === 0 && step.type === "content" && !step.hasQuestionnaire && !step.hasPdf && (
           <div
             style={{
               padding: "20px",

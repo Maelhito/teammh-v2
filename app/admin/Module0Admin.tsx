@@ -4,6 +4,7 @@ import { useState } from "react";
 import { MODULE_0_STEPS, stepCompletionSlug, type Module0Step } from "@/lib/module-0-steps";
 import type { ModuleContent } from "@/lib/modules-content";
 import { QUESTIONNAIRE_GROUPS, TOTAL_QUESTIONS } from "@/lib/questionnaire-demarrage";
+import { PdfSection } from "./ModuleManager";
 
 /** Nombre d'emplacements vidéo proposés par point */
 const VIDEO_SLOTS = 5;
@@ -181,6 +182,11 @@ function StepSection({ step, content }: { step: Module0Step; content: ModuleCont
           <span style={{ fontSize: 10, color: filled ? "#4ADE80" : "#555", fontFamily: "system-ui", flexShrink: 0 }}>
             {step.type === "external" ? (savedLien ? "lien ok" : "lien manquant") : `${filled} vidéo${filled > 1 ? "s" : ""}`}
           </span>
+          {step.hasPdf && (
+            <span style={{ fontSize: 10, color: content?.pdf_url ? "#4ADE80" : "#555", fontFamily: "system-ui", flexShrink: 0 }}>
+              · {content?.pdf_url ? "doc ok" : "doc manquant"}
+            </span>
+          )}
         </div>
         <span style={{ fontSize: "0.7rem", color: "#555", flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
       </button>
@@ -188,6 +194,17 @@ function StepSection({ step, content }: { step: Module0Step; content: ModuleCont
       {open && (
         <div style={{ padding: "0 18px 16px" }}>
           {step.hasQuestionnaire && <QuestionnairePreview />}
+
+          {/* Document (ex: modèles de batch cooking) */}
+          {step.hasPdf && (
+            <PdfSection
+              label={step.pdfLabel ?? "Document"}
+              slug={slug}
+              slot="1"
+              pdfUrl={content?.pdf_url}
+              pdfName={content?.pdf_name}
+            />
+          )}
 
           {/* Lien externe (questionnaire alimentaire) */}
           {step.type === "external" && (
