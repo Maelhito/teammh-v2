@@ -224,32 +224,34 @@ export default function EntrainementClient({
               (abandoned.assignmentId === null || abandoned.assignmentId === programme.id);
 
             if (isTerminee) {
-              // Séance terminée → carte noire + bordure verte
+              // Séance terminée → carte noire compacte, en rouge et blanc uniquement
               return (
-                <div key={programme.id} style={{ backgroundColor: "#0a0a0a", border: "1px solid rgba(251,146,60,0.35)", borderRadius: 14, padding: "16px 18px" }}>
-                  <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "rgba(251,146,60,0.6)", letterSpacing: "0.1em", margin: "0 0 8px" }}>
-                    {programme.nom.toUpperCase()} · SÉANCE DU JOUR
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div key={programme.id} style={{ backgroundColor: "#0a0a0a", border: "1px solid rgba(178,34,34,0.35)", borderRadius: 12, padding: "9px 13px" }}>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, margin: "0 0 6px" }}>
+                    <p className="font-body" style={{ fontSize: "0.55rem", fontWeight: 700, color: "rgba(255,255,255,0.38)", letterSpacing: "0.08em", margin: 0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {programme.nom.toUpperCase()} · SÉANCE DU JOUR
+                    </p>
+                    <p className="font-body" style={{ fontSize: "0.55rem", fontWeight: 700, color: "#B22222", letterSpacing: "0.08em", margin: 0, flexShrink: 0 }}>
+                      ✓ VALIDÉE
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {groupItems.map(({ item, itemIndex }) => (
-                      <div key={itemIndex} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontSize: "1rem", color: COULEURS_EVENEMENT.seance.base }}>✓</span>
+                      <div key={itemIndex} style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                        <span style={{ fontSize: "0.85rem", color: "#B22222" }}>✓</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: COULEURS_EVENEMENT.seance.base, margin: 0 }}>{itemNom(item)}</p>
-                          {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(251,146,60,0.45)", margin: "1px 0 0" }}>{itemDuree(item)} min</p>}
+                          <p className="font-body" style={{ fontSize: "0.85rem", fontWeight: 700, color: "#FFF", margin: 0 }}>{itemNom(item)}</p>
+                          {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.4)", margin: "1px 0 0" }}>{itemDuree(item)} min</p>}
                         </div>
                         <Link
                           href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${todayKey}&itemIndex=${itemIndex}`}
-                          style={{ padding: "8px 14px", backgroundColor: "rgba(37,99,235,0.10)", border: "1px solid rgba(37,99,235,0.30)", borderRadius: 9, color: COULEURS_EVENEMENT.seance.base, fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                          style={{ padding: "6px 11px", backgroundColor: "rgba(178,34,34,0.12)", border: "1px solid rgba(178,34,34,0.35)", borderRadius: 8, color: "#FFF", fontSize: "0.66rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
                         >
                           ↺ Redémarrer
                         </Link>
                       </div>
                     ))}
                   </div>
-                  <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(251,146,60,0.55)", margin: "10px 0 0", textAlign: "center", letterSpacing: "0.04em" }}>
-                    ✓ Séance validée aujourd&apos;hui — bravo !
-                  </p>
                 </div>
               );
             }
