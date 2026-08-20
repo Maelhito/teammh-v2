@@ -19,6 +19,17 @@ function couleur(v: number | null): string {
 
 
 
+/**
+ * Bilan lisible d'un champ entre la première et la dernière mesure :
+ * « 4.2 kg perdus depuis le début », « 3 cm pris depuis le début », etc.
+ */
+function bilanDepuisLeDebut(v: number, unite: string): string {
+  if (v === 0) return `stable depuis le début`;
+  const sens = v < 0 ? "perdu" : "pris";
+  const accord = Math.abs(v) > 1 ? "s" : "";
+  return `${Math.abs(v)} ${unite} ${sens}${accord} depuis le début`;
+}
+
 /** Formulaire de saisie : une date + une valeur texte par champ */
 type Saisie = Record<string, string>;
 
@@ -296,14 +307,24 @@ export default function MesuresCliente({ clienteId }: { clienteId: string }) {
       {/* Courbes — visibles d'emblée : c'est ce qui se lit le plus vite */}
       {mesures.length >= 2 && (
         <div className="coach-cliente-2col" style={{ marginTop: 14 }}>
-          {CHAMPS.filter((c) => c.cle).map(({ champ, label, unite }) => (
-            <div key={champ} style={{ backgroundColor: "#fafafa", borderRadius: 10, padding: "12px 14px" }}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: "#888", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 8px", fontFamily: "system-ui" }}>
-                Évolution · {label}
-              </p>
-              <MesureChart mesures={mesures} champ={champ} unite={unite} clair />
-            </div>
-          ))}
+          {CHAMPS.filter((c) => c.cle).map(({ champ, label, unite }) => {
+            const bilan = ecarts(mesures, champ).vsDepart;
+            return (
+              <div key={champ} style={{ backgroundColor: "#fafafa", borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, margin: "0 0 8px" }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: "#888", letterSpacing: "0.06em", textTransform: "uppercase", margin: 0, fontFamily: "system-ui" }}>
+                    Évolution · {label}
+                  </p>
+                  {bilan != null && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: couleur(bilan), fontFamily: "system-ui", whiteSpace: "nowrap" }}>
+                      {bilanDepuisLeDebut(bilan, unite)}
+                    </span>
+                  )}
+                </div>
+                <MesureChart mesures={mesures} champ={champ} unite={unite} clair />
+              </div>
+            );
+          })}
         </div>
       )}
 
