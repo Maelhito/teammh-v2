@@ -607,7 +607,8 @@ export default function SeanceViewer({
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [done, setDone] = useState(false);
-  const [streakResult, setStreakResult] = useState<number | null>(null);
+  const [serieResult, setSerieResult] = useState<number | null>(null);
+  const [palierAtteint, setPalierAtteint] = useState<{ emoji: string; label: string } | null>(null);
   const startTimeRef = useRef<number>(Date.now());
   const [elapsedMin, setElapsedMin] = useState(0);
   const [logId, setLogId] = useState<string | null>(null);
@@ -642,7 +643,8 @@ export default function SeanceViewer({
         body: JSON.stringify({ assignmentId, gridKey }),
       });
       const data = await res.json().catch(() => ({}));
-      if (typeof data.streak === "number") setStreakResult(data.streak);
+      if (typeof data.serie === "number") setSerieResult(data.serie);
+      if (data.palierAtteint) setPalierAtteint(data.palierAtteint);
       if (typeof data.logId === "string") setLogId(data.logId);
     } catch {}
     setDone(true);
@@ -731,13 +733,25 @@ export default function SeanceViewer({
                 <p className="font-body" style={{ fontSize: "0.65rem", color: "#FFFFFF", margin: "4px 0 0", letterSpacing: "0.06em" }}>EXERCICES</p>
               </div>
             )}
-            {streakResult !== null && streakResult > 0 && (
-              <div style={{ flex: 1, backgroundColor: "#1a0a00", border: "1px solid rgba(251,146,60,0.3)", borderRadius: 12, padding: "14px 10px", textAlign: "center" }}>
-                <p className="font-title" style={{ fontSize: "1.5rem", color: "#FB923C", margin: 0, lineHeight: 1 }}>🔥{streakResult}</p>
-                <p className="font-body" style={{ fontSize: "0.65rem", color: "#FB923C", margin: "4px 0 0", letterSpacing: "0.06em", opacity: 0.7 }}>FLAMME</p>
+            {serieResult !== null && serieResult > 0 && (
+              <div style={{ flex: 1, backgroundColor: "#1a0000", border: "1px solid rgba(178,34,34,0.4)", borderRadius: 12, padding: "14px 10px", textAlign: "center" }}>
+                <p className="font-title" style={{ fontSize: "1.5rem", color: "#FFFFFF", margin: 0, lineHeight: 1 }}>🔥{serieResult}</p>
+                <p className="font-body" style={{ fontSize: "0.65rem", color: "#FFFFFF", margin: "4px 0 0", letterSpacing: "0.06em", opacity: 0.7 }}>SÉRIE</p>
               </div>
             )}
           </div>
+
+          {/* Palier décroché : c'est le moment où elle vient de le gagner */}
+          {palierAtteint && (
+            <div style={{ backgroundColor: "rgba(178,34,34,0.14)", border: "1px solid rgba(178,34,34,0.45)", borderRadius: 12, padding: "12px 14px", margin: "0 0 20px" }}>
+              <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.08em", margin: 0, opacity: 0.6 }}>
+                PALIER DÉBLOQUÉ
+              </p>
+              <p className="font-body" style={{ fontSize: "1rem", fontWeight: 700, color: "#FFFFFF", margin: "3px 0 0" }}>
+                {palierAtteint.emoji} {palierAtteint.label}
+              </p>
+            </div>
+          )}
 
           {/* Message motivant */}
           <p className="font-body" style={{ fontSize: "0.88rem", color: "#FFFFFF", margin: "0 0 28px", lineHeight: 1.6, fontStyle: "italic" }}>

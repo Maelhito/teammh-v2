@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
-import { updateStreak } from "@/lib/streak";
+import { calculerSerie } from "@/lib/serie";
+import { decodeAssignments } from "@/lib/programme-planning";
 
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -46,8 +47,6 @@ export async function POST(req: NextRequest) {
     })
     .eq("id", assignmentId);
 
-  const streak = await updateStreak(session.user.id);
-
   // Insérer dans seances_log
   const seanceName = (() => {
     try {
@@ -73,5 +72,33 @@ export async function POST(req: NextRequest) {
     .select("id")
     .single();
 
-  return NextResponse.json({ success: true, streak, logId: logRow?.id ?? null });
+  // La série est recalculée APRÈS l'insertion, avec exactement la même règle que
+  // l'écran d'accueil : les deux affichent forcément le même nombre.
+  const [programmes, logs] = await Promise.all([
+    admin
+      .from("client_programmes")
+      .select("*, programme:programmes(nom, duree_semaines, description)")
+      .eq("user_id", session.user.id)
+      .in("statut", ["en_cours", "termine"])
+      .order("date_debut", { ascending: true })
+      .then((r) => decodeAssignments(r.data)),
+    admin
+      .from("seances_log")
+      .select("id, grid_key, assignment_id")
+      .eq("user_id", session.user.id)
+      .then((r) => r.data ?? []),
+  ]);
+
+  const serie = calculerSerie(programmes, logs);
+
+  return NextResponse.json({
+    success: true,
+    serie: serie.serie,
+    totalValidees: serie.totalValidees,
+    jokers: serie.jokers,
+    palierAtteint: serie.paliers.find(
+      (p) => p.obtenu && ((p.mesure === "serie" && p.seuil === serie.serie) || (p.mesure === "seances" && p.seuil === serie.totalValidees))
+    ) ?? null,
+    logId: logRow?.id ?? null,
+  });
 }

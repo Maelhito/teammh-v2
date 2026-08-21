@@ -132,13 +132,32 @@ export function dateToGridKey(date: Date, dateDebut: Date, dureeSemaines?: numbe
   return `S${semaine}_J${jour}`;
 }
 
-/** Date réelle d'une case de grille pour un programme donné. */
+/**
+ * Date réelle d'une case de grille — inverse exact de `dateToGridKey`.
+ *
+ * Le jour d'une case est un jour de SEMAINE (J1 = lundi), pas un décalage
+ * depuis la date de début. On prend donc, dans la fenêtre de 7 jours de la
+ * semaine visée, la date qui tombe le bon jour. Pour un programme démarré un
+ * mercredi, S1_J1 (lundi) tombe ainsi le lundi SUIVANT le début, exactement
+ * comme `dateToGridKey` le calcule dans l'autre sens.
+ *
+ * L'implémentation précédente ajoutait bêtement (jour - 1) jours à la date de
+ * début : juste pour un départ le lundi, décalée sinon.
+ */
 export function gridKeyToDate(key: string, dateDebut: Date): Date | null {
   const m = key.match(/^S(\d+)_J(\d+)$/);
   if (!m) return null;
+
+  const semaine = parseInt(m[1]);
+  const jour = parseInt(m[2]);
+  if (!semaine || jour < 1 || jour > 7) return null;
+
   const d = new Date(dateDebut);
   d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() + (parseInt(m[1]) - 1) * 7 + (parseInt(m[2]) - 1));
+  d.setDate(d.getDate() + (semaine - 1) * 7);
+
+  const jourDeD = ((d.getDay() + 6) % 7) + 1; // 1 = lundi … 7 = dimanche
+  d.setDate(d.getDate() + ((jour - jourDeD + 7) % 7));
   return d;
 }
 

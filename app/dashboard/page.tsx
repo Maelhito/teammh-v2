@@ -4,7 +4,8 @@ import { getModules } from "@/lib/modules";
 import { getUserProfile, getModuleCompletionsWithDates } from "@/lib/user-profile";
 import { computeUnlockStatuses, applyPhaseGate, MODULE_DEMARRAGE_SLUG } from "@/lib/module-unlock";
 import { getClientPhase } from "@/lib/offers/queries";
-import { getStreak } from "@/lib/streak";
+import { calculerSerie } from "@/lib/serie";
+import SerieCard from "@/components/SerieCard";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import DashboardModules from "@/components/DashboardModules";
@@ -74,7 +75,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const weekStart = monday.toISOString().slice(0, 10);
   const weekEndStr = weekEnd.toISOString().slice(0, 10);
 
-  const [profile, completionsWithDates, activeProgrammes, allEventsRaw, streakInfo] = await Promise.all([
+  const [profile, completionsWithDates, activeProgrammes, allEventsRaw, seancesLogAll, programmesPourSerie] = await Promise.all([
     userId ? getUserProfile(userId) : Promise.resolve(null),
     userId ? getModuleCompletionsWithDates(userId) : Promise.resolve([]),
     // Plusieurs programmes peuvent être en cours simultanément.
@@ -96,8 +97,31 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           .order("date", { ascending: true })
           .then((r) => (r.data ?? []) as CalendarEvent[])
       : Promise.resolve([] as CalendarEvent[]),
-    userId ? getStreak(userId) : Promise.resolve({ streak_current: 0, streak_last_activity: null }),
+    // Toutes les séances validées depuis le début : c'est la source de la série.
+    userId
+      ? admin
+          .from("seances_log")
+          .select("id, grid_key, assignment_id")
+          .eq("user_id", userId)
+          .then((r) => r.data ?? [])
+      : Promise.resolve([] as { id: string; grid_key: string | null; assignment_id: string | null }[]),
+    // Pour la série, on remonte tout l'historique : un programme terminé garde
+    // les séances qu'elle a enchaînées. Les programmes en pause sont écartés —
+    // ils ne doivent ni créditer ni pénaliser.
+    userId
+      ? admin
+          .from("client_programmes")
+          .select("*, programme:programmes(nom, duree_semaines, description)")
+          .eq("user_id", userId)
+          .in("statut", ["en_cours", "termine"])
+          .order("date_debut", { ascending: true })
+          .then((r) => decodeAssignments(r.data))
+      : Promise.resolve([]),
   ]);
+
+  // La série est recalculée à chaque affichage depuis la grille + seances_log :
+  // aucun compteur stocké, donc rien à resynchroniser.
+  const serie = calculerSerie(programmesPourSerie, seancesLogAll, now);
 
   // Événements de la semaine (un-time + récurrents)
   const weekDays: { date: Date; dayIndex: number; events: CalendarEvent[] }[] = Array.from({ length: 7 }, (_, i) => {
@@ -281,17 +305,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               <span style={{ color: "#F5F5F0", fontWeight: 700 }}>{firstName}</span>
             </p>
           </div>
-          {streakInfo.streak_current > 0 ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 4, backgroundColor: "#1a0a00", border: "1px solid rgba(251,146,60,0.3)", borderRadius: 20, padding: "4px 10px" }}>
+          {serie.serie > 0 ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, backgroundColor: "#1a0000", border: "1px solid rgba(178,34,34,0.4)", borderRadius: 20, padding: "4px 10px" }}>
               <span style={{ fontSize: "0.85rem" }}>🔥</span>
-              <span className="font-body" style={{ fontSize: "0.7rem", fontWeight: 700, color: "#FB923C" }}>
-                {streakInfo.streak_current} jour{streakInfo.streak_current > 1 ? "s" : ""}
+              <span className="font-body" style={{ fontSize: "0.7rem", fontWeight: 700, color: "#F5F5F0" }}>
+                {serie.serie}
               </span>
             </div>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: 4, backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 20, padding: "4px 10px" }}>
               <span style={{ fontSize: "0.8rem" }}>🔥</span>
-              <span className="font-body" style={{ fontSize: "0.7rem", color: "#444" }}>0j</span>
+              <span className="font-body" style={{ fontSize: "0.7rem", color: "#444" }}>0</span>
             </div>
           )}
         </div>
@@ -358,6 +382,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             </div>
           </div>
         )}
+
+        {/* Ma série — le jeu de régularité */}
+        {!enDemarrage && <SerieCard serie={serie} />}
 
         {/* ── CETTE SEMAINE ── */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "24px 16px 10px" }}>
