@@ -32,6 +32,8 @@ export default function MesuresClient() {
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [formOuvert, setFormOuvert] = useState(false);
   const [histoOuvert, setHistoOuvert] = useState(false);
+  /** Saisie en cours de correction (null = nouvelle saisie du jour) */
+  const [edition, setEdition] = useState<Mesure | null>(null);
 
   async function charger() {
     try {
@@ -48,6 +50,27 @@ export default function MesuresClient() {
 
   useEffect(() => { charger(); }, []);
 
+  /** Nouvelle saisie : formulaire vide, daté d'aujourd'hui par le serveur */
+  function ouvrirNouvelle() {
+    setForm({});
+    setEdition(null);
+    setFormOuvert(true);
+    setMsg(null);
+  }
+
+  /**
+   * Correction de la dernière saisie validée : on repart de ses valeurs et on
+   * garde sa date, pour remplacer cette ligne au lieu d'en créer une nouvelle.
+   */
+  function ouvrirCorrection(m: Mesure) {
+    const f: Record<string, string> = { date: m.date, note: m.note ?? "" };
+    for (const { champ } of CHAMPS) f[champ] = m[champ] != null ? String(m[champ]) : "";
+    setForm(f);
+    setEdition(m);
+    setFormOuvert(true);
+    setMsg(null);
+  }
+
   async function enregistrer() {
     setSaving(true);
     setMsg(null);
@@ -59,8 +82,12 @@ export default function MesuresClient() {
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok) {
-        setMsg({ type: "ok", text: "✓ Mesures enregistrées." });
+        setMsg({
+          type: "ok",
+          text: edition ? `✓ Mesures du ${labelDate(edition.date)} corrigées.` : "✓ Mesures enregistrées.",
+        });
         setForm({});
+        setEdition(null);
         setFormOuvert(false);
         await charger();
       } else {
@@ -134,28 +161,44 @@ export default function MesuresClient() {
             )}
           </div>
 
-          {/* Bouton nouvelle mesure */}
+          {/* Boutons : nouvelle saisie, et correction de la dernière saisie */}
           {!formOuvert && (
-            <button
-              onClick={() => { setFormOuvert(true); setMsg(null); }}
-              style={{
-                padding: "14px 0", borderRadius: 12, border: "none", backgroundColor: "#B22222",
-                color: "#FFF", fontSize: "0.9rem", fontWeight: 700, cursor: "pointer",
-                fontFamily: "inherit", letterSpacing: "0.03em",
-              }}
-            >
-              + Saisir mes mesures
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button
+                onClick={ouvrirNouvelle}
+                style={{
+                  padding: "14px 0", borderRadius: 12, border: "none", backgroundColor: "#B22222",
+                  color: "#FFF", fontSize: "0.9rem", fontWeight: 700, cursor: "pointer",
+                  fontFamily: "inherit", letterSpacing: "0.03em",
+                }}
+              >
+                + Saisir mes mesures
+              </button>
+              {historique[0] && (
+                <button
+                  onClick={() => ouvrirCorrection(historique[0])}
+                  style={{
+                    padding: "11px 0", borderRadius: 12, border: "1px solid #262626", backgroundColor: "#111111",
+                    color: "#9CA3AF", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  ✎ Corriger ma saisie du {labelDate(historique[0].date)}
+                </button>
+              )}
+            </div>
           )}
 
           {/* Formulaire */}
           {formOuvert && (
-            <div style={carte}>
+            <div style={{ ...carte, border: edition ? "1px solid #B22222" : carte.border }}>
               <p className="font-body" style={{ fontSize: "0.82rem", fontWeight: 700, color: "#F5F5F0", margin: "0 0 4px" }}>
-                Mes mesures du jour
+                {edition ? `Corriger mes mesures du ${labelDate(edition.date)}` : "Mes mesures du jour"}
               </p>
               <p className="font-body" style={{ fontSize: "0.72rem", color: "#6B7280", margin: "0 0 14px" }}>
-                Remplis ce que tu peux — rien n&apos;est obligatoire.
+                {edition
+                  ? "Modifie ce qui est faux et enregistre : la saisie de cette date est remplacée."
+                  : "Remplis ce que tu peux — rien n'est obligatoire."}
               </p>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -187,7 +230,7 @@ export default function MesuresClient() {
 
               <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                 <button
-                  onClick={() => { setFormOuvert(false); setForm({}); setMsg(null); }}
+                  onClick={() => { setFormOuvert(false); setForm({}); setEdition(null); setMsg(null); }}
                   style={{ flex: 1, padding: "12px 0", borderRadius: 10, border: "1px solid #262626", backgroundColor: "#0D0D0D", color: "#9CA3AF", fontSize: "0.82rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
                 >
                   Annuler
@@ -197,7 +240,7 @@ export default function MesuresClient() {
                   disabled={saving}
                   style={{ flex: 2, padding: "12px 0", borderRadius: 10, border: "none", backgroundColor: saving ? "#6B7280" : "#B22222", color: "#FFF", fontSize: "0.82rem", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit" }}
                 >
-                  {saving ? "Enregistrement…" : "Enregistrer"}
+                  {saving ? "Enregistrement…" : edition ? "Enregistrer la correction" : "Enregistrer"}
                 </button>
               </div>
             </div>
