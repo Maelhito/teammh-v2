@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { UserProfile, ProgrammeType, ProgrammeDuree } from "@/lib/user-profile";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import ReglageFuseau from "@/components/ReglageFuseau";
+import { FUSEAU_PAR_DEFAUT } from "@/lib/temps";
 
 interface TeamMember {
   id: string;
@@ -262,7 +264,7 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
         }
 
         // 6. Sauvegarder la subscription en base (avec timezone pour notifs localisées)
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "Europe/Paris";
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone ?? FUSEAU_PAR_DEFAUT;
         const res = await fetch("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -515,6 +517,10 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
           </span>
         )}
       </div>
+
+      {/* Fuseau horaire — juste sous les notifications, parce que c'est lui qui
+          décide de l'heure à laquelle elles arrivent. */}
+      <ReglageFuseau theme="sombre" />
 
       {/* Infos compte */}
       <Section title="MON COMPTE">

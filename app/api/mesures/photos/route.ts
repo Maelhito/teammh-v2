@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { BUCKET_PHOTOS, ensurePhotoBucket, signPhotos } from "@/lib/photos-progression";
+import { aujourdhuiDans } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +50,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Format non supporté (JPG, PNG, WEBP)" }, { status: 400 });
   }
 
-  const aujourdhui = new Date().toISOString().slice(0, 10);
+  // Dans le fuseau DE LA CLIENTE, sinon une photo prise le matin à Nouméa peut
+  // se voir refusée comme "future" par un serveur encore sur la veille en UTC.
+  const aujourdhui = aujourdhuiDans(await getFuseau(user.id));
   const date = /^\d{4}-\d{2}-\d{2}$/.test(dateBrute) && dateBrute <= aujourdhui ? dateBrute : aujourdhui;
 
   const admin = createSupabaseAdminClient();

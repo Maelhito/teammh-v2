@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { CHAMPS } from "@/lib/mesures";
+import { aujourdhuiDans } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +32,10 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
 
-  // Date : aujourd'hui par défaut, jamais dans le futur
-  const aujourdhui = new Date().toISOString().slice(0, 10);
+  // Date : aujourd'hui par défaut, jamais dans le futur — dans le fuseau DE LA
+  // CLIENTE, sinon une saisie du matin à Nouméa se voit refusée comme "future"
+  // par un serveur encore sur la veille en UTC.
+  const aujourdhui = aujourdhuiDans(await getFuseau(user.id));
   const date = typeof body.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : aujourdhui;
   if (date > aujourdhui) {
     return NextResponse.json({ error: "La date ne peut pas être dans le futur." }, { status: 400 });

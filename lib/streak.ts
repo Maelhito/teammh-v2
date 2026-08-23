@@ -10,6 +10,8 @@
  * requête échoue et la fonction renvoie 0 quoi qu'il arrive.
  */
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { aujourdhuiDans } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 
 export interface StreakInfo {
   streak_current: number;
@@ -33,7 +35,11 @@ export async function getStreak(userId: string): Promise<StreakInfo> {
 
 export async function updateStreak(userId: string): Promise<number> {
   const admin = createSupabaseAdminClient();
-  const today = new Date().toISOString().slice(0, 10);
+  // Le jour compte dans le fuseau DE LA CLIENTE : sinon une séance validée le
+  // matin à Nouméa (encore la veille pour un serveur en UTC) pouvait casser la
+  // série au lieu de l'allonger.
+  const fuseau = await getFuseau(userId);
+  const today = aujourdhuiDans(fuseau);
 
   const { data: profile } = await admin
     .from("user_profiles")
@@ -46,10 +52,7 @@ export async function updateStreak(userId: string): Promise<number> {
 
   if (last === today) return current;
 
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().slice(0, 10);
-
+  const yesterdayStr = aujourdhuiDans(fuseau, new Date(Date.now() - 86400000));
   const newStreak = last === yesterdayStr ? current + 1 : 1;
 
   await admin

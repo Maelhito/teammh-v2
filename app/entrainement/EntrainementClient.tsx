@@ -9,6 +9,7 @@ import {
   itemsForDate,
 } from "@/lib/programme-planning";
 import { COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, couleurEvenement } from "@/lib/couleurs-calendrier";
+import { fuseauAppareil, occurrenceLe } from "@/lib/temps";
 
 const MONTH_NAMES = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const DAY_NAMES = ["L", "M", "M", "J", "V", "S", "D"];
@@ -36,17 +37,16 @@ interface CalendarEvent {
 type Programme = DecodedProgramme & { semaine_courante: number };
 type DayItem = PlannedItem<CellItem>;
 
-function isEventOnDay(event: CalendarEvent, day: Date): boolean {
-  const eventDate = new Date(event.date + "T00:00:00");
-  eventDate.setHours(0, 0, 0, 0);
-  if (eventDate > day) return false;
-  switch (event.recurrence) {
-    case "none": return eventDate.toDateString() === day.toDateString();
-    case "daily": return true;
-    case "weekly": return eventDate.getDay() === day.getDay();
-    case "monthly": return eventDate.getDate() === day.getDate();
-    default: return false;
-  }
+/**
+ * L'événement tombe-t-il ce jour-là, pour la personne qui regarde l'écran ?
+ *
+ * Toute la logique (récurrences, changement d'heure, jour qui diffère selon le
+ * fuseau du lecteur) vit dans `occurrenceLe` — cette fonction n'est plus qu'un
+ * adaptateur. Elle existait auparavant en cinq copies quasi identiques, chacune
+ * comparant des dates murales sans fuseau.
+ */
+function isEventOnDay(event: CalendarEvent, day: Date, fuseauLecteur: string | null): boolean {
+  return occurrenceLe(event, toLocalDate(day), fuseauLecteur).tombe;
 }
 
 // Couleurs : lib/couleurs-calendrier (source unique).
@@ -86,6 +86,9 @@ export default function EntrainementClient({
   // Une fois monté, un useEffect bascule sur new Date() (heure locale réelle) ; cette
   // mise à jour a lieu après l'hydratation donc n'est jamais comparée au HTML serveur.
   const [mounted, setMounted] = useState(false);
+  // Le fuseau du lecteur n'existe que dans le navigateur : côté serveur, `Intl`
+  // rend UTC. Tant qu'on ne l'a pas, `occurrenceLe` retombe sur la date murale
+  // — même résultat qu'au rendu serveur, donc pas d'écart d'hydratation.
   useEffect(() => { setMounted(true); }, []);
 
   const refDate = mounted ? new Date() : new Date(`${todayIso}T00:00:00.000Z`);
@@ -128,7 +131,7 @@ export default function EntrainementClient({
   }
 
   function getDayEvents(date: Date): CalendarEvent[] {
-    return events.filter((e) => isEventOnDay(e, date));
+    return events.filter((e) => isEventOnDay(e, date, mounted ? fuseauAppareil() : null));
   }
 
   /** Items du jour regroupés par programme (un bandeau par programme actif). */

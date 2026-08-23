@@ -6,6 +6,8 @@ import EntrainementClient from "./EntrainementClient";
 import PreviewBanner from "@/components/PreviewBanner";
 import { getEffectiveUser } from "@/lib/preview";
 import { decodeAssignments, semaineCourante } from "@/lib/programme-planning";
+import { FUSEAU_PAR_DEFAUT, aujourdhuiDans } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +18,16 @@ export default async function EntrainementPage({
 }) {
   const params = searchParams ? await searchParams : {};
   const abandonedKey = params?.abandoned ?? null;
-  // Date du jour côté serveur (anti hydration-mismatch, voir EntrainementClient)
-  const todayIso = new Date().toISOString().slice(0, 10);
 
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
   const { userId, firstName, isPreview } = await getEffectiveUser(session);
+
+  // Date du jour côté serveur (anti hydration-mismatch, voir EntrainementClient).
+  // Dans le fuseau DE LA CLIENTE : sinon le serveur (UTC) affiche encore la
+  // veille pour toute personne à l'est de Greenwich pendant sa matinée.
+  const fuseau = userId ? await getFuseau(userId) : FUSEAU_PAR_DEFAUT;
+  const todayIso = aujourdhuiDans(fuseau);
 
   // Une cliente peut avoir plusieurs programmes en cours simultanément
   // (programmation à l'avance) — on les charge tous et on les empile.

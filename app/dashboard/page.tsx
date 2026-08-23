@@ -16,7 +16,9 @@ import TachesSection from "@/components/TachesSection";
 import DashboardCalendar, { type DayData } from "@/components/DashboardCalendar";
 import PreviewBanner from "@/components/PreviewBanner";
 import { getEffectiveUser } from "@/lib/preview";
-import { decodeAssignments, gridKeyFor, itemsForDate, semaineCourante } from "@/lib/programme-planning";
+import { decodeAssignments, gridKeyFor, itemsForDate, semaineCourante, toLocalDateStr } from "@/lib/programme-planning";
+import { FUSEAU_PAR_DEFAUT, aujourdhuiDans, occurrenceLe } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 import { estRendezVous } from "@/lib/couleurs-calendrier";
 
 export const dynamic = "force-dynamic";
@@ -26,23 +28,24 @@ interface CalendarEvent {
   titre: string;
   date: string;
   heure: string | null;
+  /** L'instant du rendez-vous. Fait foi ; `heure` n'est qu'un repli hérité. */
+  starts_at: string | null;
   recurrence: "none" | "daily" | "weekly" | "monthly";
   message: string | null;
   event_type: "coach" | "nutrition" | "coaching_groupe" | "tache" | "seance" | null;
   target_user_id: string | null;
 }
 
-function isEventOnDay(event: CalendarEvent, day: Date): boolean {
-  const eventDate = new Date(event.date + "T00:00:00");
-  eventDate.setHours(0, 0, 0, 0);
-  if (eventDate > day) return false;
-  switch (event.recurrence) {
-    case "none": return eventDate.toDateString() === day.toDateString();
-    case "daily": return true;
-    case "weekly": return eventDate.getDay() === day.getDay();
-    case "monthly": return eventDate.getDate() === day.getDate();
-    default: return false;
-  }
+/**
+ * L'événement tombe-t-il ce jour-là, pour la personne qui regarde l'écran ?
+ *
+ * Toute la logique (récurrences, changement d'heure, jour qui diffère selon le
+ * fuseau du lecteur) vit dans `occurrenceLe` — cette fonction n'est plus qu'un
+ * adaptateur. Elle existait auparavant en cinq copies quasi identiques, chacune
+ * comparant des dates murales sans fuseau.
+ */
+function isEventOnDay(event: CalendarEvent, day: Date, fuseauLecteur: string | null): boolean {
+  return occurrenceLe(event, toLocalDateStr(day), fuseauLecteur).tombe;
 }
 
 
@@ -63,8 +66,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const slugs = modules.map((m) => m.slug);
   const admin = createSupabaseAdminClient();
 
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // "Aujourd'hui" et "cette semaine" se calculent dans le fuseau DE LA
+  // CLIENTE, jamais dans celui du serveur (UTC sur Vercel) : sinon, entre
+  // minuit et 11h du matin à Nouméa, le serveur croit encore être la veille —
+  // mauvaise semaine affichée, séance du jour invisible, flamme cassée.
+  const fuseau = userId ? await getFuseau(userId) : FUSEAU_PAR_DEFAUT;
+  const now = new Date(`${aujourdhuiDans(fuseau)}T00:00:00`);
 
   // Lundi de la semaine courante
   const monday = new Date(now);
@@ -72,8 +79,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const weekEnd = new Date(monday);
   weekEnd.setDate(monday.getDate() + 6);
 
-  const weekStart = monday.toISOString().slice(0, 10);
-  const weekEndStr = weekEnd.toISOString().slice(0, 10);
+  const weekStart = toLocalDateStr(monday);
+  const weekEndStr = toLocalDateStr(weekEnd);
 
   const [profile, completionsWithDates, activeProgrammes, allEventsRaw, seancesLogAll, programmesPourSerie] = await Promise.all([
     userId ? getUserProfile(userId) : Promise.resolve(null),
@@ -91,7 +98,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     userId
       ? admin
           .from("calendar_events")
-          .select("id, titre, date, heure, recurrence, message, event_type, target_user_id")
+          .select("id, titre, date, heure, starts_at, recurrence, message, event_type, target_user_id")
           .or(`target_user_id.is.null,target_user_id.eq.${userId},user_id.eq.${userId}`)
           .lte("date", weekEndStr)
           .order("date", { ascending: true })
@@ -121,7 +128,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   // La série est recalculée à chaque affichage depuis la grille + seances_log :
   // aucun compteur stocké, donc rien à resynchroniser.
-  const serie = calculerSerie(programmesPourSerie, seancesLogAll, now);
+  const serie = calculerSerie(programmesPourSerie, seancesLogAll, aujourdhuiDans(fuseau));
 
   // Événements de la semaine (un-time + récurrents)
   const weekDays: { date: Date; dayIndex: number; events: CalendarEvent[] }[] = Array.from({ length: 7 }, (_, i) => {
@@ -134,11 +141,16 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       // les lignes `seance` de calendar_events feraient doublon, et prenaient
       // les places du panneau au détriment des rendez-vous.
       events: allEventsRaw
-        .filter((e) => e.event_type !== "seance" && isEventOnDay(e, d))
+        .filter((e) => e.event_type !== "seance" && isEventOnDay(e, d, fuseau))
         // Le rendez-vous d'abord, puis par heure : c'est ce que la cliente vient lire.
         .sort((a, b) => {
           const rang = (e: CalendarEvent) => (estRendezVous(e.event_type) ? 0 : 1);
           if (rang(a) !== rang(b)) return rang(a) - rang(b);
+          // On trie sur l'instant réel : deux rendez-vous posés depuis deux
+          // fuseaux différents ne se classent correctement que comme ça.
+          const cle = (e: CalendarEvent) =>
+            e.starts_at ? new Date(e.starts_at).getTime() : Number.MAX_SAFE_INTEGER;
+          if (cle(a) !== cle(b)) return cle(a) - cle(b);
           return (a.heure ?? "99").localeCompare(b.heure ?? "99");
         }),
     };
@@ -240,12 +252,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       }));
     const dayOfWeekIdx = date.getDay() === 0 ? 6 : date.getDay() - 1;
     return {
-      dateStr: date.toISOString().slice(0, 10),
+      dateStr: toLocalDateStr(date),
       dayLabel: JOURS_COURTS_CAL[dayOfWeekIdx],
       dayNum: date.getDate(),
       isToday: date.toDateString() === now.toDateString(),
       isPast: date < now,
-      events: events.map((e) => ({ id: e.id, titre: e.titre, heure: e.heure, event_type: e.event_type })),
+      events: events.map((e) => ({ id: e.id, titre: e.titre, heure: e.heure, starts_at: e.starts_at, event_type: e.event_type })),
       seances: daySeances,
     };
   });

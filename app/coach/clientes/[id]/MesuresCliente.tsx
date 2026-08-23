@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CHAMPS, ecarts, formatEcart, trierParDate, type Mesure, type PhotoProgression } from "@/lib/mesures";
+import { aujourdhuiDans, fuseauAppareil } from "@/lib/temps";
 import MesureChart from "@/app/mesures/MesureChart";
 import PhotosCliente from "./PhotosCliente";
 
@@ -34,7 +35,9 @@ function bilanDepuisLeDebut(v: number, unite: string): string {
 type Saisie = Record<string, string>;
 
 function saisieVide(): Saisie {
-  return { date: new Date().toISOString().slice(0, 10), note: "" };
+  // .toISOString() rend l'UTC, pas le jour local du coach qui saisit — décalé
+  // dès qu'il est loin de Greenwich.
+  return { date: aujourdhuiDans(fuseauAppareil()), note: "" };
 }
 
 function saisieDepuis(m: Mesure): Saisie {

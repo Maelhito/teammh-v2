@@ -2,6 +2,8 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { redirect } from "next/navigation";
 import DashboardCoach from "./DashboardCoach";
+import { FUSEAU_PAR_DEFAUT, aujourdhuiDans, semaineDans } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +16,10 @@ export default async function CoachPage() {
     ?? session?.user.email?.split("@")[0]
     ?? "Coach";
   const nom = session?.user.user_metadata?.nom ?? "";
-  const timezone = session?.user.user_metadata?.timezone ?? "Europe/Paris";
   const coachUserId = session?.user.id ?? null;
+  // Source unique du fuseau (voir lib/temps-serveur) — l'ancien
+  // user_metadata.timezone n'était écrit par rien depuis longtemps.
+  const timezone = coachUserId ? await getFuseau(coachUserId) : FUSEAU_PAR_DEFAUT;
 
   const admin = createSupabaseAdminClient();
 
@@ -47,15 +51,10 @@ export default async function CoachPage() {
   const activeIds = activeClients.map(c => c.id);
 
   // ── Stats semaine ──────────────────────────────────────────────────────────
-  const today = new Date();
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  const todayStr = fmt(today);
-  const mondayStr = fmt(monday);
-  const sundayStr = fmt(sunday);
+  // "Aujourd'hui" et "cette semaine" dans le fuseau DU COACH : c'est lui qui
+  // regarde cet écran, et ce sont ses propres journées de travail.
+  const todayStr = aujourdhuiDans(timezone);
+  const { lundi: mondayStr, dimanche: sundayStr } = semaineDans(timezone);
 
   // Séances effectuées cette semaine (event_type seance, date <= today)
   const { count: seancesCount } = activeIds.length
@@ -73,7 +72,7 @@ export default async function CoachPage() {
   const eventsQuery = coachUserId
     ? admin
         .from("calendar_events")
-        .select("id, titre, date, heure, event_type, target_user_id, lien")
+        .select("id, titre, date, heure, starts_at, event_type, target_user_id, lien")
         .eq("user_id", coachUserId)
         .not("event_type", "in", '("seance","tache")')
         .gte("date", mondayStr)

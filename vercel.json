@@ -1,16 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/unlock-notifications",
-      "schedule": "0 21 * * *"
-    },
-    {
-      "path": "/api/cron/tts-notifications",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/tts-notifications?region=nc",
-      "schedule": "0 21 * * *"
+      "path": "/api/cron/notifications",
+      "schedule": "0 20 * * *"
     }
   ]
 }

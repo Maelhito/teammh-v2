@@ -3,20 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { teinteEvenement } from "@/lib/couleurs-calendrier";
-
-const TIMEZONES = [
-  { value: "Australia/Darwin",    label: "Darwin — UTC+9:30" },
-  { value: "Australia/Brisbane",  label: "Brisbane — UTC+10" },
-  { value: "Australia/Sydney",    label: "Sydney — UTC+10/+11" },
-  { value: "Pacific/Noumea",      label: "Nouvelle-Calédonie — UTC+11" },
-  { value: "Europe/Paris",        label: "France — UTC+1/+2" },
-  { value: "Europe/London",       label: "Londres — UTC+0/+1" },
-  { value: "UTC",                 label: "UTC — UTC+0" },
-  { value: "America/New_York",    label: "New York — UTC-5/-4" },
-  { value: "America/Los_Angeles", label: "Los Angeles — UTC-8/-7" },
-  { value: "Asia/Tokyo",          label: "Tokyo — UTC+9" },
-  { value: "Asia/Dubai",          label: "Dubaï — UTC+4" },
-];
+import { dateAffichee, heureAffichee, nomLisible } from "@/lib/temps";
 
 const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const JOURS_FULL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
@@ -25,6 +12,8 @@ const MOIS = ["jan.", "fév.", "mars", "avr.", "mai", "juin", "juil.", "août", 
 type Client = { id: string; prenom: string; nom: string; email: string; statut: string };
 type WeekEvent = {
   id: string; titre: string; date: string; heure: string | null;
+  /** L'instant du rendez-vous. Fait foi ; `heure` n'est qu'un repli hérité. */
+  starts_at: string | null;
   event_type: string; target_user_id: string; lien?: string | null;
   clientName: string; displayTitle: string;
 };
@@ -52,39 +41,9 @@ function eventColor(type: string) {
   return { bg: t.fond, border: t.base, text: t.texte };
 }
 
-// Les heures sont saisies en heure Nouméa (Pacific/Noumea, UTC+11)
-// On les convertit dans la timezone du coach
-function formatHeure(h: string | null, date: string, coachTz: string) {
-  if (!h) return "";
-  try {
-    const [hh, mm] = h.split(":");
-    // Crée un Date en interprétant l'heure comme heure Nouméa
-    const d = new Date(`${date}T${hh.padStart(2,"0")}:${(mm ?? "00").padStart(2,"0")}:00+11:00`);
-    return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: coachTz });
-  } catch {
-    return h.slice(0, 5);
-  }
-}
-
-async function saveTimezone(tz: string) {
-  try {
-    await fetch("/api/coach/profil", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ timezone: tz }),
-    });
-  } catch {}
-}
-
 export default function DashboardCoach({
-  prenom, today, mondayStr, activeClients, seancesCount, weekEvents, timezone: initTz, coachUserId: _coachUserId,
+  prenom, today, mondayStr, activeClients, seancesCount, weekEvents, timezone,
 }: Props) {
-  const [timezone, setTimezone] = useState(initTz);
-
-  function handleTimezoneChange(tz: string) {
-    setTimezone(tz);
-    saveTimezone(tz);
-  }
   // Anti hydration-mismatch : tant que le composant n'est pas monté côté client,
   // on dérive la date à afficher des accesseurs UTC de `today` (calculée côté
   // serveur) — le texte produit est alors STRICTEMENT identique au HTML serveur,
@@ -124,11 +83,14 @@ export default function DashboardCoach({
     };
   });
 
-  // Événements par jour
+  // Événements par jour — regroupés sur le jour tel que LE COACH le voit : un
+  // rendez-vous posé à 23h à Nouméa peut tomber la veille ou le lendemain une
+  // fois converti dans un autre fuseau, la colonne doit suivre.
   const eventsByDay: Record<string, WeekEvent[]> = {};
   for (const ev of weekEvents) {
-    if (!eventsByDay[ev.date]) eventsByDay[ev.date] = [];
-    eventsByDay[ev.date].push(ev);
+    const jour = dateAffichee(ev, timezone) ?? ev.date;
+    if (!eventsByDay[jour]) eventsByDay[jour] = [];
+    eventsByDay[jour].push(ev);
   }
 
   // En-tête date
@@ -178,19 +140,15 @@ export default function DashboardCoach({
                 Événements de toutes vos clientes · hors séances & tâches
               </p>
             </div>
-            {/* Sélecteur timezone */}
-            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            {/* Le fuseau affiché ici est celui du profil (réglable dans
+                Mon profil > Fuseau horaire) : un seul endroit où le régler
+                évite qu'il diverge d'un écran à l'autre. */}
+            <Link href="/coach/profil" style={{ display: "flex", alignItems: "center", gap: 7, textDecoration: "none" }}>
               <span style={{ fontSize: 14 }}>🌏</span>
-              <select
-                value={timezone}
-                onChange={e => handleTimezoneChange(e.target.value)}
-                style={{ padding: "5px 10px", borderRadius: 7, border: "1px solid #e8e8e8", backgroundColor: "#fafafa", fontSize: 12, color: "#1a1a1a", fontFamily: "system-ui", outline: "none", cursor: "pointer" }}
-              >
-                {TIMEZONES.map(tz => (
-                  <option key={tz.value} value={tz.value}>{tz.label}</option>
-                ))}
-              </select>
-            </div>
+              <span style={{ fontSize: 12, color: "#666", fontFamily: "system-ui" }}>
+                {nomLisible(timezone)}
+              </span>
+            </Link>
           </div>
 
           {/* Grille 7 jours — scrollable sur mobile */}
@@ -221,12 +179,16 @@ export default function DashboardCoach({
                   )}
                   {evs.map(ev => {
                     const c = eventColor(ev.event_type);
+                    // L'heure vient de starts_at — l'instant réel, converti dans
+                    // le fuseau du coach — avec repli sur l'ancienne heure murale
+                    // pour les rendez-vous jamais rouverts depuis la migration.
+                    const heure = heureAffichee(ev, timezone);
                     return (
                       <div key={ev.id} style={{ backgroundColor: c.bg, border: `1px solid ${c.border}`, borderRadius: 6, padding: "4px 6px" }}
-                        title={`${ev.displayTitle}${ev.heure ? ` · ${formatHeure(ev.heure, ev.date, timezone)}` : ""}${ev.lien ? ` · 🔗 ${ev.lien}` : ""}`}>
-                        {ev.heure && (
+                        title={`${ev.displayTitle}${heure ? ` · ${heure}` : ""}${ev.lien ? ` · 🔗 ${ev.lien}` : ""}`}>
+                        {heure && (
                           <p style={{ fontSize: 9, color: c.text, margin: "0 0 1px", fontFamily: "system-ui", fontWeight: 700 }}>
-                            {formatHeure(ev.heure, ev.date, timezone)}
+                            {heure}
                           </p>
                         )}
                         <p style={{ fontSize: 10, color: c.text, margin: 0, fontFamily: "system-ui", fontWeight: 700, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } as React.CSSProperties}>

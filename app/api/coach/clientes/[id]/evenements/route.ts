@@ -3,6 +3,8 @@ import { checkCoachAccess } from "@/lib/check-coach-access";
 import { coachPeutVoirCliente } from "@/lib/check-cliente-assignee";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { estRendezVous } from "@/lib/couleurs-calendrier";
+import { estFuseauValide, instantDepuis } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -125,6 +127,16 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Heure requise pour un rendez-vous" }, { status: 400 });
   }
 
+  // Dans quel fuseau le coach vient-il de taper cette heure ? Le sien par
+  // défaut ; le formulaire peut passer celui de la cliente s'il a choisi de
+  // raisonner à son heure à elle. Sans cette information, « 9:00 » ne désigne
+  // aucun moment précis — c'est toute l'origine du rendez-vous manqué.
+  const fuseauSaisie = estFuseauValide(body.timezone) ? body.timezone : await getFuseau(user.id);
+  const instant = heure ? instantDepuis(date, heure, fuseauSaisie) : null;
+  if (heure && !instant) {
+    return NextResponse.json({ error: "Date ou heure invalide" }, { status: 400 });
+  }
+
   const { data, error } = await admin
     .from("calendar_events")
     .insert({
@@ -133,6 +145,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       titre:          String(titre).slice(0, 200),
       date,
       heure:          heure || null,
+      starts_at:      instant ? instant.toISOString() : null,
+      timezone:       instant ? fuseauSaisie : null,
       recurrence:     validRecurrences.includes(recurrence) ? recurrence : "none",
       message:        message ? String(message).slice(0, 1000) : null,
       lien:           lien ? String(lien).slice(0, 500) : null,
@@ -175,12 +189,20 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (estRendezVous(existant?.event_type) && !heure) {
     return NextResponse.json({ error: "Heure requise pour un rendez-vous" }, { status: 400 });
   }
+  const fuseauSaisie = estFuseauValide(body.timezone) ? body.timezone : await getFuseau(user.id);
+  const instant = heure ? instantDepuis(date, heure, fuseauSaisie) : null;
+  if (heure && !instant) {
+    return NextResponse.json({ error: "Date ou heure invalide" }, { status: 400 });
+  }
+
   const { data, error } = await admin
     .from("calendar_events")
     .update({
       titre:   String(titre).slice(0, 200),
       date,
       heure:   heure || null,
+      starts_at: instant ? instant.toISOString() : null,
+      timezone:  instant ? fuseauSaisie : null,
       message: message ? String(message).slice(0, 1000) : null,
       lien:    lien ? String(lien).slice(0, 500) : null,
     })

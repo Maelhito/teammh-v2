@@ -5,6 +5,15 @@ import Link from "next/link";
 
 type State = "idle" | "loading" | "success";
 
+/**
+ * Le fuseau de l'appareil, envoyé dès l'inscription : sans lui, la nouvelle
+ * cliente hérite du repli jusqu'à sa première ouverture de l'app — ses
+ * notifications et sa date de démarrage seraient calées sur le mauvais pays.
+ */
+function fuseauAppareil(): string | null {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; }
+}
+
 export default function InscriptionPage() {
   const [isCoach, setIsCoach] = useState(false);
   useEffect(() => {
@@ -58,7 +67,7 @@ export default function InscriptionPage() {
       const res = await fetch("/api/inscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prenom, nom, email, password, role: isCoach ? "coach" : "cliente" }),
+        body: JSON.stringify({ prenom, nom, email, password, role: isCoach ? "coach" : "cliente" , timezone: fuseauAppareil()}),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

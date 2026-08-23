@@ -10,7 +10,15 @@ export default function PushSubscriber() {
     async function subscribe() {
       const reg = await navigator.serviceWorker.ready;
       const existing = await reg.pushManager.getSubscription();
-      if (existing) return; // déjà abonné
+
+      // Déjà abonnée : il reste à réaligner le fuseau. Ce `return` prématuré
+      // figeait le fuseau au tout premier abonnement — une cliente partie en
+      // vacances gardait pour toujours celui de son inscription, et recevait
+      // ses notifications « du matin » au milieu de la nuit.
+      if (existing) {
+        await envoyer(existing);
+        return;
+      }
 
       let permission = Notification.permission;
       if (permission === "default") {
@@ -24,6 +32,10 @@ export default function PushSubscriber() {
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
 
+      await envoyer(subscription);
+    }
+
+    async function envoyer(subscription: PushSubscription) {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
       await fetch("/api/push/subscribe", {

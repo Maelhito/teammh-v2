@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
+import SyncFuseau from "@/components/SyncFuseau";
 
 const bebasNeue = Bebas_Neue({
   weight: "400",
@@ -45,6 +46,8 @@ export default function RootLayout({
       </head>
       <body className={`${bebasNeue.variable} ${dmSans.variable} antialiased`}>
         <ServiceWorkerRegistration />
+        {/* Tient à jour le fuseau de la personne connectée, partout dans l'app. */}
+        <SyncFuseau />
         {children}
       </body>
     </html>

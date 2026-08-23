@@ -7,6 +7,15 @@ import { TTS_OBJECTIF_OPTIONS, type TtsObjectifValue } from "@/lib/tts-objectifs
 
 type State = "idle" | "loading" | "success";
 
+/**
+ * Le fuseau de l'appareil, envoyé dès l'inscription : sans lui, la nouvelle
+ * cliente hérite du repli jusqu'à sa première ouverture de l'app — ses
+ * notifications et sa date de démarrage seraient calées sur le mauvais pays.
+ */
+function fuseauAppareil(): string | null {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; }
+}
+
 export default function InscriptionTtsPage() {
   const [prenom, setPrenom] = useState("");
   const [nom, setNom] = useState("");
@@ -59,7 +68,7 @@ export default function InscriptionTtsPage() {
       const res = await fetch("/api/inscription-tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prenom, nom, email, password, objectif }),
+        body: JSON.stringify({ prenom, nom, email, password, objectif , timezone: fuseauAppareil()}),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

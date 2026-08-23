@@ -12,12 +12,18 @@ import {
   couleurEvenement, couleurProgramme, labelEvenement, estRendezVous,
 } from "@/lib/couleurs-calendrier";
 import { estSeanceValidee, type SeanceValidee } from "@/lib/seances-validees";
+import ApercuFuseauRdv from "@/components/ApercuFuseauRdv";
+import { aujourdhuiDans, formatHeureDans, fuseauAppareil, occurrenceLe } from "@/lib/temps";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Cliente { id: string; email: string; prenom: string | null; nom: string | null; statut: string; acces_app?: boolean; date_demarrage: string | null; }
 interface Programme { id: string; nom: string; niveau: string; duree_semaines: number; description: string | null; }
 interface CalendarEvent {
   id: string; titre: string; date: string; heure: string | null;
+  /** L'instant du rendez-vous — fait foi. */
+  starts_at?: string | null;
+  /** Le fuseau dans lequel l'heure a été tapée. */
+  timezone?: string | null;
   recurrence: "none" | "daily" | "weekly" | "monthly";
   message: string | null; lien: string | null; rappel: boolean;
   created_by: "admin" | "cliente";
@@ -72,17 +78,16 @@ function getItemName(item: CellItem): string {
 let _k = 0;
 function nk() { return `ci${++_k}_${Date.now()}`; }
 
-function isEventOnDay(ev: CalendarEvent, day: Date): boolean {
-  const evDate = new Date(ev.date + "T00:00:00");
-  evDate.setHours(0, 0, 0, 0);
-  if (evDate > day) return false;
-  switch (ev.recurrence) {
-    case "none":    return evDate.toDateString() === day.toDateString();
-    case "daily":   return true;
-    case "weekly":  return evDate.getDay() === day.getDay();
-    case "monthly": return evDate.getDate() === day.getDate();
-    default:        return false;
-  }
+/**
+ * L'événement tombe-t-il ce jour-là, pour la personne qui regarde l'écran ?
+ *
+ * Toute la logique (récurrences, changement d'heure, jour qui diffère selon le
+ * fuseau du lecteur) vit dans `occurrenceLe` — cette fonction n'est plus qu'un
+ * adaptateur. Elle existait auparavant en cinq copies quasi identiques, chacune
+ * comparant des dates murales sans fuseau.
+ */
+function isEventOnDay(event: CalendarEvent, day: Date, fuseauLecteur: string | null): boolean {
+  return occurrenceLe(event, toLocalDate(day), fuseauLecteur).tombe;
 }
 // Les couleurs et libellés viennent de lib/couleurs-calendrier (source unique)
 function evColor(ev: CalendarEvent): string {
@@ -294,6 +299,10 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [team, setTeam] = useState<TeamInfo>({ coach: null, nutrition: null });
+  // Fuseau dans lequel le coach déclare taper l'heure. Renseigné par
+  // ApercuFuseauRdv dès qu'il connaît les deux fuseaux ; envoyé au serveur pour
+  // qu'il sache quel instant « 9:00 » désigne réellement.
+  const [fuseauSaisie, setFuseauSaisie] = useState<string | null>(null);
 
   const [evForm, setEvForm] = useState({
     titre: "", date: defaultDate, heure: "",
@@ -340,7 +349,7 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
   async function handleSave() {
     const body = tab === "tache"
       ? { titre: tacheForm.titre, date: tacheForm.date, message: tacheForm.description || null, heure: null, recurrence: "none", event_type: "tache", rappel: false, rappel_minutes: 0, lien: null }
-      : { ...evForm, heure: evForm.heure || null };
+      : { ...evForm, heure: evForm.heure || null, timezone: fuseauSaisie };
 
     if (!body.titre) { setError("Titre requis"); return; }
     // Sans heure, la cliente ne voit qu'un titre sur son calendrier et son
@@ -406,6 +415,13 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
                 <input type="time" required style={{ ...inp, color: evForm.heure ? "#1a1a1a" : "#bbb", borderColor: evForm.heure ? "#ddd" : "#E8B4B4" }} value={evForm.heure} onChange={e => setEvForm(f => ({ ...f, heure: e.target.value }))} />
               </div>
             </div>
+            <ApercuFuseauRdv
+              clienteId={clienteId}
+              date={evForm.date}
+              heure={evForm.heure}
+              fuseauSaisie={fuseauSaisie}
+              onFuseauSaisieChange={setFuseauSaisie}
+            />
             <div>
               <label style={lbl}>Type de rendez-vous</label>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -487,6 +503,11 @@ function MonthCalendar({ layers, today, events, seancesValidees, onEditItem, onM
   onEventClick?: (ev: CalendarEvent) => void;
 }) {
   const [monthOffset, setMonthOffset] = useState(0);
+  // Le fuseau du coach qui regarde le calendrier de sa cliente. Connu seulement
+  // dans le navigateur : au rendu serveur, `occurrenceLe` retombe sur la date
+  // murale, donc pas d'écart d'hydratation.
+  const [fuseauLecteur, setFuseauLecteur] = useState<string | null>(null);
+  useEffect(() => { setFuseauLecteur(fuseauAppareil()); }, []);
   // Un drop cible une case d'un programme précis → clé "assignmentId|cellKey"
   const [dragOver, setDragOver] = useState<string | null>(null);
   const dragRef = useRef<{ assignmentId: string; cellKey: string; itemKey: string } | null>(null);
@@ -559,7 +580,7 @@ function MonthCalendar({ layers, today, events, seancesValidees, onEditItem, onM
             })
             .filter(l => l.cellKey !== null);
           const isDragTarget = dragOver === dayId;
-          const dayEvents = events.filter(ev => isEventOnDay(ev, day));
+          const dayEvents = events.filter(ev => isEventOnDay(ev, day, fuseauLecteur));
 
           /** Case cible de ce jour pour le programme de l'item en cours de drag. */
           const dropTargetKey = (): string | null => {
@@ -1102,7 +1123,9 @@ function AssignModal({ clienteId, nbActifs, onAssigned, onPersonnaliser, onClose
 }) {
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [selected, setSelected] = useState("");
-  const [dateDebut, setDateDebut] = useState(() => new Date().toISOString().split("T")[0]);
+  // .toISOString() rend l'UTC, pas le jour local du coach — décalé dès qu'il
+  // est loin de Greenwich.
+  const [dateDebut, setDateDebut] = useState(() => aujourdhuiDans(fuseauAppareil()));
   // Réglages propres à cette cliente (durée + séances gardées / déplacées)
   const [lignes, setLignes] = useState<LigneJour[]>([]);
   const [duree, setDuree] = useState(4);
@@ -1237,7 +1260,13 @@ function EventEditModal({ ev, clienteId, onClose, onUpdated }: {
 }) {
   const [titre, setTitre] = useState(ev.titre);
   const [date, setDate] = useState(ev.date);
-  const [heure, setHeure] = useState(ev.heure ?? "");
+  // On rouvre l'heure dans le fuseau où elle a été tapée : la réafficher dans
+  // un autre fuseau ferait glisser le rendez-vous au simple fait de rouvrir et
+  // de réenregistrer, sans que personne ne touche au champ.
+  const [fuseauSaisie, setFuseauSaisie] = useState<string | null>(ev.timezone ?? null);
+  const [heure, setHeure] = useState(
+    ev.starts_at && ev.timezone ? formatHeureDans(ev.starts_at, ev.timezone) : (ev.heure ?? "")
+  );
   const [message, setMessage] = useState(ev.message ?? "");
   const [lien, setLien] = useState(ev.lien ?? "");
   const [saving, setSaving] = useState(false);
@@ -1259,7 +1288,7 @@ function EventEditModal({ ev, clienteId, onClose, onUpdated }: {
     const res = await fetch(`/api/coach/clientes/${clienteId}/evenements?event_id=${ev.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ titre, date, heure: heure || null, message: message || null, lien: lien || null }),
+      body: JSON.stringify({ titre, date, heure: heure || null, timezone: fuseauSaisie, message: message || null, lien: lien || null }),
     });
     if (res.ok) { onUpdated(); }
     else { const d = await res.json().catch(() => ({})); setError(d.error ?? "Erreur"); setSaving(false); }
@@ -1302,6 +1331,15 @@ function EventEditModal({ ev, clienteId, onClose, onUpdated }: {
               </div>
             )}
           </div>
+          {!isTache && (
+            <ApercuFuseauRdv
+              clienteId={clienteId}
+              date={date}
+              heure={heure}
+              fuseauSaisie={fuseauSaisie}
+              onFuseauSaisieChange={setFuseauSaisie}
+            />
+          )}
           <div><label style={lbl}>{isTache ? "Description" : "Message"}</label>
             <textarea style={{ ...inp, minHeight: 72, resize: "none" }} value={message} onChange={e => setMessage(e.target.value)} />
           </div>

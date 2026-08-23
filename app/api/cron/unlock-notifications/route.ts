@@ -1,44 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import { executerCronNotifications } from "@/lib/notifications/cron";
+import { cronAutorise } from "@/lib/notifications/auth";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 /**
- * Cron à 21h UTC = 8h NC (Pacific/Noumea UTC+11)
- * Notifie le déblocage module 4 (2h après la complétion du module 3)
+ * Ancienne adresse du déblocage différé des modules — fonctionnalité retirée
+ * depuis (tous les modules sont accessibles librement), si bien que ce cron
+ * répondait 200 sans rien faire.
+ *
+ * Or c'est LUI que le planificateur externe appelle avec succès, pendant que
+ * le vrai cron de notifications échoue. Plutôt que de laisser un passage vert
+ * qui rassure sans rien envoyer, il exécute désormais le même travail que les
+ * autres. À repointer vers /api/cron/notifications quand ce sera fait.
  */
-
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  const secret = process.env.CRON_SECRET;
-
-  if (process.env.NODE_ENV === "production" && authHeader !== `Bearer ${secret}`) {
-    console.log("[cron] Unauthorized — header reçu:", authHeader?.slice(0, 30) ?? "aucun");
+  if (!cronAutorise(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const now = new Date();
-  const hourUTC = now.getUTCHours();
-  const logs: string[] = [`[cron] démarrage ${now.toISOString()} (UTC h=${hourUTC})`];
-
-  let moduleUnlockSent = 0;
-
-  // ── 21h UTC = 8h NC (Pacific/Noumea UTC+11) ───────────────────────────────
-  if (hourUTC === 21) {
-    moduleUnlockSent = await runModuleUnlockNotifications(logs);
-  } else {
-    logs.push("[cron] heure ≠ 21 — skip module unlock");
-  }
-
-  logs.push(`[cron] résultats : moduleUnlockSent=${moduleUnlockSent}`);
-  console.log(logs.join("\n"));
-
-  return NextResponse.json({ success: true, moduleUnlockSent, logs });
+  const resultat = await executerCronNotifications();
+  return NextResponse.json({ ...resultat, note: "alias de /api/cron/notifications" });
 }
-
-// ─── Notification déblocage module (désactivé) ───────────────────────────────
-// Tous les modules sont désormais accessibles librement (plus de délai/verrou),
-// donc il n'y a plus de déblocage différé à notifier.
-
-async function runModuleUnlockNotifications(logs: string[]): Promise<number> {
-  logs.push("[modules] verrouillage désactivé — plus de notification de déblocage");
-  return 0;
-}
-

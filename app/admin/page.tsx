@@ -1,4 +1,7 @@
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { FUSEAU_PAR_DEFAUT, semaineDans } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 import { getModules } from "@/lib/modules";
 import AdminAppLinks from "./AdminAppLinks";
 import AdminWeekCalendar from "./AdminWeekCalendar";
@@ -7,27 +10,20 @@ export const dynamic = "force-dynamic";
 
 const ADMIN_EMAIL = "mael.ld@hotmail.fr";
 
-function getWeekDates(): string[] {
-  const today = new Date();
-  const day = today.getDay(); // 0=dim
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - ((day + 6) % 7));
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return d.toISOString().slice(0, 10);
-  });
-}
-
 async function getDashboardData() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) return null;
 
   const admin = createSupabaseAdminClient();
-  const weekDates = getWeekDates();
-  const mondayStr = weekDates[0];
-  const sundayStr = weekDates[6];
+
+  // "Cette semaine" dans le fuseau DE L'ADMIN (Mael, à Bali) qui regarde cet
+  // écran — pas dans celui du serveur (UTC), qui décalait la semaine pendant
+  // sa matinée.
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const fuseauAdmin = user ? await getFuseau(user.id) : FUSEAU_PAR_DEFAUT;
+  const { lundi: mondayStr, dimanche: sundayStr, jours: weekDates } = semaineDans(fuseauAdmin);
 
   const [authRes, profilesRes, completionsRes, eventsRes, teamRes] = await Promise.all([
     fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=500`, {

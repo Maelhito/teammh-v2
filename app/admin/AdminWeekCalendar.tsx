@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { COULEURS_EVENEMENT, couleurEvenement } from "@/lib/couleurs-calendrier";
+import { aujourdhuiDans, fuseauAppareil } from "@/lib/temps";
 
 type CalEvent = {
   id: string;
@@ -53,7 +54,10 @@ function formatDay(dateStr: string) {
 }
 
 function isToday(dateStr: string) {
-  return dateStr === new Date().toISOString().slice(0, 10);
+  // .toISOString() rend toujours l'UTC : au petit matin à Nouméa ou à Bali,
+  // ça pointait encore sur la veille. On compare au jour calendaire réel de
+  // l'appareil qui affiche l'écran.
+  return dateStr === aujourdhuiDans(fuseauAppareil());
 }
 
 export default function AdminWeekCalendar({ events, inscriptions, teamMembers, weekDates }: Props) {

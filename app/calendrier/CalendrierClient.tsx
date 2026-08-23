@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import {
   COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, ORDRE_LEGENDE, couleurEvenement,
-  teinteEvenement, estRendezVous, formatHeureCourte,
+  teinteEvenement, estRendezVous,
 } from "@/lib/couleurs-calendrier";
+import { fuseauAppareil, heureAffichee, occurrenceLe } from "@/lib/temps";
 import { estSeanceValidee } from "@/lib/seances-validees";
 
 interface CalendarEvent {
@@ -12,6 +13,8 @@ interface CalendarEvent {
   titre: string;
   date: string;
   heure: string | null;
+  /** L'instant du rendez-vous. Fait foi ; `heure` n'est qu'un repli hérité. */
+  starts_at: string | null;
   recurrence: "none" | "daily" | "weekly" | "monthly";
   message: string | null;
   lien: string | null;
@@ -38,23 +41,16 @@ interface Props {
   todayIso: string;
 }
 
-function isEventOnDay(event: CalendarEvent, day: Date): boolean {
-  const eventDate = new Date(event.date + "T00:00:00");
-  eventDate.setHours(0, 0, 0, 0);
-  if (eventDate > day) return false;
-
-  switch (event.recurrence) {
-    case "none":
-      return eventDate.toDateString() === day.toDateString();
-    case "daily":
-      return true;
-    case "weekly":
-      return eventDate.getDay() === day.getDay();
-    case "monthly":
-      return eventDate.getDate() === day.getDate();
-    default:
-      return false;
-  }
+/**
+ * L'événement tombe-t-il ce jour-là, pour la personne qui regarde l'écran ?
+ *
+ * Toute la logique (récurrences, changement d'heure, jour qui diffère selon le
+ * fuseau du lecteur) vit dans `occurrenceLe` — cette fonction n'est plus qu'un
+ * adaptateur. Elle existait auparavant en cinq copies quasi identiques, chacune
+ * comparant des dates murales sans fuseau.
+ */
+function isEventOnDay(event: CalendarEvent, day: Date, fuseauLecteur: string | null): boolean {
+  return occurrenceLe(event, toLocalDate(day), fuseauLecteur).tombe;
 }
 
 function toLocalDate(d: Date): string {
@@ -101,6 +97,11 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
   // mise à jour a lieu après l'hydratation donc n'est jamais comparée au HTML serveur.
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+
+  // Le fuseau du lecteur, c'est celui de son appareil. Avant montage on ne le
+  // connaît pas (le serveur rendrait UTC) : on garde l'heure telle qu'écrite,
+  // et l'hydratation la convertit. Sans ce garde-fou, l'heure clignoterait.
+  const fuseauLecteur = mounted ? fuseauAppareil() : null;
 
   const refDate = mounted ? new Date() : new Date(`${todayIso}T00:00:00.000Z`);
   const todayY = mounted ? refDate.getFullYear() : refDate.getUTCFullYear();
@@ -164,7 +165,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
   }
 
   function getDayEvents(day: Date) {
-    return events.filter((e) => isEventOnDay(e, day));
+    return events.filter((e) => isEventOnDay(e, day, fuseauLecteur));
   }
 
   async function handleAddEvent(e: React.FormEvent) {
@@ -383,7 +384,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
                     l'information qu'on vient chercher. */}
                 <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                   {(() => {
-                    const heure = formatHeureCourte(evt.heure);
+                    const heure = heureAffichee(evt, fuseauLecteur);
                     if (!heure && !estRendezVous(evt.event_type)) return null;
                     return (
                       <span style={{

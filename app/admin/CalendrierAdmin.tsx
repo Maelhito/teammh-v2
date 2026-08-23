@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { contientRecherche } from "@/lib/recherche";
 import { COULEURS_EVENEMENT, ORDRE_LEGENDE, couleurEvenement, estRendezVous } from "@/lib/couleurs-calendrier";
+import { fuseauAppareil, occurrenceLe } from "@/lib/temps";
 
 interface Client {
   id: string;
@@ -52,18 +53,20 @@ function clientLabel(c: Client) {
   return c.prenom && c.nom ? `${c.prenom} ${c.nom}` : c.email;
 }
 
-function isEventOnDay(ev: CalEvent, day: Date): boolean {
-  const evDate = new Date(ev.date + "T00:00:00");
-  evDate.setHours(0, 0, 0, 0);
-  if (evDate > day) return false;
-  const d = new Date(day); d.setHours(0, 0, 0, 0);
-  switch (ev.recurrence) {
-    case "none":    return evDate.toDateString() === d.toDateString();
-    case "daily":   return true;
-    case "weekly":  return evDate.getDay() === d.getDay();
-    case "monthly": return evDate.getDate() === d.getDate();
-    default:        return false;
-  }
+function toLocalDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * L'événement tombe-t-il ce jour-là, pour la personne qui regarde l'écran ?
+ *
+ * Toute la logique (récurrences, changement d'heure, jour qui diffère selon le
+ * fuseau du lecteur) vit dans `occurrenceLe` — cette fonction n'est plus qu'un
+ * adaptateur. Elle existait auparavant en cinq copies quasi identiques, chacune
+ * comparant des dates murales sans fuseau.
+ */
+function isEventOnDay(event: CalEvent, day: Date, fuseauLecteur: string | null): boolean {
+  return occurrenceLe(event, toLocalDate(day), fuseauLecteur).tombe;
 }
 
 const DEFAULT_FORM = {
@@ -73,6 +76,11 @@ const DEFAULT_FORM = {
 
 export default function CalendrierAdmin({ clients, teamMembers }: Props) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
+  // Le fuseau de qui regarde l'écran. Connu seulement dans le navigateur : au
+  // rendu serveur, `occurrenceLe` retombe sur la date murale, donc pas d'écart
+  // d'hydratation.
+  const [fuseauLecteur, setFuseauLecteur] = useState<string | null>(null);
+  useEffect(() => { setFuseauLecteur(fuseauAppareil()); }, []);
   const [monthOffset, setMonthOffset] = useState(0);
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -266,7 +274,7 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
           {cells.map((day, i) => {
             const isCurrentMonth = day.getMonth() === base.getMonth();
             const isToday = day.toDateString() === today.toDateString();
-            const dayEvents = events.filter(ev => isEventOnDay(ev, day));
+            const dayEvents = events.filter(ev => isEventOnDay(ev, day, fuseauLecteur));
             const dateStr = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,"0")}-${String(day.getDate()).padStart(2,"0")}`;
 
             return (

@@ -48,13 +48,6 @@ function compterDistinctes(logs: SeanceLog[]): number {
  * entre minuit et 2 h du matin, « aujourd'hui » désignerait encore la veille et
  * la séance du soir serait comptée comme ratée.
  */
-function aujourdhuiAParis(now: Date): string {
-  return new Intl.DateTimeFormat("fr-CA", {
-    timeZone: "Europe/Paris",
-    year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(now);
-}
-
 /** Un joker est accordé toutes les N séances enchaînées, et il en tient 2 en réserve. */
 const JOKER_TOUS_LES_N = 5;
 const JOKERS_MAX = 2;
@@ -152,12 +145,19 @@ function construirePaliers(serie: number, total: number): Palier[] {
  * remet la série à zéro. La séance du jour ne casse rien tant que la journée
  * n'est pas finie.
  */
+/**
+ * `aujourdhui` doit être calculé par l'appelant via `aujourdhuiDans(fuseauDeLaCliente)`
+ * (lib/temps) — jamais ici. Cette fonction reste pure : elle ne doit dépendre
+ * ni d'une horloge ni d'un fuseau en dur, sous peine de rejouer le bug
+ * d'origine (la série était calculée sur le jour calendaire à PARIS, quel que
+ * soit le pays réel de la cliente — une séance validée à 7h à Nouméa pouvait
+ * compter sur le mauvais jour).
+ */
 export function calculerSerie(
   programmes: DecodedProgramme[],
   validees: SeanceLog[],
-  now: Date = new Date()
+  aujourdhui: string
 ): SerieInfo {
-  const aujourdhui = aujourdhuiAParis(now);
 
   let serie = 0;
   let enchainees = 0;

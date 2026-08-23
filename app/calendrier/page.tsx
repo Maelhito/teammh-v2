@@ -6,6 +6,8 @@ import CalendrierClient from "./CalendrierClient";
 import PreviewBanner from "@/components/PreviewBanner";
 import { getEffectiveUser } from "@/lib/preview";
 import { decodeAssignments } from "@/lib/programme-planning";
+import { FUSEAU_PAR_DEFAUT, aujourdhuiDans } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +21,11 @@ export default async function CalendrierPage() {
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
   const { userId, firstName, isPreview } = await getEffectiveUser(session);
-  // Date du jour côté serveur (anti hydration-mismatch, voir CalendrierClient)
-  const todayIso = new Date().toISOString().slice(0, 10);
+  // Date du jour côté serveur (anti hydration-mismatch, voir CalendrierClient).
+  // Dans le fuseau DE LA CLIENTE : sinon le serveur (UTC) affiche encore la
+  // veille pour toute personne à l'est de Greenwich pendant sa matinée.
+  const fuseau = userId ? await getFuseau(userId) : FUSEAU_PAR_DEFAUT;
+  const todayIso = aujourdhuiDans(fuseau);
 
   let events: object[] = [];
   let completedSeances: { grid_key: string | null; assignment_id: string | null; nom: string | null }[] = [];
@@ -74,6 +79,9 @@ export default async function CalendrierPage() {
             titre: nom,
             date: toLocalDateStr(d),
             heure: null,
+            // Une séance est un « jour local », pas un instant : elle tombe le
+            // jour dit chez la cliente, où qu'elle soit. Rien à convertir.
+            starts_at: null,
             recurrence: "none",
             message: null,
             lien: null,

@@ -3,6 +3,8 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { calculerSerie } from "@/lib/serie";
 import { decodeAssignments } from "@/lib/programme-planning";
+import { aujourdhuiDans } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -74,7 +76,7 @@ export async function POST(req: NextRequest) {
 
   // La série est recalculée APRÈS l'insertion, avec exactement la même règle que
   // l'écran d'accueil : les deux affichent forcément le même nombre.
-  const [programmes, logs] = await Promise.all([
+  const [programmes, logs, fuseau] = await Promise.all([
     admin
       .from("client_programmes")
       .select("*, programme:programmes(nom, duree_semaines, description)")
@@ -87,9 +89,10 @@ export async function POST(req: NextRequest) {
       .select("id, grid_key, assignment_id")
       .eq("user_id", session.user.id)
       .then((r) => r.data ?? []),
+    getFuseau(session.user.id),
   ]);
 
-  const serie = calculerSerie(programmes, logs);
+  const serie = calculerSerie(programmes, logs, aujourdhuiDans(fuseau));
 
   return NextResponse.json({
     success: true,

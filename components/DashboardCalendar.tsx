@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { COULEURS_EVENEMENT, couleurEvenement, teinteEvenement, estRendezVous, formatHeureCourte } from "@/lib/couleurs-calendrier";
+import { COULEURS_EVENEMENT, couleurEvenement, teinteEvenement, estRendezVous } from "@/lib/couleurs-calendrier";
+import { fuseauAppareil, heureAffichee } from "@/lib/temps";
 
 interface CalEvent {
   id: string;
   titre: string;
   heure: string | null;
+  /** L'instant du rendez-vous. Fait foi ; `heure` n'est qu'un repli hérité. */
+  starts_at: string | null;
   event_type: string | null;
 }
 
@@ -53,6 +56,12 @@ void JOURS_COURTS;
 export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone }: Props) {
   const todayIdx = weekDays.findIndex((d) => d.isToday);
   const [selectedIdx, setSelectedIdx] = useState<number>(todayIdx >= 0 ? todayIdx : 0);
+
+  // Le fuseau du lecteur n'est connu qu'une fois dans le navigateur : côté
+  // serveur, `Intl` rend UTC. Tant qu'on ne l'a pas, on affiche l'ancienne
+  // heure murale — même valeur qu'au rendu serveur, donc pas de clignotement.
+  const [fuseauLecteur, setFuseauLecteur] = useState<string | null>(null);
+  useEffect(() => { setFuseauLecteur(fuseauAppareil()); }, []);
 
   const selectedDay = weekDays[selectedIdx];
   const hasDetail = selectedDay && (selectedDay.events.length > 0 || selectedDay.seances.length > 0);
@@ -193,7 +202,7 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
               const couleur = evtBorderColor(evt.event_type);
               // `clair` : la teinte pensée pour rester lisible sur le fond noir.
               const couleurTexte = teinteEvenement(evt.event_type).clair;
-              const heure = formatHeureCourte(evt.heure);
+              const heure = heureAffichee(evt, fuseauLecteur);
               const rdv = estRendezVous(evt.event_type);
               return (
                 <div key={evt.id} style={{

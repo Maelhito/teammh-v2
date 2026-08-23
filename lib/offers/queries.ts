@@ -1,5 +1,7 @@
 import type { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { OFFRE_ORDER, type Offre, type Phase } from "./types";
+import { aujourdhuiDans } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 
 type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
@@ -101,10 +103,13 @@ export async function upsertOffre(
     return { needsConfirmation: true, offreAvant };
   }
 
+  // Le jour de départ compte dans le fuseau DE LA CLIENTE, pas celui du coach
+  // qui affecte l'offre ni celui du serveur.
+  const dateDebut = aujourdhuiDans(await getFuseau(user_id));
   const { error: upsertError } = await admin
     .from("offres_clientes")
     .upsert(
-      { user_id, offre, date_debut: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString() },
+      { user_id, offre, date_debut: dateDebut, updated_at: new Date().toISOString() },
       { onConflict: "user_id" }
     );
   if (upsertError) return { error: upsertError.message, status: 500 };

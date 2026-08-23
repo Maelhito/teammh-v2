@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { aujourdhuiDans, fuseauAppareil } from "@/lib/temps";
 
 export async function GET(req: NextRequest) {
   if (process.env.NODE_ENV !== "development") {
@@ -28,10 +29,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Programme introuvable", detail: progErr?.message }, { status: 404 });
   }
 
-  // Date de début = aujourd'hui - weeksAgo semaines
+  // Date de début = aujourd'hui - weeksAgo semaines. Outil dev uniquement
+  // (gated par NODE_ENV plus haut) : le fuseau de l'appareil du dev suffit.
   const dateDebut = new Date();
   dateDebut.setDate(dateDebut.getDate() - weeksAgo * 7);
-  const dateDebutStr = dateDebut.toISOString().slice(0, 10);
+  const dateDebutStr = aujourdhuiDans(fuseauAppareil(), dateDebut);
 
   // Mettre les précédents en pause
   await admin

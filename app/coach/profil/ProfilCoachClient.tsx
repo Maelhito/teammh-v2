@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import ReglageFuseau from "@/components/ReglageFuseau";
 
 interface Props {
   prenom: string;
@@ -138,6 +139,13 @@ export default function ProfilCoachClient({ prenom: initPrenom, nom: initNom, em
         >
           {saving ? "Enregistrement…" : "Enregistrer les modifications"}
         </button>
+      </div>
+
+      {/* Un coach qui bouge de fuseau en Australie doit pouvoir le voir et le
+          corriger : c'est ce fuseau qui sert de référence quand il pose l'heure
+          d'un rendez-vous à une cliente. */}
+      <div style={{ marginTop: 20 }}>
+        <ReglageFuseau theme="clair" />
       </div>
     </div>
   );

@@ -1,4 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { aujourdhuiDans } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 
 const MAX_FREEZES = 2;
 const FREEZE_EVERY_N_SEANCES = 3;
@@ -10,7 +12,11 @@ const FREEZE_EVERY_N_SEANCES = 3;
  */
 export async function updateTtsStreak(userId: string): Promise<{ streak: number; freezeUsed: boolean }> {
   const admin = createSupabaseAdminClient();
-  const today = new Date().toISOString().slice(0, 10);
+  // Le jour compte dans le fuseau DE LA CLIENTE : sinon une séance validée le
+  // matin (encore la veille pour un serveur en UTC) pouvait consommer un gel
+  // ou casser la série au lieu de l'allonger.
+  const fuseau = await getFuseau(userId);
+  const today = aujourdhuiDans(fuseau);
 
   const { data: profile } = await admin
     .from("user_profiles")
@@ -24,9 +30,7 @@ export async function updateTtsStreak(userId: string): Promise<{ streak: number;
 
   if (last === today) return { streak: current, freezeUsed: false };
 
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+  const yesterdayStr = aujourdhuiDans(fuseau, new Date(Date.now() - 86400000));
 
   let newStreak: number;
   let newFreezes = freezes;

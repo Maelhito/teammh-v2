@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { estFuseauValide, instantDepuis } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -29,6 +31,14 @@ export async function POST(request: NextRequest) {
   const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const resolvedTeamMemberId = (team_member_id && uuidRe.test(team_member_id)) ? team_member_id : null;
 
+  // La cliente saisit dans son propre fuseau — celui de l'appareil qu'elle a
+  // sous les yeux, tenu à jour par SyncFuseau.
+  const fuseauSaisie = estFuseauValide(body.timezone) ? body.timezone : await getFuseau(session.user.id);
+  const instant = heure ? instantDepuis(date, heure, fuseauSaisie) : null;
+  if (heure && !instant) {
+    return NextResponse.json({ error: "Date ou heure invalide" }, { status: 400 });
+  }
+
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("calendar_events")
@@ -38,6 +48,8 @@ export async function POST(request: NextRequest) {
       titre: String(titre).slice(0, 200),
       date,
       heure: heure || null,
+      starts_at: instant ? instant.toISOString() : null,
+      timezone: instant ? fuseauSaisie : null,
       recurrence: recurrence ?? "none",
       message: message ? String(message).slice(0, 1000) : null,
       rappel: rappel === true,

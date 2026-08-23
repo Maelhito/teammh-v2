@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { estRendezVous } from "@/lib/couleurs-calendrier";
+import { estFuseauValide, instantDepuis } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 
 
 
@@ -55,6 +57,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Heure requise pour un rendez-vous" }, { status: 400 });
   }
 
+  // Fuseau de saisie : celui de l'admin par défaut. Pour une visio de groupe
+  // diffusée à toutes (target_user_id null), c'est le seul repère possible —
+  // et c'est justement le cas où chaque cliente doit voir SON heure à elle.
+  const fuseauSaisie = estFuseauValide(body.timezone) ? body.timezone : await getFuseau(session.user.id);
+  const instant = heure ? instantDepuis(date, heure, fuseauSaisie) : null;
+  if (heure && !instant) {
+    return NextResponse.json({ error: "Date ou heure invalide" }, { status: 400 });
+  }
+
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("calendar_events")
@@ -64,6 +75,8 @@ export async function POST(request: NextRequest) {
       titre: String(titre).slice(0, 200),
       date,
       heure: heure || null,
+      starts_at: instant ? instant.toISOString() : null,
+      timezone: instant ? fuseauSaisie : null,
       recurrence: recurrence ?? "none",
       message: message ? String(message).slice(0, 1000) : null,
       lien: lien ? String(lien).slice(0, 500) : null,
