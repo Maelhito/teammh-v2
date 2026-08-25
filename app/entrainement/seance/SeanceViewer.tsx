@@ -197,18 +197,59 @@ function direVoix(mot: FinDeChrono): boolean {
   return true;
 }
 
-/** Point d'entrée unique du décompte, partagé par les trois chronos.
- *  Appelé chaque seconde avec le temps restant ; `fin` dit ce qui suit. */
-function signalerDecompte(secondesRestantes: number, fin: FinDeChrono) {
-  if (secondesRestantes > 3) return;
-  if (secondesRestantes > 0) { playBip(); return; }
-  // Zéro (ou en dessous) : la voix annonce ce qui commence.
+/** Vibration du téléphone. Silencieusement ignorée là où l'API n'existe pas
+ *  (Safari iOS ne la propose pas) : c'est exactement pour ça que le signal
+ *  VISUEL de fin de bloc n'est jamais optionnel. */
+function vibrer(motif: number[]) {
+  try {
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      navigator.vibrate(motif);
+    }
+  } catch { /* refusé par le navigateur : le visuel prend le relais */ }
+}
+
+/** Annonce ce qui DÉMARRE, au passage à zéro d'une phase qui en enchaîne une
+ *  autre. La voix si le fichier est là, des bips sinon. */
+function annoncer(fin: FinDeChrono) {
+  vibrer([130]);
   if (direVoix(fin)) return;
   // Repli sans fichier : deux bips montants pour repartir, un grave pour l'arrêt.
   const ctx = getAudioCtx();
   const t = ctx ? ctx.currentTime : undefined;
   if (fin === "lets-go") { playBip(t); playBip(t !== undefined ? t + 0.18 : undefined); }
   else playBip(t, BIP.volume * 0.8);
+}
+
+/** Fin de bloc : trois notes DESCENDANTES, à l'opposé du bip aigu du décompte,
+ *  pour qu'on ne puisse pas les confondre. Avant, le chrono s'arrêtait sans
+ *  rien dire du tout et la cliente restait à attendre devant un écran figé. */
+function playFinBloc() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const jouer = () => {
+    const t0 = ctx.currentTime;
+    [880, 698.46, 587.33].forEach((freq, i) => {
+      const t = t0 + i * 0.19;
+      const duree = i === 2 ? 1.1 : 0.36;      // la dernière note traîne : ça pose
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      osc.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.34, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + duree);
+      osc.start(t); osc.stop(t + duree + 0.05);
+    });
+  };
+  if (ctx.state === "suspended") ctx.resume().then(jouer).catch(() => {});
+  else jouer();
+}
+
+/** Le signal complet de fin de bloc : son distinct + vibration longue. */
+function signalerFinBloc() {
+  playFinBloc();
+  vibrer([200, 100, 200, 100, 420]);
 }
 
 /** Rappel à mi-parcours : UN SEUL bip, identique à ceux du décompte.
@@ -414,181 +455,215 @@ function StopwatchBloc({ color }: { color: string }) {
   );
 }
 
+/** Le signal de fin de bloc, partagé par les trois chronos : son + vibration,
+ *  et remontée au parent pour qu'il affiche le « BLOC TERMINÉ ». Ne part
+ *  qu'une seule fois, même si le composant se re-rend derrière. */
+function useSignalFinDeBloc(fini: boolean, onFini?: () => void) {
+  const onFiniRef = useRef(onFini);
+  onFiniRef.current = onFini;
+  const dejaSignale = useRef(false);
+  useEffect(() => {
+    if (!fini) { dejaSignale.current = false; return; }
+    if (dejaSignale.current) return;
+    dejaSignale.current = true;
+    signalerFinBloc();
+    onFiniRef.current?.();
+  }, [fini]);
+}
+
 /* ---- Compte à rebours avec auto-start + bips ---- */
-function Countdown({ totalSeconds, label }: { totalSeconds: number; label: string }) {
+function Countdown({ totalSeconds, label, onFini }: { totalSeconds: number; label: string; onFini?: () => void }) {
   const [remaining, setRemaining] = useState(totalSeconds);
   const [running, setRunning] = useState(false); // démarrage manuel
+  const [fini, setFini] = useState(false);
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
-  const prevRemaining = useRef(totalSeconds);
   // Mi-parcours : on ne le signale que s'il tombe au-dela des 3 dernieres
   // secondes, sinon il se confondrait avec le decompte. -1 = jamais atteint.
   const moitie = Math.floor(totalSeconds / 2) > 3 ? Math.floor(totalSeconds / 2) : -1;
 
-  useEffect(() => {
-    if (running && remaining > 0) {
-      ref.current = setInterval(() => {
-        setRemaining((r) => {
-          const next = Math.max(0, r - 1);
-          signalerDecompte(next, "stop");
-          if (next === moitie) signalerMoitie();
-          prevRemaining.current = next;
-          return next;
-        });
-      }, 1000);
-    } else { if (ref.current) clearInterval(ref.current); }
-    return () => { if (ref.current) clearInterval(ref.current); };
-  }, [running, remaining]);
+  useSignalFinDeBloc(fini, onFini);
 
-  const finished = remaining === 0;
+  useEffect(() => {
+    if (!running) { if (ref.current) clearInterval(ref.current); return; }
+    ref.current = setInterval(() => {
+      setRemaining((r) => {
+        const next = r - 1;
+        if (next > 0) {
+          if (next <= 3) playBip();
+          if (next === moitie) signalerMoitie();
+          return next;
+        }
+        setRunning(false);
+        setFini(true);
+        return 0;
+      });
+    }, 1000);
+    return () => { if (ref.current) clearInterval(ref.current); };
+  }, [running, moitie]);
+
   const isAlert = remaining <= 3 && remaining > 0;
 
   return (
     <div style={{ textAlign: "center", padding: "16px 0" }}>
       <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.1em", margin: "0 0 8px" }}>{label}</p>
-      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: finished ? "#4ADE80" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
+      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: fini ? "#4ADE80" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
         {formatTime(remaining)}
       </p>
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-        <button onClick={() => setRunning((r) => !r)} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: running ? "#333" : "#B22222", color: "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: "pointer" }}>
-          {finished ? "✓ Terminé" : running ? "⏸ Pause" : remaining === totalSeconds ? "▶ Démarrer" : "▶ Reprendre"}
+        <button onClick={() => { initAudio(); setRunning((r) => !r); }} disabled={fini} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: fini ? "#4ADE80" : running ? "#333" : "#B22222", color: fini ? "#000" : "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: fini ? "default" : "pointer" }}>
+          {fini ? "✓ Terminé" : running ? "⏸ Pause" : remaining === totalSeconds ? "▶ Démarrer" : "▶ Reprendre"}
         </button>
-        <button onClick={() => { setRemaining(totalSeconds); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
+        <button onClick={() => { setRemaining(totalSeconds); setRunning(false); setFini(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
       </div>
     </div>
   );
 }
 
 /* ---- Timer EMOM avec auto-start + bips ---- */
-function EmomTimer({ intervalSec, rounds }: { intervalSec: number; rounds: number }) {
+function EmomTimer({ intervalSec, rounds, onFini }: { intervalSec: number; rounds: number; onFini?: () => void }) {
   const [currentRound, setCurrentRound] = useState(1);
   const [remaining, setRemaining] = useState(intervalSec);
   const [running, setRunning] = useState(false); // démarrage manuel
+  const [fini, setFini] = useState(false);
+  // Le tick a besoin du round courant sans le prendre en dépendance : sinon
+  // l'intervalle serait recréé à chaque round et le tic-tac dériverait.
+  const roundRef = useRef(1);
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
   // Mi-parcours : on ne le signale que s'il tombe au-dela des 3 dernieres
   // secondes, sinon il se confondrait avec le decompte. -1 = jamais atteint.
   const moitie = Math.floor(intervalSec / 2) > 3 ? Math.floor(intervalSec / 2) : -1;
 
-  useEffect(() => {
-    if (running) {
-      ref.current = setInterval(() => {
-        setRemaining((r) => {
-          const next = r - 1;
-          signalerDecompte(next, "lets-go");
-          if (next === moitie) signalerMoitie();
-          if (next <= 0) {
-            setCurrentRound((cr) => {
-              if (cr >= rounds) { setRunning(false); return cr; }
-              return cr + 1;
-            });
-            return intervalSec;
-          }
-          return next;
-        });
-      }, 1000);
-    } else { if (ref.current) clearInterval(ref.current); }
-    return () => { if (ref.current) clearInterval(ref.current); };
-  }, [running, intervalSec, rounds]);
+  useSignalFinDeBloc(fini, onFini);
 
-  const finished = currentRound >= rounds && remaining <= 1;
+  useEffect(() => {
+    if (!running) { if (ref.current) clearInterval(ref.current); return; }
+    ref.current = setInterval(() => {
+      setRemaining((r) => {
+        const next = r - 1;
+        if (next > 0) {
+          if (next <= 3) playBip();
+          if (next === moitie) signalerMoitie();
+          return next;
+        }
+        // Dernier round : ce qui suit n'est pas un round de plus mais la fin
+        // du bloc — on ne lance surtout pas « LET'S GO » pour rien.
+        if (roundRef.current >= rounds) { setRunning(false); setFini(true); return 0; }
+        roundRef.current += 1;
+        setCurrentRound(roundRef.current);
+        annoncer("lets-go");
+        return intervalSec;
+      });
+    }, 1000);
+    return () => { if (ref.current) clearInterval(ref.current); };
+  }, [running, intervalSec, rounds, moitie]);
+
   const isAlert = remaining <= 3 && remaining > 0;
 
   return (
     <div style={{ textAlign: "center", padding: "16px 0" }}>
       <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.1em", margin: "0 0 4px" }}>EMOM — ROUND {currentRound}/{rounds}</p>
-      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: finished ? "#4ADE80" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
+      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: fini ? "#4ADE80" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
         {formatTime(remaining)}
       </p>
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-        <button onClick={() => setRunning((r) => !r)} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: running ? "#333" : "#B22222", color: "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: "pointer" }}>
-          {finished ? "✓ Terminé" : running ? "⏸ Pause" : currentRound === 1 && remaining === intervalSec ? "▶ Démarrer" : "▶ Reprendre"}
+        <button onClick={() => { initAudio(); setRunning((r) => !r); }} disabled={fini} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: fini ? "#4ADE80" : running ? "#333" : "#B22222", color: fini ? "#000" : "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: fini ? "default" : "pointer" }}>
+          {fini ? "✓ Terminé" : running ? "⏸ Pause" : currentRound === 1 && remaining === intervalSec ? "▶ Démarrer" : "▶ Reprendre"}
         </button>
-        <button onClick={() => { setCurrentRound(1); setRemaining(intervalSec); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
+        <button onClick={() => { roundRef.current = 1; setCurrentRound(1); setRemaining(intervalSec); setRunning(false); setFini(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
       </div>
     </div>
   );
 }
 
 /* ---- Timer Tabata avec auto-start + bips ---- */
-function TabataTimer({ workSec, restSec, tours }: { workSec: number; restSec: number; tours: number }) {
+function TabataTimer({ workSec, restSec, tours, onFini }: { workSec: number; restSec: number; tours: number; onFini?: () => void }) {
   const [phase, setPhase] = useState<"work" | "rest">("work");
   const [currentTour, setCurrentTour] = useState(1);
   const [remaining, setRemaining] = useState(workSec);
   const [running, setRunning] = useState(false); // démarrage manuel
+  const [fini, setFini] = useState(false);
+  // Phase et tour vivent aussi dans des refs : le tick les lit sans les prendre
+  // en dépendance, donc l'intervalle n'est plus recréé à chaque bascule.
+  const phaseRef = useRef<"work" | "rest">("work");
+  const tourRef = useRef(1);
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Mi-parcours : on ne le signale que s'il tombe au-dela des 3 dernieres
-  // secondes, sinon il se confondrait avec le decompte. -1 = jamais atteint.
-  const dureePhase = phase === "work" ? workSec : restSec;
-  const moitie = Math.floor(dureePhase / 2) > 3 ? Math.floor(dureePhase / 2) : -1;
+
+  useSignalFinDeBloc(fini, onFini);
 
   useEffect(() => {
-    if (running) {
-      ref.current = setInterval(() => {
-        setRemaining((r) => {
-          const next = r - 1;
-          // Ce qui suit depend de la phase en cours : on annonce ce qui arrive.
-          signalerDecompte(next, phase === "work" ? "stop" : "lets-go");
+    if (!running) { if (ref.current) clearInterval(ref.current); return; }
+    ref.current = setInterval(() => {
+      setRemaining((r) => {
+        const next = r - 1;
+        if (next > 0) {
+          if (next <= 3) playBip();
+          // Mi-parcours : seulement s'il tombe au-dela des 3 dernieres
+          // secondes, sinon il se confondrait avec le decompte.
+          const dureePhase = phaseRef.current === "work" ? workSec : restSec;
+          const moitie = Math.floor(dureePhase / 2) > 3 ? Math.floor(dureePhase / 2) : -1;
           if (next === moitie) signalerMoitie();
-          if (next <= 0) {
-            if (phase === "work") { setPhase("rest"); return restSec; }
-            else {
-              setCurrentTour((t) => {
-                if (t >= tours) { setRunning(false); return t; }
-                return t + 1;
-              });
-              setPhase("work");
-              return workSec;
-            }
-          }
           return next;
-        });
-      }, 1000);
-    } else { if (ref.current) clearInterval(ref.current); }
+        }
+        // Fin du dernier repos = fin du bloc : rien à annoncer, on signale la fin.
+        if (phaseRef.current === "rest" && tourRef.current >= tours) {
+          setRunning(false); setFini(true); return 0;
+        }
+        if (phaseRef.current === "work") {
+          phaseRef.current = "rest"; setPhase("rest");
+          annoncer("stop");
+          return restSec;
+        }
+        tourRef.current += 1; setCurrentTour(tourRef.current);
+        phaseRef.current = "work"; setPhase("work");
+        annoncer("lets-go");
+        return workSec;
+      });
+    }, 1000);
     return () => { if (ref.current) clearInterval(ref.current); };
-  }, [running, phase, workSec, restSec, tours]);
+  }, [running, workSec, restSec, tours]);
 
-  const finished = currentTour >= tours && phase === "rest" && remaining <= 1;
   const phaseColor = phase === "work" ? "#B22222" : "#3B82F6";
   const isAlert = remaining <= 3 && remaining > 0;
 
   return (
     <div style={{ textAlign: "center", padding: "16px 0" }}>
-      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: phaseColor, letterSpacing: "0.1em", margin: "0 0 4px" }}>
-        TABATA — {phase === "work" ? "TRAVAIL" : "REPOS"} · TOUR {currentTour}/{tours}
+      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: fini ? "#4ADE80" : phaseColor, letterSpacing: "0.1em", margin: "0 0 4px" }}>
+        {fini ? "TABATA — TERMINÉ" : `TABATA — ${phase === "work" ? "TRAVAIL" : "REPOS"} · TOUR ${currentTour}/${tours}`}
       </p>
-      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: finished ? "#4ADE80" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
+      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: fini ? "#4ADE80" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
         {formatTime(remaining)}
       </p>
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-        <button onClick={() => setRunning((r) => !r)} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: running ? "#333" : phaseColor, color: "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: "pointer" }}>
-          {finished ? "✓ Terminé" : running ? "⏸ Pause" : currentTour === 1 && phase === "work" && remaining === workSec ? "▶ Démarrer" : "▶ Reprendre"}
+        <button onClick={() => { initAudio(); setRunning((r) => !r); }} disabled={fini} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: fini ? "#4ADE80" : running ? "#333" : phaseColor, color: fini ? "#000" : "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: fini ? "default" : "pointer" }}>
+          {fini ? "✓ Terminé" : running ? "⏸ Pause" : currentTour === 1 && phase === "work" && remaining === workSec ? "▶ Démarrer" : "▶ Reprendre"}
         </button>
-        <button onClick={() => { setPhase("work"); setCurrentTour(1); setRemaining(workSec); setRunning(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
+        <button onClick={() => { phaseRef.current = "work"; tourRef.current = 1; setPhase("work"); setCurrentTour(1); setRemaining(workSec); setRunning(false); setFini(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
       </div>
     </div>
   );
 }
 
 /* ---- Timer du bloc selon format ---- */
-function BlocTimer({ bloc }: { bloc: Bloc }) {
+function BlocTimer({ bloc, onFini }: { bloc: Bloc; onFini?: () => void }) {
   if (bloc.format === "classique" || !bloc.format) return null;
   if (bloc.format === "amrap") {
     const sec = parseInt(bloc.amrap_duree || "10") * 60;
-    return <Countdown totalSeconds={sec} label={`AMRAP · ${bloc.amrap_duree || 10} min`} />;
+    return <Countdown totalSeconds={sec} label={`AMRAP · ${bloc.amrap_duree || 10} min`} onFini={onFini} />;
   }
   if (bloc.format === "for_time") {
     const sec = parseInt(bloc.for_time_limit || "20") * 60;
-    return <Countdown totalSeconds={sec} label={`FOR TIME · limite ${bloc.for_time_limit || 20} min`} />;
+    return <Countdown totalSeconds={sec} label={`FOR TIME · limite ${bloc.for_time_limit || 20} min`} onFini={onFini} />;
   }
   if (bloc.format === "emom") {
     const intervalSec = parseInt(bloc.emom_interval_min || "1") * 60 + parseInt(bloc.emom_interval_sec || "0");
     const rounds = parseInt(bloc.emom_rounds || "8");
-    return <EmomTimer intervalSec={intervalSec} rounds={rounds} />;
+    return <EmomTimer intervalSec={intervalSec} rounds={rounds} onFini={onFini} />;
   }
   if (bloc.format === "tabata") {
     const workSec = parseInt(bloc.tabata_work || "20");
     const restSec = parseInt(bloc.tabata_rest || "10");
     const tours = parseInt(bloc.tabata_tours || "8");
-    return <TabataTimer workSec={workSec} restSec={restSec} tours={tours} />;
+    return <TabataTimer workSec={workSec} restSec={restSec} tours={tours} onFini={onFini} />;
   }
   return null;
 }
@@ -617,11 +692,18 @@ export default function SeanceViewer({
   const [noteSaved, setNoteSaved] = useState(false);
   const [noteSaving, setNoteSaving] = useState(false);
   const [showAbandonModal, setShowAbandonModal] = useState(false);
+  // Le chrono du bloc est arrivé au bout : c'est ce qui déclenche le signal
+  // visuel. Sans ça le chrono s'arrêtait en silence et la cliente attendait.
+  const [blocFini, setBlocFini] = useState(false);
 
   // Filet : si la cliente quitte la page sans terminer (retour arrière,
   // fermeture), on rend la main au téléphone plutôt que de laisser son écran
   // allumé indéfiniment.
   useEffect(() => releaseWakeLock, []);
+
+  // Nouveau bloc = nouvelle ardoise pour le signal de fin.
+  useEffect(() => { setBlocFini(false); }, [currentBlocIndex]);
+  const marquerBlocFini = useCallback(() => setBlocFini(true), []);
 
   const allBlocs = seanceData.blocs ?? [];
   const currentBloc = allBlocs[currentBlocIndex];
@@ -819,6 +901,20 @@ export default function SeanceViewer({
       <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 100 }}>
         {videoUrl && <VideoModal url={videoUrl} onClose={() => setVideoUrl(null)} />}
 
+        <style>{`
+          @keyframes flashFinBloc { 0% { opacity: 0; } 22% { opacity: 0.42; } 100% { opacity: 0; } }
+          @keyframes pulseFinBloc {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.6); }
+            60% { box-shadow: 0 0 0 16px rgba(74,222,128,0); }
+          }
+        `}</style>
+
+        {/* Flash de fin de bloc : le signal qu'on voit même téléphone posé au
+            sol, à côté du son et de la vibration. Deux éclats, puis il s'efface. */}
+        {blocFini && (
+          <div style={{ position: "fixed", inset: 0, backgroundColor: "#4ADE80", opacity: 0, animation: "flashFinBloc 1s ease-out 2", pointerEvents: "none", zIndex: 150 }} />
+        )}
+
         {/* Modal abandon */}
         {showAbandonModal && (
           <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.85)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
@@ -875,13 +971,26 @@ export default function SeanceViewer({
           </div>
 
           {/* Timer selon format */}
-          <div style={{ backgroundColor: "#111111", border: `1px solid ${color}30`, borderRadius: 16, padding: "4px 0 16px", marginBottom: 20 }}>
+          {/* La `key` est l'index du bloc : sans elle, React réutilisait le
+              chrono du bloc précédent quand les deux avaient le même format
+              (deux tabatas d'affilée) et le temps restait figé sur l'ancien. */}
+          <div style={{ backgroundColor: "#111111", border: `1px solid ${blocFini ? "rgba(74,222,128,0.55)" : `${color}30`}`, borderRadius: 16, padding: "4px 0 16px", marginBottom: blocFini ? 12 : 20, transition: "border-color 0.3s" }}>
             {currentBloc.format === "classique" || !currentBloc.format ? (
-              <StopwatchBloc color={color} />
+              <StopwatchBloc key={currentBlocIndex} color={color} />
             ) : (
-              <BlocTimer bloc={currentBloc} />
+              <BlocTimer key={currentBlocIndex} bloc={currentBloc} onFini={marquerBlocFini} />
             )}
           </div>
+
+          {/* Bandeau de fin de bloc */}
+          {blocFini && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "rgba(74,222,128,0.12)", border: "1px solid rgba(74,222,128,0.5)", borderRadius: 12, padding: "12px 14px", marginBottom: 20 }}>
+              <span style={{ fontSize: "1.1rem" }}>✅</span>
+              <p className="font-body" style={{ fontSize: "0.82rem", fontWeight: 700, color: "#4ADE80", margin: 0, letterSpacing: "0.03em" }}>
+                BLOC TERMINÉ {isLastBloc ? "— valide la séance" : "— passe au bloc suivant"}
+              </p>
+            </div>
+          )}
 
           {/* Instructions */}
           {currentBloc.instructions && (
@@ -913,11 +1022,11 @@ export default function SeanceViewer({
         <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, backgroundColor: "#0D0D0D", borderTop: "1px solid #1a1a1a", padding: "16px", paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))", zIndex: 50 }}>
           <div style={{ maxWidth: 480, margin: "0 auto" }}>
             {isLastBloc ? (
-              <button onClick={finirSeance} disabled={finishing} style={{ width: "100%", padding: "16px", backgroundColor: finishing ? "#333" : "#4ADE80", color: finishing ? "#FFFFFF" : "#000", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: finishing ? "not-allowed" : "pointer", letterSpacing: "0.06em" }}>
+              <button onClick={finirSeance} disabled={finishing} style={{ width: "100%", padding: "16px", backgroundColor: finishing ? "#333" : "#4ADE80", color: finishing ? "#FFFFFF" : "#000", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: finishing ? "not-allowed" : "pointer", letterSpacing: "0.06em", animation: blocFini && !finishing ? "pulseFinBloc 1.5s ease-in-out infinite" : undefined }}>
                 {finishing ? "Enregistrement…" : "✓ TERMINER LA SÉANCE"}
               </button>
             ) : (
-              <button onClick={() => { playTransitionBeep(); setCurrentBlocIndex((i) => i + 1); }} style={{ width: "100%", padding: "16px", backgroundColor: "#B22222", color: "#fff", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em" }}>
+              <button onClick={() => { playTransitionBeep(); setCurrentBlocIndex((i) => i + 1); }} style={{ width: "100%", padding: "16px", backgroundColor: blocFini ? "#4ADE80" : "#B22222", color: blocFini ? "#000" : "#fff", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.06em", transition: "background-color 0.3s", animation: blocFini ? "pulseFinBloc 1.5s ease-in-out infinite" : undefined }}>
                 BLOC SUIVANT →
               </button>
             )}
