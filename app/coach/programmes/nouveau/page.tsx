@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ProgrammeBuilder, { encodeProgData, countGridItems, type ProgrammeData } from "../ProgrammeBuilder";
 import { NIVEAUX } from "../../seances/SeanceBuilder";
+import { PROG_CATEGORIES, AVANCEMENTS } from "../constantes";
 import ImageUpload from "@/components/ImageUpload";
 
 const init = (): ProgrammeData => ({
-  nom: "", niveau: "debutant", duree_semaines: 1, note: "", grid: {},
+  nom: "", categorie: "", avancement: "", niveau: "debutant",
+  duree_semaines: 1, note: "", grid: {},
 });
 
 export default function NouveauProgrammePage() {
@@ -25,7 +27,7 @@ export default function NouveauProgrammePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nom: data.nom, categorie: "custom", niveau: data.niveau,
+          nom: data.nom, categorie: data.categorie, niveau: data.niveau,
           duree_semaines: data.duree_semaines,
           description: encodeProgData(data),
           image_url: imageUrl,
@@ -87,6 +89,22 @@ export default function NouveauProgrammePage() {
               <label style={lbl}>Nom du programme *</label>
               <input style={inp} value={data.nom} onChange={e => setData(d => ({ ...d, nom: e.target.value }))}
                 placeholder="Ex: Programme Remise en Forme" autoFocus />
+            </div>
+
+            <div>
+              <label style={lbl}>Catégorie</label>
+              <select style={{ ...inp, cursor: "pointer" }} value={data.categorie} onChange={e => setData(d => ({ ...d, categorie: e.target.value }))}>
+                <option value="">Non renseignée</option>
+                {PROG_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label style={lbl}>Avancement</label>
+              <select style={{ ...inp, cursor: "pointer" }} value={data.avancement} onChange={e => setData(d => ({ ...d, avancement: e.target.value }))}>
+                <option value="">Non renseigné</option>
+                {AVANCEMENTS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+              </select>
             </div>
 
             <div>

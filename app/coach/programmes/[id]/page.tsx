@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import ProgrammeBuilder, { encodeProgData, decodeProgData, countGridItems, type ProgrammeData } from "../ProgrammeBuilder";
 import { NIVEAUX } from "../../seances/SeanceBuilder";
+import { PROG_CATEGORIES, AVANCEMENTS } from "../constantes";
 import ImageUpload from "@/components/ImageUpload";
 
 export default function EditProgrammePage() {
@@ -29,7 +30,7 @@ export default function EditProgrammePage() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        nom: data.nom, categorie: "custom", niveau: data.niveau,
+        nom: data.nom, categorie: data.categorie, niveau: data.niveau,
         duree_semaines: data.duree_semaines,
         description: encodeProgData(data),
         image_url: imageUrl,
@@ -58,6 +59,20 @@ export default function EditProgrammePage() {
       <div style={{ backgroundColor: "#111", borderRadius: 12, border: "1px solid #1a1a1a", padding: "16px 18px", marginBottom: 14 }}>
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
           <div><label style={lbl}>Nom</label><input style={inp} value={data.nom} onChange={e => setData(d => d ? { ...d, nom: e.target.value } : d)} /></div>
+          <div>
+            <label style={lbl}>Catégorie</label>
+            <select style={{ ...inp, cursor: "pointer" }} value={data.categorie} onChange={e => setData(d => d ? { ...d, categorie: e.target.value } : d)}>
+              <option value="">Non renseignée</option>
+              {PROG_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={lbl}>Avancement</label>
+            <select style={{ ...inp, cursor: "pointer" }} value={data.avancement} onChange={e => setData(d => d ? { ...d, avancement: e.target.value } : d)}>
+              <option value="">Non renseigné</option>
+              {AVANCEMENTS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+            </select>
+          </div>
           <div>
             <label style={lbl}>Niveau</label>
             <select style={{ ...inp, cursor: "pointer" }} value={data.niveau} onChange={e => setData(d => d ? { ...d, niveau: e.target.value } : d)}>

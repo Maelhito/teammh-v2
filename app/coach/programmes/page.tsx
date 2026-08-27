@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CATEGORIES, NIVEAUX } from "../seances/SeanceBuilder";
+import { NIVEAUX } from "../seances/SeanceBuilder";
+import { PROG_CATEGORIES, AVANCEMENTS, progCatLabel, avancementLabel, normaliseProgCategorie, normaliseAvancement } from "./constantes";
 
 interface Programme {
   id: string;
@@ -15,8 +16,15 @@ interface Programme {
   created_at: string;
 }
 
-function catLabel(v: string) { return CATEGORIES.find(c => c.value === v)?.label ?? v; }
 function nivLabel(v: string) { return NIVEAUX.find(n => n.value === v)?.label ?? v; }
+
+/** L'avancement est rangé dans le JSON de description, pas dans une colonne. */
+function avancementDe(description: string | null): string {
+  try {
+    if (!description?.startsWith("{")) return "";
+    return normaliseAvancement(JSON.parse(description).avancement);
+  } catch { return ""; }
+}
 
 function countSeances(description: string | null): number {
   try {
@@ -25,6 +33,8 @@ function countSeances(description: string | null): number {
     return Object.values(p.grid ?? {}).reduce((a: number, ids) => a + (ids as string[]).length, 0);
   } catch { return 0; }
 }
+
+const COLS = "2fr 1fr 1.2fr 1fr 80px 80px 80px 180px";
 
 const NIV_COLORS: Record<string, { color: string; bg: string; border: string }> = {
   debutant:      { color: "#10B981", bg: "rgba(16,185,129,0.08)",  border: "rgba(16,185,129,0.2)"  },
@@ -64,6 +74,7 @@ export default function CoachProgrammesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filterCat, setFilterCat] = useState("tous");
+  const [filterAvc, setFilterAvc] = useState("tous");
   const [filterNiv, setFilterNiv] = useState("tous");
   const router = useRouter();
 
@@ -110,7 +121,8 @@ export default function CoachProgrammesPage() {
   }
 
   const filtered = programmes.filter(p => {
-    if (filterCat !== "tous" && p.categorie !== filterCat) return false;
+    if (filterCat !== "tous" && normaliseProgCategorie(p.categorie) !== filterCat) return false;
+    if (filterAvc !== "tous" && avancementDe(p.description) !== filterAvc) return false;
     if (filterNiv !== "tous" && p.niveau !== filterNiv) return false;
     return true;
   });
@@ -133,14 +145,17 @@ export default function CoachProgrammesPage() {
       {/* Filtres */}
       <div style={{ display: "flex", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
         <div style={{ flex: "1 1 180px", maxWidth: 240 }}>
-          <FilterDropdown label="Catégorie" options={CATEGORIES} value={filterCat} onChange={setFilterCat} />
+          <FilterDropdown label="Catégorie" options={PROG_CATEGORIES} value={filterCat} onChange={setFilterCat} />
+        </div>
+        <div style={{ flex: "1 1 180px", maxWidth: 240 }}>
+          <FilterDropdown label="Avancement" options={AVANCEMENTS} value={filterAvc} onChange={setFilterAvc} />
         </div>
         <div style={{ flex: "1 1 180px", maxWidth: 240 }}>
           <FilterDropdown label="Niveau" options={NIVEAUX} value={filterNiv} onChange={setFilterNiv} />
         </div>
-        {(filterCat !== "tous" || filterNiv !== "tous") && (
+        {(filterCat !== "tous" || filterAvc !== "tous" || filterNiv !== "tous") && (
           <div style={{ display: "flex", alignItems: "flex-end" }}>
-            <button onClick={() => { setFilterCat("tous"); setFilterNiv("tous"); }}
+            <button onClick={() => { setFilterCat("tous"); setFilterAvc("tous"); setFilterNiv("tous"); }}
               style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid #eee", background: "#fafafa", fontSize: 12, color: "#999", cursor: "pointer", fontFamily: "system-ui" }}>
               ✕ Réinitialiser
             </button>
@@ -173,9 +188,9 @@ export default function CoachProgrammesPage() {
         </div>
       ) : (
         <div className="coach-table-scroll">
-        <div className="coach-table-inner" style={{ backgroundColor: "#fff", border: "1px solid #efefef", borderRadius: 12, overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 80px 80px 80px 180px", gap: 0, backgroundColor: "#fafafa", borderBottom: "1px solid #f0f0f0", padding: "8px 16px" }}>
-            {["NOM", "CATÉGORIE", "NIVEAU", "DURÉE", "SEMAINES", "SÉANCES", "ACTIONS"].map(h => (
+        <div className="coach-table-inner" style={{ minWidth: 820, backgroundColor: "#fff", border: "1px solid #efefef", borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: COLS, gap: 0, backgroundColor: "#fafafa", borderBottom: "1px solid #f0f0f0", padding: "8px 16px" }}>
+            {["NOM", "CATÉGORIE", "AVANCEMENT", "NIVEAU", "DURÉE", "SEMAINES", "SÉANCES", "ACTIONS"].map(h => (
               <p key={h} style={{ fontSize: 10, fontWeight: 700, color: "#bbb", margin: 0, letterSpacing: "0.07em", fontFamily: "system-ui" }}>{h}</p>
             ))}
           </div>
@@ -183,15 +198,18 @@ export default function CoachProgrammesPage() {
           {filtered.map((p, idx) => {
             const niv = NIV_COLORS[p.niveau];
             const nbSeances = countSeances(p.description);
+            const cat = progCatLabel(normaliseProgCategorie(p.categorie));
+            const avc = avancementLabel(avancementDe(p.description));
             return (
               <div key={p.id}
-                style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 80px 80px 80px 180px", gap: 0, padding: "12px 16px", alignItems: "center", borderBottom: idx < filtered.length - 1 ? "1px solid #f5f5f5" : "none", cursor: "pointer", transition: "background 0.1s" }}
+                style={{ display: "grid", gridTemplateColumns: COLS, gap: 0, padding: "12px 16px", alignItems: "center", borderBottom: idx < filtered.length - 1 ? "1px solid #f5f5f5" : "none", cursor: "pointer", transition: "background 0.1s" }}
                 onClick={() => router.push(`/coach/programmes/${p.id}`)}
                 onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.backgroundColor = "#fafafa"}
                 onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.backgroundColor = "transparent"}
               >
                 <p style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", margin: 0, fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingRight: 12 }}>{p.nom}</p>
-                <span style={{ fontSize: 11, color: "#666", fontFamily: "system-ui" }}>{p.categorie ? catLabel(p.categorie) : "—"}</span>
+                <span style={{ fontSize: 11, color: cat ? "#666" : "#ddd", fontFamily: "system-ui" }}>{cat || "—"}</span>
+                <span style={{ fontSize: 11, color: avc ? "#666" : "#ddd", fontFamily: "system-ui" }}>{avc || "—"}</span>
                 {niv ? (
                   <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99, color: niv.color, backgroundColor: niv.bg, border: `1px solid ${niv.border}`, fontFamily: "system-ui" }}>
                     {nivLabel(p.niveau)}
