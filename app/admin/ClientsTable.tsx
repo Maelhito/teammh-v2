@@ -106,6 +106,7 @@ function ClientRow({
   onDelete,
   onUpdateProgramme,
   onUpdateTeam,
+  onUpdateDateDemarrage,
   onUpdateOffre,
   onUpdatePhase,
 }: {
@@ -116,6 +117,7 @@ function ClientRow({
   onDelete: (id: string) => Promise<void>;
   onUpdateProgramme: (id: string, type: ProgrammeType, duree: ProgrammeDuree) => Promise<void>;
   onUpdateTeam: (id: string, field: "coach_id" | "nutrition_id", value: string | null) => Promise<void>;
+  onUpdateDateDemarrage: (id: string, date: string | null) => Promise<boolean>;
   onUpdateOffre: (id: string, current: Offre | null, next: Offre) => Promise<boolean>;
   onUpdatePhase: (id: string, next: Phase) => Promise<boolean>;
 }) {
@@ -133,6 +135,8 @@ function ClientRow({
   const [savingOffre, setSavingOffre] = useState(false);
   const [phase, setPhase] = useState<Phase>(client.phase);
   const [savingPhase, setSavingPhase] = useState(false);
+  const [dateDemarrage, setDateDemarrage] = useState(client.date_demarrage ?? "");
+  const [savingDate, setSavingDate] = useState(false);
   const coaches = teamMembers.filter((m) => m.role === "coach");
   const nutritionists = teamMembers.filter((m) => m.role === "nutrition");
 
@@ -182,6 +186,15 @@ function ClientRow({
     setSavingOffre(false);
   }
 
+  async function handleDateChange(val: string) {
+    const avant = dateDemarrage;
+    setDateDemarrage(val);
+    setSavingDate(true);
+    const ok = await onUpdateDateDemarrage(client.id, val || null);
+    if (!ok) setDateDemarrage(avant);
+    setSavingDate(false);
+  }
+
   async function handlePhaseToggle() {
     const next: Phase = phase === "demarrage" ? "demarree" : "demarrage";
     setSavingPhase(true);
@@ -190,20 +203,32 @@ function ClientRow({
     setSavingPhase(false);
   }
 
-  const dateDemarrage = client.date_demarrage
-    ? new Date(client.date_demarrage).toLocaleDateString("fr-FR", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
-    : "—";
-
   return (
     <tr style={{ borderBottom: "1px solid #1A1A1A" }}>
       <td style={tdStyle}>{client.nom ?? <span style={{ color: "#444", fontStyle: "italic" }}>—</span>}</td>
       <td style={tdStyle}>{client.prenom ?? <span style={{ color: "#444", fontStyle: "italic" }}>—</span>}</td>
       <td style={{ ...tdStyle, color: "rgba(255,255,255,0.45)", fontSize: 12 }}>{client.email}</td>
-      <td style={{ ...tdStyle, color: "rgba(255,255,255,0.45)", fontSize: 12, whiteSpace: "nowrap" }}>{dateDemarrage}</td>
+      <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+        <input
+          type="date"
+          value={dateDemarrage}
+          onChange={(e) => handleDateChange(e.target.value)}
+          disabled={savingDate}
+          title="Date d'arrivée dans le programme — vide = non renseignée"
+          style={{
+            backgroundColor: "#0D0D0D",
+            border: `1px solid ${dateDemarrage ? "rgba(255,255,255,0.15)" : "rgba(248,113,113,0.35)"}`,
+            borderRadius: 6,
+            padding: "4px 8px",
+            color: dateDemarrage ? "#F5F5F0" : "#777",
+            fontSize: 12,
+            fontFamily: "system-ui",
+            cursor: savingDate ? "not-allowed" : "pointer",
+            outline: "none",
+            colorScheme: "dark",
+          }}
+        />
+      </td>
       <td style={{ ...tdStyle }}>
         <select
           value={combo}
@@ -409,6 +434,22 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
     });
   }
 
+  async function handleUpdateDateDemarrage(userId: string, date: string | null): Promise<boolean> {
+    const res = await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, action: "update_date_demarrage", date_demarrage: date }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error ?? "Erreur : la date de démarrage n'a pas pu être enregistrée.");
+      return false;
+    }
+    // La date décide de l'ordre d'arrivée : la ligne se replace aussitôt.
+    setClients(prev => prev.map(c => (c.id === userId ? { ...c, date_demarrage: date } : c)));
+    return true;
+  }
+
   async function handleUpdateTeam(userId: string, field: "coach_id" | "nutrition_id", value: string | null) {
     await fetch("/api/admin/users", {
       method: "PATCH",
@@ -561,6 +602,7 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
                   onDelete={handleDelete}
                   onUpdateProgramme={handleUpdateProgramme}
                   onUpdateTeam={handleUpdateTeam}
+                  onUpdateDateDemarrage={handleUpdateDateDemarrage}
                   onUpdateOffre={handleUpdateOffre}
                   onUpdatePhase={handleUpdatePhase}
                 />

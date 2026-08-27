@@ -117,6 +117,25 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
+  if (action === "update_date_demarrage") {
+    // La date d'arrivée dans le programme se règle à la main depuis l'admin :
+    // elle décide de l'ordre de la liste et de l'avancement affiché à la
+    // cliente, donc une valeur approximative ne convient pas.
+    const { date_demarrage } = body;
+    const estDate = typeof date_demarrage === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date_demarrage);
+    if (date_demarrage !== null && date_demarrage !== "" && !estDate) {
+      return NextResponse.json({ error: "Date invalide (attendu AAAA-MM-JJ)." }, { status: 400 });
+    }
+    const { error } = await admin
+      .from("user_profiles")
+      .upsert(
+        { user_id: userId, date_demarrage: estDate ? date_demarrage : null, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" }
+      );
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
   if (action === "update_team") {
     const { coach_id, nutrition_id } = body;
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
