@@ -4,11 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ProgrammeBuilder, { encodeProgData, countGridItems, type ProgrammeData } from "../ProgrammeBuilder";
 import { NIVEAUX } from "../../seances/SeanceBuilder";
-import { PROG_CATEGORIES, AVANCEMENTS } from "../constantes";
+import { PROG_CATEGORIES, AVANCEMENTS, CYCLE_PROGS, estCycle } from "../constantes";
 import ImageUpload from "@/components/ImageUpload";
 
 const init = (): ProgrammeData => ({
-  nom: "", categorie: "", avancement: "", niveau: "debutant",
+  nom: "", categorie: "", avancement: "", cycle_prog: "", niveau: "debutant",
   duree_semaines: 1, note: "", grid: {},
 });
 
@@ -101,11 +101,22 @@ export default function NouveauProgrammePage() {
 
             <div>
               <label style={lbl}>Avancement</label>
-              <select style={{ ...inp, cursor: "pointer" }} value={data.avancement} onChange={e => setData(d => ({ ...d, avancement: e.target.value }))}>
+              <select style={{ ...inp, cursor: "pointer" }} value={data.avancement}
+                onChange={e => setData(d => ({ ...d, avancement: e.target.value, cycle_prog: estCycle(e.target.value) ? d.cycle_prog : "" }))}>
                 <option value="">Non renseigné</option>
                 {AVANCEMENTS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
               </select>
             </div>
+
+            {estCycle(data.avancement) && (
+              <div>
+                <label style={lbl}>Prog du cycle</label>
+                <select style={{ ...inp, cursor: "pointer" }} value={data.cycle_prog} onChange={e => setData(d => ({ ...d, cycle_prog: e.target.value }))}>
+                  <option value="">Non renseigné</option>
+                  {CYCLE_PROGS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              </div>
+            )}
 
             <div>
               <label style={lbl}>Niveau</label>

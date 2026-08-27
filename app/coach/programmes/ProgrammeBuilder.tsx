@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { NIVEAUX, CATEGORIES, defaultBloc, decodeSeance, type SeanceData } from "../seances/SeanceBuilder";
-import { normaliseProgCategorie, normaliseAvancement } from "./constantes";
+import { normaliseProgCategorie, normaliseAvancement, normaliseCycleProg } from "./constantes";
 import SeanceBuildComp from "../seances/SeanceBuilder";
 import { contientRecherche } from "@/lib/recherche";
 
@@ -19,7 +19,7 @@ export type CellItem =
   | { _key: string; type: "video";         titre: string; url: string; categorie: string; thumb: string | null };
 export type Grid = Record<string, CellItem[]>;
 export interface ProgrammeData {
-  nom: string; categorie: string; avancement: string;
+  nom: string; categorie: string; avancement: string; cycle_prog: string;
   niveau: string; duree_semaines: number; note: string; grid: Grid;
 }
 
@@ -54,11 +54,14 @@ function nivLabel(v: string) { return NIVEAUX.find(n => n.value === v)?.label ??
 export function encodeProgData(d: ProgrammeData): string {
   // `avancement` voyage dans le JSON de description : pas de colonne à créer en
   // base, donc rien à exécuter dans Supabase pour que ça marche.
-  return JSON.stringify({ grid: d.grid, note: d.note, duree_semaines: d.duree_semaines, avancement: d.avancement });
+  return JSON.stringify({
+    grid: d.grid, note: d.note, duree_semaines: d.duree_semaines,
+    avancement: d.avancement, cycle_prog: normaliseCycleProg(d.cycle_prog, d.avancement),
+  });
 }
 export function decodeProgData(prog: Record<string, unknown>): ProgrammeData {
   let grid: Grid = {}; let note = ""; let duree_semaines: number | null = null;
-  let avancement = "";
+  let avancement = ""; let cycle_prog = "";
   try {
     const desc = (prog.description as string) || "";
     if (desc.startsWith("{")) {
@@ -66,12 +69,13 @@ export function decodeProgData(prog: Record<string, unknown>): ProgrammeData {
       grid = p.grid ?? {}; note = p.note ?? "";
       duree_semaines = typeof p.duree_semaines === "number" ? p.duree_semaines : null;
       avancement = normaliseAvancement(p.avancement);
+      cycle_prog = normaliseCycleProg(p.cycle_prog, avancement);
     } else note = desc;
   } catch {}
   return {
     nom: (prog.nom as string) || "",
     categorie: normaliseProgCategorie(prog.categorie),
-    avancement,
+    avancement, cycle_prog,
     niveau: (prog.niveau as string) || "debutant",
     // La durée encodée dans le JSON prime : pour une assignation, ce JSON est le
     // grid_data de la cliente, dont la durée peut différer de celle du template.

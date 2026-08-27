@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { NIVEAUX } from "../seances/SeanceBuilder";
-import { PROG_CATEGORIES, AVANCEMENTS, progCatLabel, avancementLabel, normaliseProgCategorie, normaliseAvancement } from "./constantes";
+import { PROG_CATEGORIES, AVANCEMENTS, CYCLE_PROGS, estCycle, progCatLabel, avancementComplet, normaliseProgCategorie, normaliseAvancement, normaliseCycleProg } from "./constantes";
 
 interface Programme {
   id: string;
@@ -19,11 +19,13 @@ interface Programme {
 function nivLabel(v: string) { return NIVEAUX.find(n => n.value === v)?.label ?? v; }
 
 /** L'avancement est rangé dans le JSON de description, pas dans une colonne. */
-function avancementDe(description: string | null): string {
+function avancementDe(description: string | null): { avancement: string; cycleProg: string } {
   try {
-    if (!description?.startsWith("{")) return "";
-    return normaliseAvancement(JSON.parse(description).avancement);
-  } catch { return ""; }
+    if (!description?.startsWith("{")) return { avancement: "", cycleProg: "" };
+    const p = JSON.parse(description);
+    const avancement = normaliseAvancement(p.avancement);
+    return { avancement, cycleProg: normaliseCycleProg(p.cycle_prog, avancement) };
+  } catch { return { avancement: "", cycleProg: "" }; }
 }
 
 function countSeances(description: string | null): number {
@@ -75,6 +77,7 @@ export default function CoachProgrammesPage() {
   const [error, setError] = useState("");
   const [filterCat, setFilterCat] = useState("tous");
   const [filterAvc, setFilterAvc] = useState("tous");
+  const [filterProg, setFilterProg] = useState("tous");
   const [filterNiv, setFilterNiv] = useState("tous");
   const router = useRouter();
 
@@ -122,7 +125,9 @@ export default function CoachProgrammesPage() {
 
   const filtered = programmes.filter(p => {
     if (filterCat !== "tous" && normaliseProgCategorie(p.categorie) !== filterCat) return false;
-    if (filterAvc !== "tous" && avancementDe(p.description) !== filterAvc) return false;
+    const a = avancementDe(p.description);
+    if (filterAvc !== "tous" && a.avancement !== filterAvc) return false;
+    if (filterProg !== "tous" && a.cycleProg !== filterProg) return false;
     if (filterNiv !== "tous" && p.niveau !== filterNiv) return false;
     return true;
   });
@@ -148,14 +153,20 @@ export default function CoachProgrammesPage() {
           <FilterDropdown label="Catégorie" options={PROG_CATEGORIES} value={filterCat} onChange={setFilterCat} />
         </div>
         <div style={{ flex: "1 1 180px", maxWidth: 240 }}>
-          <FilterDropdown label="Avancement" options={AVANCEMENTS} value={filterAvc} onChange={setFilterAvc} />
+          <FilterDropdown label="Avancement" options={AVANCEMENTS} value={filterAvc}
+            onChange={v => { setFilterAvc(v); if (!estCycle(v)) setFilterProg("tous"); }} />
         </div>
+        {estCycle(filterAvc) && (
+          <div style={{ flex: "1 1 140px", maxWidth: 180 }}>
+            <FilterDropdown label="Prog" options={CYCLE_PROGS} value={filterProg} onChange={setFilterProg} />
+          </div>
+        )}
         <div style={{ flex: "1 1 180px", maxWidth: 240 }}>
           <FilterDropdown label="Niveau" options={NIVEAUX} value={filterNiv} onChange={setFilterNiv} />
         </div>
-        {(filterCat !== "tous" || filterAvc !== "tous" || filterNiv !== "tous") && (
+        {(filterCat !== "tous" || filterAvc !== "tous" || filterProg !== "tous" || filterNiv !== "tous") && (
           <div style={{ display: "flex", alignItems: "flex-end" }}>
-            <button onClick={() => { setFilterCat("tous"); setFilterAvc("tous"); setFilterNiv("tous"); }}
+            <button onClick={() => { setFilterCat("tous"); setFilterAvc("tous"); setFilterProg("tous"); setFilterNiv("tous"); }}
               style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid #eee", background: "#fafafa", fontSize: 12, color: "#999", cursor: "pointer", fontFamily: "system-ui" }}>
               ✕ Réinitialiser
             </button>
@@ -188,7 +199,7 @@ export default function CoachProgrammesPage() {
         </div>
       ) : (
         <div className="coach-table-scroll">
-        <div className="coach-table-inner" style={{ minWidth: 820, backgroundColor: "#fff", border: "1px solid #efefef", borderRadius: 12, overflow: "hidden" }}>
+        <div className="coach-table-inner" style={{ minWidth: 880, backgroundColor: "#fff", border: "1px solid #efefef", borderRadius: 12, overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: COLS, gap: 0, backgroundColor: "#fafafa", borderBottom: "1px solid #f0f0f0", padding: "8px 16px" }}>
             {["NOM", "CATÉGORIE", "AVANCEMENT", "NIVEAU", "DURÉE", "SEMAINES", "SÉANCES", "ACTIONS"].map(h => (
               <p key={h} style={{ fontSize: 10, fontWeight: 700, color: "#bbb", margin: 0, letterSpacing: "0.07em", fontFamily: "system-ui" }}>{h}</p>
@@ -199,7 +210,8 @@ export default function CoachProgrammesPage() {
             const niv = NIV_COLORS[p.niveau];
             const nbSeances = countSeances(p.description);
             const cat = progCatLabel(normaliseProgCategorie(p.categorie));
-            const avc = avancementLabel(avancementDe(p.description));
+            const a = avancementDe(p.description);
+            const avc = avancementComplet(a.avancement, a.cycleProg);
             return (
               <div key={p.id}
                 style={{ display: "grid", gridTemplateColumns: COLS, gap: 0, padding: "12px 16px", alignItems: "center", borderBottom: idx < filtered.length - 1 ? "1px solid #f5f5f5" : "none", cursor: "pointer", transition: "background 0.1s" }}
@@ -209,7 +221,7 @@ export default function CoachProgrammesPage() {
               >
                 <p style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", margin: 0, fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingRight: 12 }}>{p.nom}</p>
                 <span style={{ fontSize: 11, color: cat ? "#666" : "#ddd", fontFamily: "system-ui" }}>{cat || "—"}</span>
-                <span style={{ fontSize: 11, color: avc ? "#666" : "#ddd", fontFamily: "system-ui" }}>{avc || "—"}</span>
+                <span style={{ fontSize: 11, color: avc ? "#666" : "#ddd", fontFamily: "system-ui", whiteSpace: "nowrap" }}>{avc || "—"}</span>
                 {niv ? (
                   <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99, color: niv.color, backgroundColor: niv.bg, border: `1px solid ${niv.border}`, fontFamily: "system-ui" }}>
                     {nivLabel(p.niveau)}

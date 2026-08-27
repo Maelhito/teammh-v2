@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import ProgrammeBuilder, { encodeProgData, decodeProgData, countGridItems, type ProgrammeData } from "../ProgrammeBuilder";
 import { NIVEAUX } from "../../seances/SeanceBuilder";
-import { PROG_CATEGORIES, AVANCEMENTS } from "../constantes";
+import { PROG_CATEGORIES, AVANCEMENTS, CYCLE_PROGS, estCycle } from "../constantes";
 import ImageUpload from "@/components/ImageUpload";
 
 export default function EditProgrammePage() {
@@ -68,11 +68,21 @@ export default function EditProgrammePage() {
           </div>
           <div>
             <label style={lbl}>Avancement</label>
-            <select style={{ ...inp, cursor: "pointer" }} value={data.avancement} onChange={e => setData(d => d ? { ...d, avancement: e.target.value } : d)}>
+            <select style={{ ...inp, cursor: "pointer" }} value={data.avancement}
+              onChange={e => setData(d => d ? { ...d, avancement: e.target.value, cycle_prog: estCycle(e.target.value) ? d.cycle_prog : "" } : d)}>
               <option value="">Non renseigné</option>
               {AVANCEMENTS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
             </select>
           </div>
+          {estCycle(data.avancement) && (
+            <div>
+              <label style={lbl}>Prog du cycle</label>
+              <select style={{ ...inp, cursor: "pointer" }} value={data.cycle_prog} onChange={e => setData(d => d ? { ...d, cycle_prog: e.target.value } : d)}>
+                <option value="">Non renseigné</option>
+                {CYCLE_PROGS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label style={lbl}>Niveau</label>
             <select style={{ ...inp, cursor: "pointer" }} value={data.niveau} onChange={e => setData(d => d ? { ...d, niveau: e.target.value } : d)}>

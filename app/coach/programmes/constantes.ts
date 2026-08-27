@@ -20,6 +20,16 @@ export const AVANCEMENTS = [
   { value: "cycle_4", label: "Cycle 4" },
 ];
 
+/** Un cycle se joue en deux programmes parallèles. Plutôt que de doubler la
+ *  liste d'avancement (Cycle 1 Prog 1, Cycle 1 Prog 2, …), c'est un second
+ *  choix qui n'apparaît que si l'avancement retenu est un cycle. */
+export const CYCLE_PROGS = [
+  { value: "prog_1", label: "Prog 1" },
+  { value: "prog_2", label: "Prog 2" },
+];
+
+export function estCycle(avancement: string) { return avancement.startsWith("cycle_"); }
+
 /** Les anciens programmes portent une catégorie de séance ("custom", "full_body"…)
  *  qui n'a plus de sens ici : on la traite comme non renseignée. */
 export function normaliseProgCategorie(v: unknown): string {
@@ -29,5 +39,19 @@ export function normaliseAvancement(v: unknown): string {
   return AVANCEMENTS.some(a => a.value === v) ? (v as string) : "";
 }
 
+/** Un prog sans cycle n'a pas de sens : on l'efface. */
+export function normaliseCycleProg(v: unknown, avancement: string): string {
+  if (!estCycle(avancement)) return "";
+  return CYCLE_PROGS.some(p => p.value === v) ? (v as string) : "";
+}
+
 export function progCatLabel(v: string) { return PROG_CATEGORIES.find(c => c.value === v)?.label ?? ""; }
 export function avancementLabel(v: string) { return AVANCEMENTS.find(a => a.value === v)?.label ?? ""; }
+export function cycleProgLabel(v: string) { return CYCLE_PROGS.find(p => p.value === v)?.label ?? ""; }
+
+/** "Cycle 1 · Prog 2", "Phase 3", ou "" — le libellé complet pour l'affichage. */
+export function avancementComplet(avancement: string, cycleProg: string) {
+  const a = avancementLabel(avancement);
+  const p = cycleProgLabel(normaliseCycleProg(cycleProg, avancement));
+  return p ? `${a} · ${p}` : a;
+}
