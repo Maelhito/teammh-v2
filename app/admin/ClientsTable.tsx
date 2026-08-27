@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { OFFRE_COLOR, OFFRE_ORDER, PHASE_COLOR, PHASE_LABEL, type Offre, type Phase } from "@/lib/offers/types";
+import { trierClientes } from "@/lib/tri-clientes";
 export type { Offre, Phase };
 
 export type Statut = "active" | "pause" | "terminee";
@@ -343,11 +344,18 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
   const [clients, setClients] = useState(initialClients);
 
   async function handleToggleAcces(userId: string, currentAcces: boolean) {
-    await fetch("/api/admin/users", {
+    const res = await fetch("/api/admin/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, action: "toggle_access", acces_app: !currentAcces }),
     });
+    // La ligne rejoint le bas de la liste (ou en remonte) immédiatement :
+    // sinon il fallait recharger la page pour retrouver l'ordre annoncé.
+    if (res.ok) {
+      setClients(prev => trierClientes(
+        prev.map(c => (c.id === userId ? { ...c, acces_app: !currentAcces } : c)),
+      ));
+    }
   }
 
   async function handleDisconnect(userId: string) {
