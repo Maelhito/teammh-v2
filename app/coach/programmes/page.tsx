@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { NIVEAUX } from "../seances/SeanceBuilder";
-import { PROG_CATEGORIES, AVANCEMENTS, CYCLE_PROGS, estCycle, progCatLabel, avancementComplet, normaliseProgCategorie, normaliseAvancement, normaliseCycleProg } from "./constantes";
+import { progCatLabel, avancementComplet, normaliseProgCategorie } from "./constantes";
+import { FiltresProgrammes, avancementDe, correspondAuxFiltres, FILTRES_TOUS, type Filtres } from "./FiltresProgrammes";
 
 interface Programme {
   id: string;
@@ -17,16 +18,6 @@ interface Programme {
 }
 
 function nivLabel(v: string) { return NIVEAUX.find(n => n.value === v)?.label ?? v; }
-
-/** L'avancement est rangé dans le JSON de description, pas dans une colonne. */
-function avancementDe(description: string | null): { avancement: string; cycleProg: string } {
-  try {
-    if (!description?.startsWith("{")) return { avancement: "", cycleProg: "" };
-    const p = JSON.parse(description);
-    const avancement = normaliseAvancement(p.avancement);
-    return { avancement, cycleProg: normaliseCycleProg(p.cycle_prog, avancement) };
-  } catch { return { avancement: "", cycleProg: "" }; }
-}
 
 function countSeances(description: string | null): number {
   try {
@@ -44,41 +35,11 @@ const NIV_COLORS: Record<string, { color: string; bg: string; border: string }> 
   avance:        { color: "#EF4444", bg: "rgba(239,68,68,0.08)",   border: "rgba(239,68,68,0.2)"   },
 };
 
-function FilterDropdown({ label, options, value, onChange }: {
-  label: string; options: { value: string; label: string }[];
-  value: string; onChange: (v: string) => void;
-}) {
-  const active = value !== "tous";
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <span style={{ fontSize: 10, fontWeight: 700, color: active ? "#B22222" : "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "system-ui" }}>{label}</span>
-      <div style={{ position: "relative" }}>
-        <select value={value} onChange={e => onChange(e.target.value)} style={{
-          appearance: "none", WebkitAppearance: "none", width: "100%",
-          padding: "10px 36px 10px 14px", borderRadius: 8, cursor: "pointer",
-          fontFamily: "system-ui", fontSize: 13, fontWeight: active ? 700 : 400,
-          border: active ? "2px solid #B22222" : "1px solid #ddd",
-          backgroundColor: active ? "rgba(178,34,34,0.04)" : "#fff",
-          color: active ? "#B22222" : "#555", outline: "none", boxSizing: "border-box",
-          boxShadow: active ? "0 1px 6px rgba(178,34,34,0.12)" : "0 1px 3px rgba(0,0,0,0.06)",
-        }}>
-          <option value="tous">Tous</option>
-          {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-        <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: active ? "#B22222" : "#bbb", pointerEvents: "none" }}>▼</span>
-      </div>
-    </div>
-  );
-}
-
 export default function CoachProgrammesPage() {
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [filterCat, setFilterCat] = useState("tous");
-  const [filterAvc, setFilterAvc] = useState("tous");
-  const [filterProg, setFilterProg] = useState("tous");
-  const [filterNiv, setFilterNiv] = useState("tous");
+  const [filtres, setFiltres] = useState<Filtres>(FILTRES_TOUS);
   const router = useRouter();
 
   const load = useCallback(async () => {
@@ -123,14 +84,7 @@ export default function CoachProgrammesPage() {
     }
   }
 
-  const filtered = programmes.filter(p => {
-    if (filterCat !== "tous" && normaliseProgCategorie(p.categorie) !== filterCat) return false;
-    const a = avancementDe(p.description);
-    if (filterAvc !== "tous" && a.avancement !== filterAvc) return false;
-    if (filterProg !== "tous" && a.cycleProg !== filterProg) return false;
-    if (filterNiv !== "tous" && p.niveau !== filterNiv) return false;
-    return true;
-  });
+  const filtered = programmes.filter(p => correspondAuxFiltres(p, filtres));
 
   return (
     <div>
@@ -148,30 +102,8 @@ export default function CoachProgrammesPage() {
       </div>
 
       {/* Filtres */}
-      <div style={{ display: "flex", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
-        <div style={{ flex: "1 1 180px", maxWidth: 240 }}>
-          <FilterDropdown label="Catégorie" options={PROG_CATEGORIES} value={filterCat} onChange={setFilterCat} />
-        </div>
-        <div style={{ flex: "1 1 180px", maxWidth: 240 }}>
-          <FilterDropdown label="Avancement" options={AVANCEMENTS} value={filterAvc}
-            onChange={v => { setFilterAvc(v); if (!estCycle(v)) setFilterProg("tous"); }} />
-        </div>
-        {estCycle(filterAvc) && (
-          <div style={{ flex: "1 1 140px", maxWidth: 180 }}>
-            <FilterDropdown label="Prog" options={CYCLE_PROGS} value={filterProg} onChange={setFilterProg} />
-          </div>
-        )}
-        <div style={{ flex: "1 1 180px", maxWidth: 240 }}>
-          <FilterDropdown label="Niveau" options={NIVEAUX} value={filterNiv} onChange={setFilterNiv} />
-        </div>
-        {(filterCat !== "tous" || filterAvc !== "tous" || filterProg !== "tous" || filterNiv !== "tous") && (
-          <div style={{ display: "flex", alignItems: "flex-end" }}>
-            <button onClick={() => { setFilterCat("tous"); setFilterAvc("tous"); setFilterProg("tous"); setFilterNiv("tous"); }}
-              style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid #eee", background: "#fafafa", fontSize: 12, color: "#999", cursor: "pointer", fontFamily: "system-ui" }}>
-              ✕ Réinitialiser
-            </button>
-          </div>
-        )}
+      <div style={{ marginBottom: 16 }}>
+        <FiltresProgrammes filtres={filtres} onChange={setFiltres} />
       </div>
 
       {/* Erreur setup */}

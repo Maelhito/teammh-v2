@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { calculerSerie } from "@/lib/serie";
-import { decodeAssignments } from "@/lib/programme-planning";
+import { decodeAssignment, decodeAssignments, type AssignmentRow } from "@/lib/programme-planning";
+import { programmeAcheve, totalSeancesPrevues } from "@/lib/programme-acheve";
 import { aujourdhuiDans } from "@/lib/temps";
 import { getFuseau } from "@/lib/temps-serveur";
 
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   const { data: assignment } = await admin
     .from("client_programmes")
-    .select("id, seances_effectuees, grid_data, programme:programmes(description)")
+    .select("id, seances_effectuees, grid_data, programme:programmes(duree_semaines, description)")
     .eq("id", assignmentId)
     .eq("user_id", session.user.id)
     .single();
@@ -41,11 +42,25 @@ export async function POST(req: NextRequest) {
   }
   gridData.seances_terminees = terminees;
 
+  const effectuees = (assignment.seances_effectuees ?? 0) + 1;
+
+  // Toutes les séances prévues validées → le programme se clôt tout seul. Sans
+  // ça il restait « en cours » pour toujours, et la coach devait le terminer à
+  // la main avant de pouvoir en attribuer un autre proprement.
+  const decode = decodeAssignment({
+    id: assignmentId,
+    date_debut: null,
+    grid_data: JSON.stringify(gridData),
+    programme: assignment.programme as AssignmentRow["programme"],
+  });
+  const acheve = programmeAcheve(effectuees, totalSeancesPrevues(decode.grid, decode.duree_semaines));
+
   await admin
     .from("client_programmes")
     .update({
-      seances_effectuees: (assignment.seances_effectuees ?? 0) + 1,
+      seances_effectuees: effectuees,
       grid_data: JSON.stringify(gridData),
+      ...(acheve ? { statut: "termine" } : {}),
     })
     .eq("id", assignmentId);
 
@@ -96,6 +111,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
+    programmeTermine: acheve,
     serie: serie.serie,
     totalValidees: serie.totalValidees,
     jokers: serie.jokers,

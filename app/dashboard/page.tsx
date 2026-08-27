@@ -160,7 +160,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   // Séances validées cette semaine (depuis seances_log), tous programmes confondus.
   // Clé de dédup : "assignmentId:gridKey" — deux programmes peuvent partager un gridKey.
-  const seancesLogThisWeek: Set<string> = activeProgrammes.length
+  const seancesLogThisWeek: Set<string> = programmesPourSerie.length
     ? await admin
         .from("seances_log")
         .select("grid_key, assignment_id")
@@ -238,8 +238,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   // Construction des données pour DashboardCalendar (séances par jour + validation)
   const JOURS_COURTS_CAL = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
   const weekDaysData: DayData[] = weekDays.map(({ date, events }) => {
-    // Séances de ce jour, tous programmes actifs confondus
-    const daySeances: DayData["seances"] = itemsForDate<SeanceItem>(activeProgrammes, date)
+    // Séances de ce jour — programmes en cours ET terminés. Un programme se
+    // clôt tout seul à sa dernière séance validée : s'il sortait aussitôt de
+    // la semaine, elle verrait ses coches disparaître le jour même où elle
+    // vient de finir. Son travail reste affiché.
+    const daySeances: DayData["seances"] = itemsForDate<SeanceItem>(programmesPourSerie, date)
       .filter(({ item }) => item.type !== "video")
       .map(({ programme, gridKey, itemIndex, item }) => ({
         nom: item.type === "seance" ? (item.seanceName ?? "") : (item.nom ?? ""),

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkCoachAccess } from "@/lib/check-coach-access";
 import { coachPeutVoirCliente } from "@/lib/check-cliente-assignee";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
-import { adapterGrille, joursDeLaGrille, mappingIdentite, type MappingJours } from "@/lib/programme-planning";
+import { adapterGrille, decodeAssignment, joursDeLaGrille, mappingIdentite, type AssignmentRow, type MappingJours } from "@/lib/programme-planning";
+import { programmeAcheve, totalSeancesPrevues } from "@/lib/programme-acheve";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -23,6 +24,21 @@ export async function GET(_: NextRequest, { params }: Params) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Rattrapage : les programmes assignés avant la clôture automatique sont
+  // restés « en cours » alors que toutes leurs séances sont validées. On les
+  // clôt ici plutôt que d'attendre un clic, sinon la fiche continue d'afficher
+  // un programme en cours qui n'a plus rien à donner.
+  const assignments = (data ?? []) as AssignmentRow[];
+  const aClore = assignments.filter(a => {
+    if (a.statut !== "en_cours") return false;
+    const d = decodeAssignment(a);
+    return programmeAcheve(a.seances_effectuees ?? 0, totalSeancesPrevues(d.grid, d.duree_semaines));
+  });
+  if (aClore.length) {
+    await admin.from("client_programmes").update({ statut: "termine" }).in("id", aClore.map(a => a.id));
+    for (const a of aClore) a.statut = "termine";
+  }
+
   // Séances validées par la cliente. Le coach doit voir exactement ce que la
   // cliente voit dans son app : on renvoie donc la même source (seances_log),
   // et la fiche applique la même règle de correspondance.
@@ -31,7 +47,7 @@ export async function GET(_: NextRequest, { params }: Params) {
     .select("grid_key, assignment_id, seance_nom")
     .eq("user_id", id);
 
-  return NextResponse.json({ assignments: data ?? [], seancesValidees: logs ?? [] });
+  return NextResponse.json({ assignments, seancesValidees: logs ?? [] });
 }
 
 export async function POST(req: NextRequest, { params }: Params) {

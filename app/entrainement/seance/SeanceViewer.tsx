@@ -684,6 +684,8 @@ export default function SeanceViewer({
   const [done, setDone] = useState(false);
   const [serieResult, setSerieResult] = useState<number | null>(null);
   const [palierAtteint, setPalierAtteint] = useState<{ emoji: string; label: string } | null>(null);
+  // Dernière séance du programme : il se clôt côté serveur, on le lui dit ici.
+  const [programmeTermine, setProgrammeTermine] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
   const [elapsedMin, setElapsedMin] = useState(0);
   const [logId, setLogId] = useState<string | null>(null);
@@ -727,6 +729,7 @@ export default function SeanceViewer({
       const data = await res.json().catch(() => ({}));
       if (typeof data.serie === "number") setSerieResult(data.serie);
       if (data.palierAtteint) setPalierAtteint(data.palierAtteint);
+      if (data.programmeTermine) setProgrammeTermine(true);
       if (typeof data.logId === "string") setLogId(data.logId);
     } catch {}
     setDone(true);
@@ -822,6 +825,18 @@ export default function SeanceViewer({
               </div>
             )}
           </div>
+
+          {/* Dernière séance du programme : il vient de se clore tout seul */}
+          {programmeTermine && (
+            <div style={{ backgroundColor: "rgba(178,34,34,0.14)", border: "1px solid rgba(178,34,34,0.45)", borderRadius: 12, padding: "12px 14px", margin: "0 0 20px" }}>
+              <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.08em", margin: 0, opacity: 0.6 }}>
+                PROGRAMME TERMINÉ
+              </p>
+              <p className="font-body" style={{ fontSize: "1rem", fontWeight: 700, color: "#FFFFFF", margin: "3px 0 0" }}>
+                🎉 Toutes les séances sont validées
+              </p>
+            </div>
+          )}
 
           {/* Palier décroché : c'est le moment où elle vient de le gagner */}
           {palierAtteint && (

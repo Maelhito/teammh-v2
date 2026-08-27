@@ -12,12 +12,14 @@ import {
   couleurEvenement, couleurProgramme, labelEvenement, estRendezVous,
 } from "@/lib/couleurs-calendrier";
 import { estSeanceValidee, type SeanceValidee } from "@/lib/seances-validees";
+import { FiltresProgrammes, avancementDe, correspondAuxFiltres, FILTRES_TOUS, type Filtres } from "../../programmes/FiltresProgrammes";
+import { progCatLabel, avancementComplet, normaliseProgCategorie } from "../../programmes/constantes";
 import ApercuFuseauRdv from "@/components/ApercuFuseauRdv";
 import { aujourdhuiDans, formatHeureDans, fuseauAppareil, occurrenceLe } from "@/lib/temps";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Cliente { id: string; email: string; prenom: string | null; nom: string | null; statut: string; acces_app?: boolean; date_demarrage: string | null; }
-interface Programme { id: string; nom: string; niveau: string; duree_semaines: number; description: string | null; }
+interface Programme { id: string; nom: string; categorie?: string | null; niveau: string; duree_semaines: number; description: string | null; }
 interface CalendarEvent {
   id: string; titre: string; date: string; heure: string | null;
   /** L'instant du rendez-vous — fait foi. */
@@ -109,6 +111,13 @@ interface ProgrammeLayer {
   activeStart: Date;
   dureeSemaines: number;
   color: string;
+  /**
+   * Programme terminé : il reste sur le calendrier — c'est l'historique de la
+   * cliente, on doit pouvoir remonter des années en arrière et retrouver quelle
+   * séance elle a faite quel jour. Il est en revanche figé : ni déplaçable, ni
+   * modifiable, pour que ce passé ne bouge plus.
+   */
+  archive: boolean;
 }
 
 // Couleurs de distinction des programmes sur le calendrier coach
@@ -137,6 +146,7 @@ function buildLayers(assignments: Assignment[], gridsByAssignment: Record<string
   return assignments.map((a, i) => ({
     id: a.id,
     nom: a.programme?.nom ?? "Programme",
+    archive: a.statut === "termine",
     grid: gridsByAssignment[a.id] ?? {},
     activeStart: parseLocalDate(a.date_debut),
     dureeSemaines: dureeAssignment(a),
@@ -491,7 +501,7 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
 
 // ─── Calendrier mensuel avec drag & drop ──────────────────────────────────────
 function MonthCalendar({ layers, today, events, seancesValidees, onEditItem, onMoveItem, onAddEvent, onEventClick }: {
-  /** Un calque par programme actif — chacun avec sa date de début et sa grille */
+  /** Un calque par programme affiché — en cours, ou terminé et figé (historique) */
   layers: ProgrammeLayer[];
   today: Date;
   events: CalendarEvent[];
@@ -639,17 +649,19 @@ function MonthCalendar({ layers, today, events, seancesValidees, onEditItem, onM
                   const validee = item.type !== "video" && estSeanceValidee(seancesValidees, layer.id, cellKey);
                   return (
                     <div key={`${layer.id}-${item._key}`}
-                      draggable
-                      onDragStart={() => { if (cellKey) dragRef.current = { assignmentId: layer.id, cellKey, itemKey: item._key }; }}
+                      draggable={!layer.archive}
+                      onDragStart={() => { if (cellKey && !layer.archive) dragRef.current = { assignmentId: layer.id, cellKey, itemKey: item._key }; }}
                       onDragEnd={() => setDragOver(null)}
-                      onClick={() => { if (cellKey) onEditItem(layer.id, cellKey, item); }}
-                      title={`${layer.nom}${validee ? " · ✓ validée par la cliente" : ""} · Cliquer pour modifier · Glisser pour déplacer`}
+                      onClick={() => { if (cellKey && !layer.archive) onEditItem(layer.id, cellKey, item); }}
+                      title={layer.nom + (validee ? " · ✓ validée par la cliente" : "") + (layer.archive
+                        ? " · Programme terminé — historique figé"
+                        : " · Cliquer pour modifier · Glisser pour déplacer")}
                       style={validee
                         // Séance validée : fond blanc cerclé de vert. Le vert du
                         // « fait » est universel, et le contour plein la distingue
                         // des séances à venir, qui n'ont qu'un liseré à gauche.
-                        ? { padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: "#fff", border: `1.5px solid ${COULEUR_SEANCE_VALIDEE}`, transition: "opacity 0.1s" }
-                        : { padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: "grab", userSelect: "none", backgroundColor: isPast ? "#f5f5f5" : `${color}0f`, borderLeft: `2px solid ${isPast ? "#ddd" : color}`, transition: "opacity 0.1s" }}
+                        ? { padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: layer.archive ? "default" : "grab", userSelect: "none", backgroundColor: "#fff", border: `1.5px solid ${COULEUR_SEANCE_VALIDEE}`, transition: "opacity 0.1s" }
+                        : { padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: layer.archive ? "default" : "grab", userSelect: "none", backgroundColor: isPast ? "#f5f5f5" : `${color}0f`, borderLeft: `2px solid ${isPast ? "#ddd" : color}`, transition: "opacity 0.1s" }}
                       onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.opacity = "0.75"}
                       onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.opacity = "1"}
                     >
@@ -1122,6 +1134,10 @@ function AssignModal({ clienteId, nbActifs, onAssigned, onPersonnaliser, onClose
   clienteId: string; nbActifs: number; onAssigned: () => void; onPersonnaliser: (assignId: string) => void; onClose: () => void;
 }) {
   const [programmes, setProgrammes] = useState<Programme[]>([]);
+  // On cherche un programme avec les mêmes critères que dans « Mes programmes »
+  // (catégorie, avancement, prog de cycle, niveau) plutôt que de faire défiler
+  // toute la bibliothèque.
+  const [filtres, setFiltres] = useState<Filtres>(FILTRES_TOUS);
   const [selected, setSelected] = useState("");
   // .toISOString() rend l'UTC, pas le jour local du coach — décalé dès qu'il
   // est loin de Greenwich.
@@ -1139,6 +1155,16 @@ function AssignModal({ clienteId, nbActifs, onAssigned, onPersonnaliser, onClose
   useEffect(() => {
     fetch("/api/coach/programmes").then(r => r.json()).then(d => setProgrammes(d.programmes ?? []));
   }, []);
+
+  const programmesFiltres = programmes.filter(p => correspondAuxFiltres(p, filtres));
+
+  /** Un programme sélectionné puis exclu par un filtre ne doit pas rester
+   *  assignable en douce : on vide la sélection avec lui. */
+  function changerFiltres(f: Filtres) {
+    setFiltres(f);
+    const prog = programmes.find(p => p.id === selected);
+    if (prog && !correspondAuxFiltres(prog, f)) { setSelected(""); setLignes([]); }
+  }
 
   function handleSelectProg(id: string) {
     setSelected(id); setError("");
@@ -1207,11 +1233,31 @@ function AssignModal({ clienteId, nbActifs, onAssigned, onPersonnaliser, onClose
             <h3 style={{ fontSize: "1rem", fontWeight: 800, margin: "0 0 20px", color: "#1a1a1a", fontFamily: "system-ui" }}>📅 Assigner un programme</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
-                <label style={lbl}>Programme</label>
+                <label style={lbl}>Filtrer les programmes</label>
+                <FiltresProgrammes filtres={filtres} onChange={changerFiltres} variant="compact" />
+              </div>
+              <div>
+                <label style={lbl}>
+                  Programme ({programmesFiltres.length} sur {programmes.length})
+                </label>
                 <select style={{ ...inp, cursor: "pointer" }} value={selected} onChange={e => handleSelectProg(e.target.value)}>
                   <option value="">— Choisir un programme —</option>
-                  {programmes.map(p => <option key={p.id} value={p.id}>{p.nom} ({p.duree_semaines} sem.)</option>)}
+                  {programmesFiltres.map(p => {
+                    const a = avancementDe(p.description);
+                    const repere = [progCatLabel(normaliseProgCategorie(p.categorie)), avancementComplet(a.avancement, a.cycleProg)]
+                      .filter(Boolean).join(" · ");
+                    return (
+                      <option key={p.id} value={p.id}>
+                        {p.nom}{repere ? ` — ${repere}` : ""} ({p.duree_semaines} sem.)
+                      </option>
+                    );
+                  })}
                 </select>
+                {programmesFiltres.length === 0 && (
+                  <p style={{ fontSize: 11, color: "#F59E0B", margin: "6px 0 0", fontFamily: "system-ui" }}>
+                    Aucun programme ne correspond à ces filtres.
+                  </p>
+                )}
               </div>
               <div>
                 <label style={lbl}>Date de début</label>
@@ -1399,8 +1445,10 @@ export default function ClienteFichePage() {
     const d = await res.json();
     const list: Assignment[] = d.assignments ?? [];
     setAssignments(list);
+    // Les programmes terminés gardent leur grille : ils restent affichés sur le
+    // calendrier (historique figé). Seuls les programmes en pause en sortent.
     const grids: Record<string, Grid> = {};
-    for (const a of list.filter(a => a.statut === "en_cours")) {
+    for (const a of list.filter(a => a.statut === "en_cours" || a.statut === "termine")) {
       const src = a.grid_data?.startsWith("{") ? a.grid_data : a.programme?.description;
       grids[a.id] = decodeGrid(src ?? null);
     }
@@ -1426,8 +1474,14 @@ export default function ClienteFichePage() {
   const actifs = assignments
     .filter(a => a.statut === "en_cours")
     .sort((a, b) => a.date_debut.localeCompare(b.date_debut));
-  const termines = assignments.filter(a => a.statut === "termine");
-  const layers = buildLayers(actifs, gridsByAssignment);
+  // Le calendrier montre l'historique complet : programmes en cours ET terminés,
+  // rangés par date de début. Un programme terminé ne disparaît jamais du
+  // calendrier — c'est la mémoire du travail de la cliente. Il quitte seulement
+  // l'encart « Programme en cours », qui sinon s'empilerait sans fin.
+  const auCalendrier = assignments
+    .filter(a => a.statut === "en_cours" || a.statut === "termine")
+    .sort((a, b) => a.date_debut.localeCompare(b.date_debut));
+  const layers = buildLayers(auCalendrier, gridsByAssignment);
 
   /** Séances réellement programmées : on ignore les semaines hors de la durée retenue. */
   function totalSeancesPrevues(assign: Assignment): number {
@@ -1614,7 +1668,9 @@ export default function ClienteFichePage() {
         </div>
         {actifs.length === 0 ? (
           <div style={{ textAlign: "center", padding: "24px 0" }}>
-            <p style={{ fontSize: 13, color: "#bbb", fontFamily: "system-ui" }}>Aucun programme assigné</p>
+            <p style={{ fontSize: 13, color: "#bbb", fontFamily: "system-ui" }}>
+              {assignments.length > 0 ? "Aucun programme en cours — les précédents restent sur le calendrier" : "Aucun programme assigné"}
+            </p>
             <button onClick={() => setShowModal(true)} style={{ marginTop: 8, padding: "8px 16px", borderRadius: 8, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>+ Assigner un programme</button>
           </div>
         ) : (
