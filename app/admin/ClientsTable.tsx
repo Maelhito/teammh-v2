@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { OFFRE_COLOR, OFFRE_ORDER, PHASE_COLOR, PHASE_LABEL, type Offre, type Phase } from "@/lib/offers/types";
-import { trierClientes } from "@/lib/tri-clientes";
+import {
+  ORDRES_CLIENTES, ORDRE_PAR_DEFAUT, normaliseOrdre, trierClientesPar,
+  type OrdreClientes,
+} from "@/lib/tri-clientes";
 export type { Offre, Phase };
 
 export type Statut = "active" | "pause" | "terminee";
@@ -340,8 +343,33 @@ interface Props {
   teamMembers: TeamMember[];
 }
 
+/** Ce qui est comparé pour les tris alphabétiques : la colonne NOM d'abord,
+ *  puis le prénom, et l'e-mail pour celles dont l'état civil manque. */
+function libelleTri(c: ClientData): string {
+  return [c.nom, c.prenom].filter(Boolean).join(" ") || c.email;
+}
+
+const CLE_ORDRE = "admin-clientes-ordre";
+
 export default function ClientsTable({ initialClients, fetchError, teamMembers }: Props) {
   const [clients, setClients] = useState(initialClients);
+  const [ordre, setOrdre] = useState<OrdreClientes>(ORDRE_PAR_DEFAUT);
+
+  // Le choix est relu au montage, pas au premier rendu : le serveur ne connaît
+  // pas le localStorage, et rendre autre chose que lui casserait l'hydratation.
+  useEffect(() => {
+    try { setOrdre(normaliseOrdre(localStorage.getItem(CLE_ORDRE))); } catch {}
+  }, []);
+
+  function changerOrdre(v: OrdreClientes) {
+    setOrdre(v);
+    try { localStorage.setItem(CLE_ORDRE, v); } catch {}
+  }
+
+  const clientsTries = useMemo(
+    () => trierClientesPar(clients, ordre, libelleTri),
+    [clients, ordre],
+  );
 
   async function handleToggleAcces(userId: string, currentAcces: boolean) {
     const res = await fetch("/api/admin/users", {
@@ -352,9 +380,7 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
     // La ligne rejoint le bas de la liste (ou en remonte) immédiatement :
     // sinon il fallait recharger la page pour retrouver l'ordre annoncé.
     if (res.ok) {
-      setClients(prev => trierClientes(
-        prev.map(c => (c.id === userId ? { ...c, acces_app: !currentAcces } : c)),
-      ));
+      setClients(prev => prev.map(c => (c.id === userId ? { ...c, acces_app: !currentAcces } : c)));
     }
   }
 
@@ -433,15 +459,46 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
 
   return (
     <div style={{ marginTop: 48 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
         <span style={{ width: 3, height: 18, backgroundColor: "#B22222", borderRadius: 2, display: "inline-block", flexShrink: 0 }} />
         <h2 style={{ fontSize: "1rem", fontWeight: 700, letterSpacing: "0.05em", margin: 0 }}>
           MES CLIENTES
         </h2>
-        <span style={{ marginLeft: "auto", fontSize: 12, color: "#555" }}>
+        <span style={{ fontSize: 12, color: "#555" }}>
           {initialClients.length} cliente{initialClients.length > 1 ? "s" : ""}
         </span>
+
+        {/* Choix de l'ordre — à droite, retenu d'une visite à l'autre */}
+        <label style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: "#555", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
+            TRIER PAR
+          </span>
+          <select
+            value={ordre}
+            onChange={(e) => changerOrdre(normaliseOrdre(e.target.value))}
+            style={{
+              backgroundColor: "#0D0D0D",
+              border: `1px solid ${ordre === ORDRE_PAR_DEFAUT ? "rgba(255,255,255,0.15)" : "#B22222"}`,
+              borderRadius: 6,
+              padding: "6px 10px",
+              color: "#F5F5F0",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              outline: "none",
+              fontFamily: "system-ui",
+            }}
+          >
+            {ORDRES_CLIENTES.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </label>
       </div>
+
+      <p style={{ fontSize: 11, color: "#444", margin: "-12px 0 16px", fontStyle: "italic" }}>
+        Les accès révoqués restent en bas de liste, quel que soit le tri.
+      </p>
 
       {fetchError && (
         <div
@@ -457,7 +514,7 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
         </div>
       )}
 
-      {!fetchError && clients.length === 0 ? (
+      {!fetchError && clientsTries.length === 0 ? (
         <p style={{ fontSize: 13, color: "#555", fontStyle: "italic" }}>Aucune cliente pour le moment.</p>
       ) : (
         <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #1A1A1A" }}>
@@ -494,7 +551,7 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
               </tr>
             </thead>
             <tbody>
-              {clients.map((client) => (
+              {clientsTries.map((client) => (
                 <ClientRow
                   key={client.id}
                   client={client}

@@ -1,10 +1,11 @@
 /**
  * Ordre d'affichage des clientes.
  *
- * L'espace admin les range par **ordre d'arrivée dans le programme** — la plus
- * ancienne en haut — et ne relègue en bas que celles dont l'accès a été
- * **révoqué** : elles ne travaillent plus, elles n'ont donc pas à s'intercaler
- * dans la file.
+ * L'espace admin laisse choisir l'ordre (arrivée dans le programme ou nom, dans
+ * les deux sens), et part sur l'arrivée de la plus ancienne à la plus récente.
+ * Quel que soit l'ordre, il ne relègue en bas que les clientes dont l'accès a
+ * été **révoqué** : elles ne travaillent plus, elles n'ont donc pas à
+ * s'intercaler dans la file.
  *
  * Les clientes en pause ou terminées gardent leur place dans cette file. Elles
  * formaient auparavant un groupe intermédiaire, ce qui les faisait sauter d'un
@@ -48,32 +49,65 @@ export function normaliser(s: string): string {
     .trim();
 }
 
+/** Les ordres proposés dans l'espace admin, dans l'ordre du menu. */
+export const ORDRES_CLIENTES = [
+  { value: "arrivee_asc",  label: "Arrivée · la plus ancienne d'abord" },
+  { value: "arrivee_desc", label: "Arrivée · la plus récente d'abord" },
+  { value: "alpha_asc",    label: "Nom · A → Z" },
+  { value: "alpha_desc",   label: "Nom · Z → A" },
+] as const;
+
+export type OrdreClientes = (typeof ORDRES_CLIENTES)[number]["value"];
+
+export const ORDRE_PAR_DEFAUT: OrdreClientes = "arrivee_asc";
+
+/** Un ordre lu ailleurs (localStorage…) n'est retenu que s'il existe encore. */
+export function normaliseOrdre(v: unknown): OrdreClientes {
+  return ORDRES_CLIENTES.some(o => o.value === v) ? (v as OrdreClientes) : ORDRE_PAR_DEFAUT;
+}
+
 /**
- * Tri du portail coach : par ordre alphabétique, mais les clientes dont l'accès
- * est révoqué passent toujours en fin de liste.
- * `nom` est le libellé affiché (prénom + nom, ou l'e-mail à défaut).
+ * Trie une copie de la liste selon l'ordre demandé.
+ *
+ * Quel que soit l'ordre — y compris inversé — les clientes dont l'accès est
+ * révoqué restent tout en bas : « en bas » est leur place, pas une position
+ * dans le classement qu'un tri décroissant ferait remonter en tête.
+ *
+ * `nom` est le libellé comparé pour les tris alphabétiques.
  */
-export function trierClientesAlpha<T extends ClienteTriable>(
+export function trierClientesPar<T extends ClienteTriable>(
   clientes: T[],
-  nom: (c: T) => string
+  ordre: OrdreClientes,
+  nom: (c: T) => string,
 ): T[] {
   return [...clientes].sort((a, b) => {
     const ra = a.acces_app === false ? 1 : 0;
     const rb = b.acces_app === false ? 1 : 0;
     if (ra !== rb) return ra - rb;
-    return normaliser(nom(a)).localeCompare(normaliser(nom(b)), "fr");
+    switch (ordre) {
+      case "arrivee_desc": return cleArrivee(b).localeCompare(cleArrivee(a));
+      case "alpha_asc":    return normaliser(nom(a)).localeCompare(normaliser(nom(b)), "fr");
+      case "alpha_desc":   return normaliser(nom(b)).localeCompare(normaliser(nom(a)), "fr");
+      default:             return cleArrivee(a).localeCompare(cleArrivee(b));
+    }
   });
 }
 
 /**
- * Tri de l'espace admin : ordre d'arrivée dans le programme, les accès révoqués
- * repoussés tout en bas (eux-mêmes dans leur ordre d'arrivée).
+ * Tri du portail coach : par ordre alphabétique, les accès révoqués en fin de
+ * liste. Il n'y est pas réglable — on y cherche une personne par son nom.
+ */
+export function trierClientesAlpha<T extends ClienteTriable>(
+  clientes: T[],
+  nom: (c: T) => string
+): T[] {
+  return trierClientesPar(clientes, "alpha_asc", nom);
+}
+
+/**
+ * Ordre d'arrivée dans le programme : l'ordre par défaut de l'espace admin,
+ * celui du rendu serveur avant que le navigateur applique le choix retenu.
  */
 export function trierClientes<T extends ClienteTriable>(clientes: T[]): T[] {
-  return [...clientes].sort((a, b) => {
-    const ra = a.acces_app === false ? 1 : 0;
-    const rb = b.acces_app === false ? 1 : 0;
-    if (ra !== rb) return ra - rb;
-    return cleArrivee(a).localeCompare(cleArrivee(b));
-  });
+  return trierClientesPar(clientes, ORDRE_PAR_DEFAUT, () => "");
 }
