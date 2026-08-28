@@ -192,14 +192,15 @@ export default function MesuresClient() {
           {/* Formulaire */}
           {formOuvert && (
             <div style={{ ...carte, border: edition ? "1px solid #B22222" : carte.border }}>
-              <p className="font-body" style={{ fontSize: "0.82rem", fontWeight: 700, color: "#F5F5F0", margin: "0 0 4px" }}>
+              {/* Sans la ligne d'explication (cas hors correction), le titre porte lui-même l'espace avant les champs. */}
+              <p className="font-body" style={{ fontSize: "0.82rem", fontWeight: 700, color: "#F5F5F0", margin: edition ? "0 0 4px" : "0 0 14px" }}>
                 {edition ? `Corriger mes mesures du ${labelDate(edition.date)}` : "Mes mesures du jour"}
               </p>
-              <p className="font-body" style={{ fontSize: "0.72rem", color: "#6B7280", margin: "0 0 14px" }}>
-                {edition
-                  ? "Modifie ce qui est faux et enregistre : la saisie de cette date est remplacée."
-                  : "Remplis ce que tu peux — rien n'est obligatoire."}
-              </p>
+              {edition && (
+                <p className="font-body" style={{ fontSize: "0.72rem", color: "#6B7280", margin: "0 0 14px" }}>
+                  Modifie ce qui est faux et enregistre : la saisie de cette date est remplacée.
+                </p>
+              )}
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {CHAMPS.map(({ champ, label, unite, placeholder }) => (
