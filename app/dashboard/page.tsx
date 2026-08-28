@@ -5,7 +5,6 @@ import { getUserProfile, getModuleCompletionsWithDates } from "@/lib/user-profil
 import { computeUnlockStatuses, applyPhaseGate, MODULE_DEMARRAGE_SLUG } from "@/lib/module-unlock";
 import { getClientPhase } from "@/lib/offers/queries";
 import { calculerSerie } from "@/lib/serie";
-import SerieCard from "@/components/SerieCard";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import DashboardModules from "@/components/DashboardModules";
@@ -320,19 +319,33 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               <span style={{ color: "#F5F5F0", fontWeight: 700 }}>{firstName}</span>
             </p>
           </div>
-          {serie.serie > 0 ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 4, backgroundColor: "#1a0000", border: "1px solid rgba(178,34,34,0.4)", borderRadius: 20, padding: "4px 10px" }}>
-              <span style={{ fontSize: "0.85rem" }}>🔥</span>
-              <span className="font-body" style={{ fontSize: "0.7rem", fontWeight: 700, color: "#F5F5F0" }}>
+          {/*
+            La flamme EST la série : le nombre de séances prévues validées
+            d'affilée. C'est le seul rappel du jeu de régularité sur le
+            tableau de bord — l'ancien encart « Ma série » mangeait un écran
+            entier pour la même information.
+          */}
+          <div
+            title={serie.serie > 0
+              ? `Tu as validé ${serie.serie} séance${serie.serie > 1 ? "s" : ""} d'affilée sans en rater une.`
+              : "Valide ta prochaine séance pour allumer la flamme."}
+            style={{
+              display: "flex", alignItems: "center", gap: 7, flexShrink: 0,
+              backgroundColor: serie.serie > 0 ? "#1a0000" : "#111111",
+              border: `1px solid ${serie.serie > 0 ? "rgba(178,34,34,0.45)" : "#1a1a1a"}`,
+              borderRadius: 22, padding: "5px 12px",
+            }}
+          >
+            <span style={{ fontSize: "1.15rem", lineHeight: 1, filter: serie.serie > 0 ? undefined : "grayscale(1)", opacity: serie.serie > 0 ? 1 : 0.45 }}>🔥</span>
+            <span style={{ display: "flex", flexDirection: "column", lineHeight: 1, gap: 2 }}>
+              <span className="font-title" style={{ fontSize: "1.05rem", color: serie.serie > 0 ? "#F5F5F0" : "#444", lineHeight: 1 }}>
                 {serie.serie}
               </span>
-            </div>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 4, backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 20, padding: "4px 10px" }}>
-              <span style={{ fontSize: "0.8rem" }}>🔥</span>
-              <span className="font-body" style={{ fontSize: "0.7rem", color: "#444" }}>0</span>
-            </div>
-          )}
+              <span className="font-body" style={{ fontSize: "0.5rem", fontWeight: 700, letterSpacing: "0.08em", color: serie.serie > 0 ? "rgba(245,245,240,0.5)" : "#333" }}>
+                D&apos;AFFILÉE
+              </span>
+            </span>
+          </div>
         </div>
 
         {/* Bandeau phase de démarrage — la cliente doit d'abord faire son module de démarrage */}
@@ -397,9 +410,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             </div>
           </div>
         )}
-
-        {/* Ma série — le jeu de régularité */}
-        {!enDemarrage && <SerieCard serie={serie} />}
 
         {/* ── CETTE SEMAINE ── */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "24px 16px 10px" }}>
