@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { contientRecherche } from "@/lib/recherche";
+import { usePeutModifierBibliotheque } from "../useDroitsCoach";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Exercise {
@@ -115,12 +116,14 @@ function VideoModal({ url, nom, onClose }: { url: string; nom: string; onClose: 
 
 // ─── Ligne exercice ───────────────────────────────────────────────────────────
 function ExerciseRow({
-  ex, onEdit, onDelete, onPlay,
+  ex, onEdit, onDelete, onPlay, peutModifier,
 }: {
   ex: Exercise;
   onEdit: (e: Exercise) => void;
   onDelete: (id: string) => void;
   onPlay: (ex: Exercise) => void;
+  /** Bibliothèque partagée : seul un admin modifie ou supprime un exercice. */
+  peutModifier: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const color = GROUPE_COLORS[ex.groupe_musculaire] ?? "#888";
@@ -201,19 +204,21 @@ function ExerciseRow({
         </div>
       </div>
 
-      {/* Actions */}
-      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-        <button onClick={() => onEdit(ex)} style={{
-          padding: "5px 10px", borderRadius: 6, border: "1px solid #e8e8e8",
-          backgroundColor: "#fafafa", color: "#555", fontSize: 11,
-          cursor: "pointer", fontFamily: "system-ui",
-        }}>✏️</button>
-        <button onClick={() => onDelete(ex.id)} style={{
-          padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)",
-          backgroundColor: "rgba(239,68,68,0.04)", color: "#EF4444", fontSize: 11,
-          cursor: "pointer", fontFamily: "system-ui",
-        }}>🗑</button>
-      </div>
+      {/* Actions — réservées à l'admin : la banque est commune à toute l'équipe */}
+      {peutModifier && (
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          <button onClick={() => onEdit(ex)} style={{
+            padding: "5px 10px", borderRadius: 6, border: "1px solid #e8e8e8",
+            backgroundColor: "#fafafa", color: "#555", fontSize: 11,
+            cursor: "pointer", fontFamily: "system-ui",
+          }}>✏️</button>
+          <button onClick={() => onDelete(ex.id)} style={{
+            padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)",
+            backgroundColor: "rgba(239,68,68,0.04)", color: "#EF4444", fontSize: 11,
+            cursor: "pointer", fontFamily: "system-ui",
+          }}>🗑</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -391,6 +396,9 @@ function ExercisePanel({
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function CoachExercicesPage() {
+  // Bibliothèque commune à toute l'équipe : un coach la consulte et s'en sert
+  // pour bâtir ses séances, seul un admin modifie ou supprime une fiche.
+  const peutModifier = usePeutModifierBibliotheque();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -585,6 +593,7 @@ export default function CoachExercicesPage() {
               onEdit={e => { setEditing(e); setPanelOpen(true); }}
               onDelete={handleDelete}
               onPlay={setVideoEx}
+              peutModifier={peutModifier}
             />
           ))
         )}

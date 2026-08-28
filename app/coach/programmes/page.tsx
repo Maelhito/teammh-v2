@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { NIVEAUX } from "../seances/SeanceBuilder";
 import { progCatLabel, avancementComplet, normaliseProgCategorie } from "./constantes";
 import { FiltresProgrammes, avancementDe, correspondAuxFiltres, FILTRES_TOUS, type Filtres } from "./FiltresProgrammes";
+import { usePeutModifierBibliotheque } from "../useDroitsCoach";
 
 interface Programme {
   id: string;
@@ -40,6 +41,9 @@ export default function CoachProgrammesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filtres, setFiltres] = useState<Filtres>(FILTRES_TOUS);
+  // Les programmes sont communs à toute l'équipe : un coach les consulte et les
+  // assigne, seul un admin les modifie, duplique ou supprime.
+  const peutModifier = usePeutModifierBibliotheque();
   const router = useRouter();
 
   const load = useCallback(async () => {
@@ -76,6 +80,7 @@ export default function CoachProgrammesPage() {
         niveau: p.niveau,
         duree_semaines: p.duree_semaines,
         description: p.description,
+        duplication: true,
       }),
     });
     if (res.ok) {
@@ -163,9 +168,15 @@ export default function CoachProgrammesPage() {
                 <p style={{ fontSize: 12, color: "#888", margin: 0, fontFamily: "system-ui" }}>{p.duree_semaines ? `${p.duree_semaines * 7} j.` : "—"}</p>
                 <p style={{ fontSize: 12, color: nbSeances > 0 ? "#1a1a1a" : "#ddd", fontWeight: nbSeances > 0 ? 700 : 400, margin: 0, fontFamily: "system-ui" }}>{nbSeances > 0 ? nbSeances : "—"}</p>
                 <div style={{ display: "flex", gap: 6 }} onClick={e => e.stopPropagation()}>
-                  <Link href={`/coach/programmes/${p.id}`} style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid #e8e8e8", backgroundColor: "#fafafa", color: "#555", fontSize: 11, textDecoration: "none", fontFamily: "system-ui" }}>✏️ Modifier</Link>
-                  <button onClick={e => handleDuplicate(p, e)} style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid #e0f0ff", backgroundColor: "#f0f8ff", color: "#3B82F6", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>⧉ Dupliquer</button>
-                  <button onClick={e => handleDelete(p.id, e)} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)", backgroundColor: "rgba(239,68,68,0.04)", color: "#EF4444", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>🗑</button>
+                  {peutModifier ? (
+                    <>
+                      <Link href={`/coach/programmes/${p.id}`} style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid #e8e8e8", backgroundColor: "#fafafa", color: "#555", fontSize: 11, textDecoration: "none", fontFamily: "system-ui" }}>✏️ Modifier</Link>
+                      <button onClick={e => handleDuplicate(p, e)} style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid #e0f0ff", backgroundColor: "#f0f8ff", color: "#3B82F6", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>⧉ Dupliquer</button>
+                      <button onClick={e => handleDelete(p.id, e)} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)", backgroundColor: "rgba(239,68,68,0.04)", color: "#EF4444", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>🗑</button>
+                    </>
+                  ) : (
+                    <Link href={`/coach/programmes/${p.id}`} style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid #e8e8e8", backgroundColor: "#fafafa", color: "#555", fontSize: 11, textDecoration: "none", fontFamily: "system-ui" }}>👁 Consulter</Link>
+                  )}
                 </div>
               </div>
             );

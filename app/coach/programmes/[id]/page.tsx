@@ -6,6 +6,12 @@ import ProgrammeBuilder, { encodeProgData, decodeProgData, countGridItems, type 
 import { NIVEAUX } from "../../seances/SeanceBuilder";
 import { PROG_CATEGORIES, AVANCEMENTS, CYCLE_PROGS, estCycle } from "../constantes";
 import ImageUpload from "@/components/ImageUpload";
+import { usePeutModifierBibliotheque } from "../../useDroitsCoach";
+
+/** Un coach consulte les modèles ; il adapte le programme DE SA CLIENTE depuis
+ *  sa fiche, sur une copie qui ne touche jamais le modèle d'origine. */
+const LECTURE_SEULE_TEXTE =
+  "Ce programme est un modèle partagé par toute l'équipe : seul un admin peut le modifier. Pour l'adapter à une cliente, assigne-le puis modifie ses séances depuis sa fiche — sa copie est indépendante du modèle.";
 
 export default function EditProgrammePage() {
   const router = useRouter();
@@ -14,6 +20,7 @@ export default function EditProgrammePage() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const peutModifier = usePeutModifierBibliotheque();
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/coach/programmes/${id}`);
@@ -52,8 +59,19 @@ export default function EditProgrammePage() {
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
         <button onClick={() => router.push("/coach/programmes")} style={{ background: "none", border: "1px solid #222", borderRadius: 7, padding: "6px 12px", fontSize: 12, color: "#888", cursor: "pointer", fontFamily: "system-ui" }}>← Retour</button>
-        <h1 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#F5F5F0", margin: 0, fontFamily: "system-ui" }}>✏️ {data.nom}</h1>
+        <h1 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#F5F5F0", margin: 0, fontFamily: "system-ui" }}>{peutModifier ? "✏️" : "👁"} {data.nom}</h1>
       </div>
+
+      {!peutModifier && (
+        <div style={{ margin: "0 0 14px", padding: "10px 14px", borderRadius: 9, backgroundColor: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.3)" }}>
+          <p style={{ fontSize: 12, color: "#F59E0B", margin: 0, fontWeight: 700, fontFamily: "system-ui" }}>👁 Lecture seule</p>
+          <p style={{ fontSize: 11, color: "#888", margin: "3px 0 0", fontFamily: "system-ui", lineHeight: 1.5 }}>
+            {LECTURE_SEULE_TEXTE}
+          </p>
+        </div>
+      )}
+
+      <div style={peutModifier ? undefined : { pointerEvents: "none", opacity: 0.75 }}>
 
       {/* Infos */}
       <div style={{ backgroundColor: "#111", borderRadius: 12, border: "1px solid #1a1a1a", padding: "16px 18px", marginBottom: 14 }}>
@@ -107,11 +125,15 @@ export default function EditProgrammePage() {
 
       <ProgrammeBuilder data={data} onChange={setData} />
 
+      </div>
+
       {error && <p style={{ fontSize: 12, color: "#EF4444", margin: "10px 0 0", fontFamily: "system-ui" }}>{error}</p>}
-      <button onClick={handleSave} disabled={saving}
-        style={{ marginTop: 12, width: "100%", padding: "12px", borderRadius: 9, border: "none", backgroundColor: saving ? "#333" : "#B22222", color: saving ? "#666" : "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
-        {saving ? "Enregistrement…" : `✅ Sauvegarder (${totalItems} élément${totalItems > 1 ? "s" : ""})`}
-      </button>
+      {peutModifier && (
+        <button onClick={handleSave} disabled={saving}
+          style={{ marginTop: 12, width: "100%", padding: "12px", borderRadius: 9, border: "none", backgroundColor: saving ? "#333" : "#B22222", color: saving ? "#666" : "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
+          {saving ? "Enregistrement…" : `✅ Sauvegarder (${totalItems} élément${totalItems > 1 ? "s" : ""})`}
+        </button>
+      )}
     </div>
   );
 }

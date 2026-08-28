@@ -4,6 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import SeanceBuilder, { CATEGORIES, NIVEAUX, decodeSeance, encodeSeance, type SeanceData } from "../SeanceBuilder";
 import ImageUpload from "@/components/ImageUpload";
+import { usePeutModifierBibliotheque } from "../../useDroitsCoach";
+
+/** Un coach consulte les modèles ; il adapte la séance DE SA CLIENTE depuis sa
+ *  fiche, sur une copie qui ne touche jamais le modèle d'origine. */
+const LECTURE_SEULE_TEXTE =
+  "Cette séance est un modèle partagé par toute l'équipe : seul un admin peut la modifier. Pour l'adapter à une cliente, ouvre sa fiche et modifie la séance dans son programme — sa copie est indépendante du modèle.";
 
 const RECURRENCES = [
   { value: "une_seule_fois", label: "Une seule fois" },
@@ -19,6 +25,7 @@ export default function SeanceDetailPage() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const peutModifier = usePeutModifierBibliotheque();
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/coach/seances/${id}`);
@@ -69,19 +76,32 @@ export default function SeanceDetailPage() {
             ← Retour
           </button>
           <div>
-            <p style={{ fontSize: 10, color: "#444", letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 1px", fontFamily: "system-ui" }}>Modifier la séance</p>
+            <p style={{ fontSize: 10, color: "#444", letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 1px", fontFamily: "system-ui" }}>{peutModifier ? "Modifier la séance" : "Consulter la séance"}</p>
             <h1 style={{ fontSize: "1.15rem", fontWeight: 800, color: "#F5F5F0", margin: 0, fontFamily: "system-ui" }}>{data.nom || "Sans titre"}</h1>
           </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {error && <p style={{ fontSize: 12, color: "#EF4444", margin: 0, fontFamily: "system-ui" }}>{error}</p>}
-          <button onClick={handleSave} disabled={saving}
-            style={{ padding: "10px 24px", borderRadius: 9, border: "none", backgroundColor: saving ? "#333" : "#B22222", color: saving ? "#666" : "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
-            {saving ? "Enregistrement…" : "Enregistrer"}
-          </button>
+          {peutModifier && (
+            <button onClick={handleSave} disabled={saving}
+              style={{ padding: "10px 24px", borderRadius: 9, border: "none", backgroundColor: saving ? "#333" : "#B22222", color: saving ? "#666" : "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </button>
+          )}
         </div>
       </div>
+
+      {!peutModifier && (
+        <div style={{ margin: "0 0 16px", padding: "10px 14px", borderRadius: 9, backgroundColor: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.3)" }}>
+          <p style={{ fontSize: 12, color: "#F59E0B", margin: 0, fontWeight: 700, fontFamily: "system-ui" }}>👁 Lecture seule</p>
+          <p style={{ fontSize: 11, color: "#888", margin: "3px 0 0", fontFamily: "system-ui", lineHeight: 1.5 }}>
+            {LECTURE_SEULE_TEXTE}
+          </p>
+        </div>
+      )}
+
+      <div style={peutModifier ? undefined : { pointerEvents: "none", opacity: 0.75 }}>
 
       {/* ── Info section ── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 14, marginBottom: 20 }}>
@@ -143,6 +163,8 @@ export default function SeanceDetailPage() {
 
       {/* ── Builder ── */}
       <SeanceBuilder data={data} onChange={setData} />
+
+      </div>
     </div>
   );
 }

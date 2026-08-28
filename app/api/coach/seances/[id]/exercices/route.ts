@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkCoachAccess } from "@/lib/check-coach-access";
+import { checkCoachAccess, refusSiCoach } from "@/lib/check-coach-access";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
 type Params = { params: Promise<{ id: string }> };
@@ -23,6 +23,8 @@ export async function GET(_: NextRequest, { params }: Params) {
 export async function POST(req: NextRequest, { params }: Params) {
   const user = await checkCoachAccess();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+  const refus = refusSiCoach(user, "modifier une séance");
+  if (refus) return refus;
 
   const { id } = await params;
   const body = await req.json();

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CATEGORIES, NIVEAUX } from "./SeanceBuilder";
+import { usePeutModifierBibliotheque } from "../useDroitsCoach";
 
 interface Seance {
   id: string;
@@ -72,6 +73,8 @@ function FilterDropdown({ label, options, value, onChange }: {
 }
 
 export default function CoachSeancesPage() {
+  // Bibliothèque partagée : un coach consulte, seul un admin modifie ou supprime.
+  const peutModifier = usePeutModifierBibliotheque();
   const [seances, setSeances] = useState<Seance[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterCat, setFilterCat] = useState("tous");
@@ -222,12 +225,14 @@ export default function CoachSeancesPage() {
                     padding: "5px 10px", borderRadius: 6, border: "1px solid #e8e8e8",
                     backgroundColor: "#fafafa", color: "#555", fontSize: 11,
                     textDecoration: "none", fontFamily: "system-ui", whiteSpace: "nowrap",
-                  }}>✏️</Link>
-                  <button onClick={e => handleDelete(s.id, e)} style={{
-                    padding: "5px 9px", borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)",
-                    backgroundColor: "rgba(239,68,68,0.04)", color: "#EF4444",
-                    fontSize: 11, cursor: "pointer", fontFamily: "system-ui",
-                  }}>🗑</button>
+                  }}>{peutModifier ? "✏️" : "👁"}</Link>
+                  {peutModifier && (
+                    <button onClick={e => handleDelete(s.id, e)} style={{
+                      padding: "5px 9px", borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)",
+                      backgroundColor: "rgba(239,68,68,0.04)", color: "#EF4444",
+                      fontSize: 11, cursor: "pointer", fontFamily: "system-ui",
+                    }}>🗑</button>
+                  )}
                 </div>
               </div>
             );
