@@ -175,7 +175,7 @@ function StepSection({ step, content }: { step: Module0Step; content: ModuleCont
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <span style={{ fontSize: "1rem", flexShrink: 0 }}>{step.emoji}</span>
-          <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "var(--admin-text)", fontFamily: "system-ui" }}>
+          <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#F5F5F0", fontFamily: "system-ui" }}>
             {step.index}. {step.title.toUpperCase()}
           </span>
           <span style={{ fontSize: 10, color: filled ? "#4ADE80" : "#555", fontFamily: "system-ui", flexShrink: 0 }}>
