@@ -11,8 +11,6 @@ export interface Mesure {
   poids: number | null;
   tour_taille: number | null;
   tour_hanches: number | null;
-  tour_cuisse: number | null;
-  tour_bras: number | null;
   tour_poitrine: number | null;
   note: string | null;
 }
@@ -21,8 +19,6 @@ export type MesureChamp =
   | "poids"
   | "tour_taille"
   | "tour_hanches"
-  | "tour_cuisse"
-  | "tour_bras"
   | "tour_poitrine";
 
 export interface ChampDef {
@@ -34,12 +30,18 @@ export interface ChampDef {
   cle?: boolean;
 }
 
+/**
+ * Les mesures demandées à la cliente. Cette liste commande TOUT : le formulaire
+ * cliente, celui du coach, l'historique et les champs acceptés par l'API.
+ *
+ * Le tour de cuisse et le tour de bras en ont été retirés — la page était trop
+ * chargée. Leurs colonnes restent en base : les valeurs déjà saisies ne sont
+ * pas détruites, elles ne sont simplement plus demandées ni affichées.
+ */
 export const CHAMPS: ChampDef[] = [
   { champ: "poids", label: "Poids", unite: "kg", placeholder: "68.4", cle: true },
   { champ: "tour_taille", label: "Tour de taille", unite: "cm", placeholder: "78", cle: true },
   { champ: "tour_hanches", label: "Tour de hanches", unite: "cm", placeholder: "98" },
-  { champ: "tour_cuisse", label: "Tour de cuisse", unite: "cm", placeholder: "56" },
-  { champ: "tour_bras", label: "Tour de bras", unite: "cm", placeholder: "29" },
   { champ: "tour_poitrine", label: "Tour de poitrine", unite: "cm", placeholder: "92" },
 ];
 
