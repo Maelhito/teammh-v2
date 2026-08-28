@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import {
-  COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, ORDRE_LEGENDE, couleurEvenement,
+  COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, couleurEvenement,
   teinteEvenement, estRendezVous,
 } from "@/lib/couleurs-calendrier";
+import LegendeCalendrier from "@/components/LegendeCalendrier";
 import { fuseauAppareil, heureAffichee, occurrenceLe } from "@/lib/temps";
 import { estSeanceValidee } from "@/lib/seances-validees";
 
@@ -337,19 +338,8 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
       </div>
 
       {/* Légende */}
-      <div style={{ display: "flex", gap: 10, marginTop: 16, paddingBottom: 4, flexWrap: "wrap" }}>
-        {ORDRE_LEGENDE.map((type) => (
-          <div key={type} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT[type].base, display: "inline-block", flexShrink: 0 }} />
-            <span style={{ fontSize: "0.72rem", color: "#9CA3AF" }}>{COULEURS_EVENEMENT[type].label}</span>
-          </div>
-        ))}
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.seance.base, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <span style={{ fontSize: 6, lineHeight: 1, color: "#0D0D0D", fontWeight: 900 }}>✓</span>
-          </span>
-          <span style={{ fontSize: "0.72rem", color: "#9CA3AF" }}>Séance validée</span>
-        </div>
+      <div style={{ marginTop: 16, paddingBottom: 4 }}>
+        <LegendeCalendrier />
       </div>
 
       {/* Selected day panel */}

@@ -9,6 +9,7 @@ import {
   itemsForDate,
 } from "@/lib/programme-planning";
 import { COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, couleurEvenement } from "@/lib/couleurs-calendrier";
+import LegendeCalendrier from "@/components/LegendeCalendrier";
 import { fuseauAppareil, occurrenceLe } from "@/lib/temps";
 
 const MONTH_NAMES = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -361,6 +362,11 @@ export default function EntrainementClient({
         <button onClick={nextMonth} style={{ background: "none", border: "1px solid #2a2a2a", borderRadius: 9, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#F5F5F0" }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
         </button>
+      </div>
+
+      {/* Code couleur — le même que côté coach, en petit */}
+      <div style={{ marginBottom: 10 }}>
+        <LegendeCalendrier compact />
       </div>
 
       {/* En-têtes jours */}
