@@ -2,7 +2,7 @@ import { isAdminUser } from "@/lib/is-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
-import { getOffresMap, upsertOffre, setPhase } from "@/lib/offers/queries";
+import { getOffresMap, phaseSansOffre, upsertOffre, setPhase } from "@/lib/offers/queries";
 import { OFFRE_ORDER, type Offre, type Phase } from "@/lib/offers/types";
 
 export async function GET(request: NextRequest) {
@@ -37,7 +37,9 @@ export async function GET(request: NextRequest) {
     nom: profileMap[u.id]?.nom ?? null,
     offre: offreMap[u.id]?.offre ?? null,
     date_debut: offreMap[u.id]?.date_debut ?? null,
-    phase: offreMap[u.id]?.phase ?? "demarree",
+    // Même règle que dans l'app de la cliente : sans ligne d'offre, l'ancienneté
+    // du compte tranche.
+    phase: offreMap[u.id]?.phase ?? phaseSansOffre(u.created_at),
   }));
 
   return NextResponse.json({ clients: result });

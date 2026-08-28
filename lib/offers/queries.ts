@@ -44,12 +44,49 @@ export async function getOffresMap(
 }
 
 /**
- * Phase de démarrage d'une seule cliente. Renvoie 'demarree' par défaut (accès complet)
- * si aucune ligne / colonne absente — jamais de blocage accidentel de l'existant.
+ * À partir de ce moment, une cliente SANS ligne `offres_clientes` est considérée
+ * « en démarrage » : son compte vient d'être créé, elle n'a donc accès qu'au
+ * module de démarrage tant que l'admin n'a pas cliqué « Démarrer » (ce qu'il
+ * fait après l'appel de démarrage). C'est ce qui permet d'ouvrir un accès à
+ * quelqu'un qui n'a pas encore payé, pour lui montrer que le programme existe,
+ * sans lui livrer tout le contenu.
+ *
+ * Pourquoi une date et pas la simple absence de ligne : au moment où cette
+ * règle a été posée, 38 clientes utilisaient déjà l'app sans ligne
+ * `offres_clientes`. Les traiter comme des nouvelles les aurait toutes
+ * enfermées dans le module de démarrage du jour au lendemain. Leur compte est
+ * antérieur : leur démarrage est derrière elles.
+ */
+export const DEBUT_DEMARRAGE_AUTO = Date.parse("2026-08-28T00:00:00Z");
+
+/** Phase d'une cliente qui n'a pas (encore) de ligne `offres_clientes`. */
+export function phaseSansOffre(compteCreeLe: string | null | undefined): Phase {
+  if (!compteCreeLe) return "demarree";
+  const cree = Date.parse(compteCreeLe);
+  if (Number.isNaN(cree)) return "demarree";
+  return cree >= DEBUT_DEMARRAGE_AUTO ? "demarrage" : "demarree";
+}
+
+/**
+ * Phase de démarrage d'une seule cliente.
+ *
+ * Une ligne `offres_clientes` fait toujours foi — c'est elle que le bouton de
+ * l'admin écrit. Sans ligne, c'est l'ancienneté du compte qui tranche
+ * (voir `phaseSansOffre`) : la date de création est lue à ce moment-là
+ * seulement, pour ne pas payer un appel de plus sur le cas courant.
  */
 export async function getClientPhase(admin: AdminClient, userId: string): Promise<Phase> {
   const map = await getOffresMap(admin, [userId]);
-  return map[userId]?.phase ?? "demarree";
+  const ligne = map[userId];
+  if (ligne) return ligne.phase;
+
+  try {
+    const { data } = await admin.auth.admin.getUserById(userId);
+    return phaseSansOffre(data?.user?.created_at ?? null);
+  } catch {
+    // Compte illisible : on n'enferme personne sur un incident réseau.
+    return "demarree";
+  }
 }
 
 /**
@@ -89,7 +126,7 @@ export async function upsertOffre(
 
   const { data: existing } = await admin
     .from("offres_clientes")
-    .select("offre")
+    .select("offre, phase")
     .eq("user_id", user_id)
     .maybeSingle();
 
@@ -106,10 +143,26 @@ export async function upsertOffre(
   // Le jour de départ compte dans le fuseau DE LA CLIENTE, pas celui du coach
   // qui affecte l'offre ni celui du serveur.
   const dateDebut = aujourdhuiDans(await getFuseau(user_id));
+
+  // Affecter une offre ne doit RIEN changer à la phase. La ligne n'existant pas
+  // encore, la base y mettrait son défaut 'demarrage' : une cliente ancienne,
+  // qui travaille depuis des mois, se retrouverait enfermée dans le module de
+  // démarrage le jour où on lui pose une offre. On inscrit donc explicitement
+  // la phase qu'elle a déjà.
+  const phase = existing
+    ? ((existing as { phase?: string }).phase as Phase | undefined)
+    : await getClientPhase(admin, user_id);
+
   const { error: upsertError } = await admin
     .from("offres_clientes")
     .upsert(
-      { user_id, offre, date_debut: dateDebut, updated_at: new Date().toISOString() },
+      {
+        user_id,
+        offre,
+        date_debut: dateDebut,
+        ...(phase ? { phase } : {}),
+        updated_at: new Date().toISOString(),
+      },
       { onConflict: "user_id" }
     );
   if (upsertError) return { error: upsertError.message, status: 500 };

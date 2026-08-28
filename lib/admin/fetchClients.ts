@@ -1,6 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getModules } from "@/lib/modules";
-import { getOffresMap } from "@/lib/offers/queries";
+import { getOffresMap, phaseSansOffre } from "@/lib/offers/queries";
 import type { ClientData } from "@/app/admin/ClientsTable";
 import fs from "fs";
 import path from "path";
@@ -82,7 +82,9 @@ export async function fetchClients(): Promise<{ clients: ClientData[]; error: st
       coach_id: profileMap[u.id]?.coach_id ?? null,
       nutrition_id: profileMap[u.id]?.nutrition_id ?? null,
       offre: offreMap[u.id]?.offre ?? null,
-      phase: offreMap[u.id]?.phase ?? "demarree",
+      // Sans ligne d'offre, c'est l'ancienneté du compte qui décide — même
+      // règle que celle appliquée à la cliente dans son app.
+      phase: offreMap[u.id]?.phase ?? phaseSansOffre(u.created_at),
     }))),
     error: null,
   };
