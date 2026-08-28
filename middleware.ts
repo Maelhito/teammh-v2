@@ -110,8 +110,15 @@ export async function middleware(request: NextRequest) {
   const isCoach = role === "coach";
   const isRoleAdmin = role === "admin";
 
+  // Aperçu « voir comme cliente ». Le cookie compte autant que le paramètre :
+  // sans lui, le coach était renvoyé sur /coach dès la première page de
+  // l'aperçu, puis à chaque retour sur l'accueil depuis la barre du bas.
+  // Le cookie n'est posé que par la route coach, après vérification des droits.
+  const isPreview =
+    request.nextUrl.searchParams.get("preview") === "1" ||
+    !!request.cookies.get("preview_user_id")?.value;
+
   // Redirection post-login selon rôle (désactivée en dev pour ne pas gêner les tests coach/admin)
-  const isPreview = request.nextUrl.searchParams.get("preview") === "1";
   if (!isDev && pathname.startsWith("/dashboard") && !isPreview) {
     if (isAdmin || isRoleAdmin) return redirect("/admin");
     if (isCoach) return redirect("/coach");

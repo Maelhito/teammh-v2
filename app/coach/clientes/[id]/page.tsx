@@ -1574,20 +1574,6 @@ export default function ClienteFichePage() {
     loadAssignments();
   }
 
-  async function handlePreview() {
-    await fetch(`/api/coach/clientes/${id}/preview`, { method: "POST" });
-    let target = "/dashboard";
-    try {
-      const res = await fetch("/api/admin/offres");
-      if (res.ok) {
-        const data = await res.json();
-        const entry = data.clients?.find((c: { id: string; offre: string | null }) => c.id === id);
-        if (entry?.offre === "TTS") target = "/tts";
-      }
-    } catch {}
-    window.open(target, "_blank");
-  }
-
   function displayName(c: Cliente) {
     if (c.prenom || c.nom) return [c.prenom, c.nom].filter(Boolean).join(" ");
     return c.email;
@@ -1629,9 +1615,19 @@ export default function ClienteFichePage() {
               </p>
             </div>
           )}
-          <button onClick={handlePreview} style={{ padding: "9px 16px", borderRadius: 8, border: "1px solid #7C3AED", backgroundColor: "#fff", color: "#7C3AED", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>
+          {/*
+            Un vrai lien, pas un bouton : la route pose le cookie d'aperçu et
+            redirige elle-même vers l'app de la cliente. Le `window.open()`
+            d'avant partait après deux requêtes et se faisait bloquer.
+          */}
+          <a
+            href={`/api/coach/clientes/${id}/preview`}
+            target="_blank"
+            rel="noopener"
+            style={{ padding: "9px 16px", borderRadius: 8, border: "1px solid #7C3AED", backgroundColor: "#fff", color: "#7C3AED", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui", textDecoration: "none", display: "inline-flex", alignItems: "center" }}
+          >
             👁 Voir comme cliente
-          </button>
+          </a>
           <button onClick={() => setShowModal(true)} style={{ padding: "9px 16px", borderRadius: 8, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui", boxShadow: "0 2px 6px rgba(178,34,34,0.25)" }}>
             📅 Assigner un programme
           </button>
