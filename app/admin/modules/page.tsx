@@ -25,7 +25,7 @@ export default async function AdminModulesPage() {
         <p style={{ fontSize: 11, color: "#555", letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 4px", fontFamily: "system-ui" }}>
           Contenu
         </p>
-        <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#F5F5F0", margin: 0, fontFamily: "system-ui" }}>
+        <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--admin-text)", margin: 0, fontFamily: "system-ui" }}>
           📚 Modules
         </h1>
       </div>

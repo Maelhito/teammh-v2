@@ -1,5 +1,5 @@
 /**
- * Les 4 points du module de démarrage (module-0).
+ * Les points du module de démarrage (module-0).
  *
  * La complétion de chaque point est stockée dans module_completions avec le slug
  * préfixé (`module-0:presentation`, …), pour ne pas se mélanger avec la complétion
@@ -35,18 +35,8 @@ export const MODULE_0_STEPS: Module0Step[] = [
     hasQuestionnaire: true,
   },
   {
-    key: "azeoo",
-    index: 2,
-    title: "Présentation Azeoo",
-    category: "Outils",
-    duration: "",
-    emoji: "📱",
-    type: "content",
-    description: "Prends en main l'application Azeoo qui va t'accompagner au quotidien.",
-  },
-  {
     key: "plan-alimentaire",
-    index: 3,
+    index: 2,
     title: "Présentation plan alimentaire",
     category: "Nutrition",
     duration: "",
@@ -56,7 +46,7 @@ export const MODULE_0_STEPS: Module0Step[] = [
   },
   {
     key: "questionnaire",
-    index: 4,
+    index: 3,
     title: "Questionnaire alimentaire",
     category: "Questionnaire",
     duration: "",

@@ -806,7 +806,7 @@ function ModuleRow({
           <span className="font-title" style={{ fontSize: "1rem", color: "#B22222", flexShrink: 0 }}>
             {String(index).padStart(2, "0")}
           </span>
-          <span className="font-body" style={{ fontWeight: 700, fontSize: "0.85rem", color: "#F5F5F0" }}>
+          <span className="font-body" style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--admin-text)" }}>
             {module.title.toUpperCase()}
           </span>
         </div>

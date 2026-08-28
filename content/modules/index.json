@@ -3,7 +3,7 @@
     {
       "slug": "module-0",
       "title": "Module de démarrage",
-      "description": "Ton parcours d'arrivée : présentation, Azeoo, plan alimentaire et questionnaire. À compléter avant ton appel de démarrage.",
+      "description": "Ton parcours d'arrivée : présentation, plan alimentaire et questionnaire. À compléter avant ton appel de démarrage.",
       "category": "Démarrage",
       "order": 0,
       "duration": "",
@@ -22,8 +22,8 @@
     },
     {
       "slug": "module-2",
-      "title": "Maîtriser Azeoo",
-      "description": "Apprends à utiliser l'application Azeoo pour suivre ton alimentation au quotidien.",
+      "title": "Démarrer ton sport",
+      "description": "Apprends à utiliser l'application TTM pour suivre tes séances de sport au quotidien.",
       "category": "Outils",
       "order": 2,
       "duration": "20 min",

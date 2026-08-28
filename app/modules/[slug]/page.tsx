@@ -247,7 +247,7 @@ export default async function ModulePage({ params }: PageProps) {
       {/* Contenu */}
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "12px 16px 0" }}>
         {slug === MODULE_DEMARRAGE_SLUG ? (
-          /* Module de démarrage : liste des 4 points à parcourir */
+          /* Module de démarrage : liste des points à parcourir */
           <Module0Steps completedSlugs={completionsWithDates.map((c) => c.module_slug)} />
         ) : (
           <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 18, padding: "20px 20px 24px" }}>

@@ -175,7 +175,7 @@ function StepSection({ step, content }: { step: Module0Step; content: ModuleCont
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <span style={{ fontSize: "1rem", flexShrink: 0 }}>{step.emoji}</span>
-          <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#F5F5F0", fontFamily: "system-ui" }}>
+          <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "var(--admin-text)", fontFamily: "system-ui" }}>
             {step.index}. {step.title.toUpperCase()}
           </span>
           <span style={{ fontSize: 10, color: filled ? "#4ADE80" : "#555", fontFamily: "system-ui", flexShrink: 0 }}>
@@ -258,7 +258,7 @@ export default function Module0Admin({ contentBySlug }: { contentBySlug: Record<
     <div style={{ marginBottom: 28 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <span style={{ width: 3, height: 16, backgroundColor: "#B45309", borderRadius: 2, display: "inline-block", flexShrink: 0 }} />
-        <h2 style={{ fontSize: "0.9rem", fontWeight: 800, color: "#F5F5F0", margin: 0, fontFamily: "system-ui", letterSpacing: "0.03em" }}>
+        <h2 style={{ fontSize: "0.9rem", fontWeight: 800, color: "var(--admin-text)", margin: 0, fontFamily: "system-ui", letterSpacing: "0.03em" }}>
           🚀 MODULE DE DÉMARRAGE
         </h2>
         <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui", marginLeft: "auto" }}>
