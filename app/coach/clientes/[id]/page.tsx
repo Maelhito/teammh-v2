@@ -165,8 +165,11 @@ function SeanceEditPanel({ item, cellKey, dureeSemaines, otherInstancesCount, on
   const initSem = parseInt(match?.[1] ?? "1");
   const initJour = parseInt(match?.[2] ?? "1");
 
+  // Le jour ne se change pas ici. Il se change par glisser-déposer dans le
+  // calendrier de la cliente : c'est le geste naturel, et surtout il déplace
+  // UNE séance, là où ce panneau réécrivait le jour de toutes les occurrences
+  // portant le même nom — au risque d'en empiler ou d'en perdre.
   const [semaine, setSemaine] = useState(initSem);
-  const [jour, setJour] = useState(initJour);
   const [seanceData, setSeanceData] = useState<SeanceData | null>(
     item.type === "seance_locale" ? item.seanceData : null
   );
@@ -185,7 +188,7 @@ function SeanceEditPanel({ item, cellKey, dureeSemaines, otherInstancesCount, on
   }
 
   function handleSave(applyToAll: boolean) {
-    onSave(buildUpdated(), `S${semaine}_J${jour}`, applyToAll);
+    onSave(buildUpdated(), `S${semaine}_J${initJour}`, applyToAll);
   }
 
   const inp: React.CSSProperties = { width: "100%", padding: "9px 11px", borderRadius: 8, border: "1px solid #2a2a2a", backgroundColor: "#161616", fontSize: 13, color: "#F5F5F0", fontFamily: "system-ui", outline: "none", boxSizing: "border-box" };
@@ -217,17 +220,17 @@ function SeanceEditPanel({ item, cellKey, dureeSemaines, otherInstancesCount, on
               <label style={lbl}>Nom</label>
               <input style={inp} value={nom} onChange={e => setNom(e.target.value)} />
             </div>
-            {/* Semaine */}
+            {/* Semaine — le jour, lui, se change dans le calendrier */}
             <div>
               <label style={lbl}>Semaine</label>
               <input style={{ ...inp, textAlign: "center" }} type="number" min={1} max={dureeSemaines} value={semaine} onChange={e => setSemaine(Math.min(dureeSemaines, Math.max(1, parseInt(e.target.value) || 1)))} />
             </div>
-            {/* Jour */}
             <div>
               <label style={lbl}>Jour</label>
-              <select style={{ ...inp, cursor: "pointer" }} value={jour} onChange={e => setJour(parseInt(e.target.value))}>
-                {[1,2,3,4,5,6,7].map(j => <option key={j} value={j}>{JOURS_LONG[j]}</option>)}
-              </select>
+              <div style={{ ...inp, display: "flex", alignItems: "center", gap: 6, color: "#888" }}>
+                <span style={{ color: "#F5F5F0" }}>{JOURS_LONG[initJour]}</span>
+                <span style={{ fontSize: 10 }}>— inchangé</span>
+              </div>
             </div>
             {/* Durée si séance */}
             {item.type !== "video" && (
@@ -272,6 +275,13 @@ function SeanceEditPanel({ item, cellKey, dureeSemaines, otherInstancesCount, on
               <p style={{ fontSize: 10, color: "#555", margin: 0, fontFamily: "system-ui", textAlign: "center" }}>
                 {otherInstancesCount} autre{otherInstancesCount > 1 ? "s" : ""} séance{otherInstancesCount > 1 ? "s" : ""} "{nom}" trouvée{otherInstancesCount > 1 ? "s" : ""} dans le programme
               </p>
+              {/* « Toutes » ne propage que le contenu : sans ce rappel, un
+                  changement de semaine serait silencieusement ignoré. */}
+              {semaine !== initSem && (
+                <p style={{ fontSize: 10, color: "#F59E0B", margin: 0, fontFamily: "system-ui", textAlign: "center" }}>
+                  ⚠️ Le passage en semaine {semaine} ne s&apos;applique qu&apos;avec « Cette séance uniquement ». « Toutes » ne change que le contenu.
+                </p>
+              )}
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => handleSave(false)}
                   style={{ flex: 1, padding: "11px", borderRadius: 9, border: "1px solid #2a2a2a", backgroundColor: "#161616", color: "#F5F5F0", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "system-ui" }}>
@@ -1522,26 +1532,18 @@ export default function ClienteFichePage() {
     const newGrid = { ...(gridsByAssignment[assignmentId] ?? {}) };
 
     if (applyToAll) {
+      // « Toutes » ne propage QUE le contenu : chaque occurrence garde sa
+      // semaine et son jour. L'ancienne version les déplaçait toutes sur le
+      // jour choisi, en les vidant puis en les réécrivant ailleurs — d'où des
+      // séances empilées ou disparues. Ici on modifie sur place : rien ne
+      // bouge, rien ne peut se perdre.
       const name = getItemName(editTarget.item);
-      const oldJour = parseInt(oldKey.match(/_J(\d+)$/)?.[1] ?? "0");
-      const newJour = parseInt(newCellKey.match(/_J(\d+)$/)?.[1] ?? "0");
-      const dayChanged = oldJour !== newJour;
-
       for (const key of Object.keys(newGrid)) {
         const items = newGrid[key] ?? [];
-        const matching = items.filter(i => getItemName(i) === name);
-        if (!matching.length) continue;
-
-        newGrid[key] = items.filter(i => getItemName(i) !== name);
-        if (!newGrid[key].length) delete newGrid[key];
-
-        const semStr = key.match(/^S(\d+)_/)?.[1] ?? "1";
-        const destJour = dayChanged ? newJour : parseInt(key.match(/_J(\d+)$/)?.[1] ?? String(newJour));
-        const destKey = `S${semStr}_J${destJour}`;
-        newGrid[destKey] = [
-          ...(newGrid[destKey] ?? []),
-          ...matching.map(i => ({ ...i, ...updatedItem, _key: nk() })),
-        ];
+        if (!items.some(i => getItemName(i) === name)) continue;
+        newGrid[key] = items.map(i =>
+          getItemName(i) === name ? { ...i, ...updatedItem, _key: i._key } : i,
+        );
       }
     } else {
       newGrid[oldKey] = (newGrid[oldKey] ?? []).filter(i => i._key !== updatedItem._key);
