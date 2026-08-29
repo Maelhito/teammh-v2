@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       const session = event.data.object as Stripe.Checkout.Session;
       const userId = session.client_reference_id ?? session.metadata?.user_id;
       if (!userId || !session.customer) break;
-      await admin.from("tts_subscriptions").upsert({
+      await admin.from("ttl_subscriptions").upsert({
         user_id: userId,
         stripe_customer_id: String(session.customer),
         stripe_subscription_id: session.subscription ? String(session.subscription) : null,
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       const subscription = event.data.object as Stripe.Subscription;
       const userId = subscription.metadata?.user_id;
       if (!userId) break;
-      await admin.from("tts_subscriptions").upsert({
+      await admin.from("ttl_subscriptions").upsert({
         user_id: userId,
         stripe_customer_id: String(subscription.customer),
         stripe_subscription_id: subscription.id,

@@ -10,7 +10,7 @@ const FRAICHEUR_MS = 24 * 60 * 60 * 1000;
  * Tient à jour le fuseau horaire de la personne connectée.
  *
  * Monté dans le layout racine : il couvre la cliente, le coach et l'admin, sur
- * TTM comme sur TTS. C'est ce qui fait qu'une cliente partie en vacances en
+ * TTM comme sur TTL. C'est ce qui fait qu'une cliente partie en vacances en
  * France voit ses horaires suivre, sans rien avoir à régler.
  *
  * Avant, le fuseau n'était capté qu'au tout premier abonnement push et ne

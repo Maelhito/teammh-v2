@@ -467,7 +467,7 @@ export default function ClientsTable({ initialClients, fetchError, teamMembers }
     const d = await res.json();
     if (res.ok) return true;
     if (d.needsConfirmation) {
-      const step1 = confirm(`⚠️ Changement hors de l'ordre normal TTS → TTM → TTL.\nPassage de ${current ?? "—"} vers ${next}. Continuer ?`);
+      const step1 = confirm(`⚠️ Changement hors de l'ordre normal TTM → TTL.\nPassage de ${current ?? "—"} vers ${next}. Continuer ?`);
       if (!step1) return false;
       const step2 = confirm(`Confirmer définitivement le passage vers ${next} ? Cette action sera enregistrée dans l'historique.`);
       if (!step2) return false;

@@ -55,7 +55,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
   }
 }
 
-export async function sendPushToAllTts(payload: PushPayload) {
+export async function sendPushToAllTtl(payload: PushPayload) {
   const wp = getWebPush();
   if (!wp) return;
 
@@ -63,14 +63,14 @@ export async function sendPushToAllTts(payload: PushPayload) {
   const { data: offres } = await admin
     .from("offres_clientes")
     .select("user_id")
-    .eq("offre", "TTS");
-  const ttsUserIds = (offres ?? []).map((o) => o.user_id);
-  if (!ttsUserIds.length) return;
+    .eq("offre", "TTL");
+  const ttlUserIds = (offres ?? []).map((o) => o.user_id);
+  if (!ttlUserIds.length) return;
 
   const { data: subs } = await admin
     .from("push_subscriptions")
     .select("id, subscription")
-    .in("user_id", ttsUserIds);
+    .in("user_id", ttlUserIds);
 
   if (!subs?.length) return;
 

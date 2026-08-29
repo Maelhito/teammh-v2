@@ -8,7 +8,7 @@ Authorization: Bearer <CRON_SECRET>
 ```
 
 Il fait **tout** : séance du jour, visio de groupe, rendez-vous du matin, rappel
-du soir, rappel « 1h avant le rendez-vous », et les quatre relances TTS.
+du soir, rappel « 1h avant le rendez-vous », et les quatre relances TTL.
 
 Pour chaque personne, il lit **l'heure qu'il est chez elle** et n'envoie que ce
 qui correspond. Aucune heure UTC ni aucun pays codé en dur : une cliente qui
@@ -16,7 +16,7 @@ part en France est traitée comme les autres, sans rien à changer.
 
 Deux anciennes adresses restent vivantes et font exactement la même chose, pour
 ne pas casser les déclencheurs déjà en place :
-`/api/cron/tts-notifications` et `/api/cron/unlock-notifications`.
+`/api/cron/ttl-notifications` et `/api/cron/unlock-notifications`.
 
 ## À quelle fréquence
 

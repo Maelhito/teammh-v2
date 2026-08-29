@@ -20,6 +20,30 @@ En cas de conflit, il liste les fichiers concernés et s'arrête sans rien casse
 
 ---
 
+## ⚠️ Mise à jour du 29 août 2026 — l'offre TTS n'existe plus
+
+« Time To Start » a été supprimée : tout ce qui portait ce nom est devenu **TTL
+(Time To Last)**. Il ne reste que deux offres, dans l'ordre **TTM → TTL**.
+
+Conséquence sur cet inventaire : les branches ci-dessous ont été écrites contre
+l'ancien nommage (`app/tts/`, tables `tts_*`, composants `Tts*`). Elles ne
+peuvent plus être réintégrées telles quelles — `main` a renommé les mêmes 63
+fichiers.
+
+| Branche | Sort |
+| --- | --- |
+| **n°2** `ttm-tts-password-visibility` | Son renommage TTS→TTL est **fait**, autrement. La date de démarrage éditable est déjà dans `main`. Seul le bouton afficher/masquer mot de passe reste à reprendre — à réécrire à la main, ne pas fusionner la branche. |
+| **n°3** `pwa-manifests-ttm-tts` | Le manifest dédié vise `/tts`. À réécrire pour `/ttl` si l'installation PWA est souhaitée. |
+| **n°4** `tts-discussion` | Doublon de la n°3, et même problème. À abandonner. |
+| **n°5** `ttm-admin-mods` | Contient la landing page de vente « Time To Start ». Cette page n'a plus d'objet : TTL n'est plus l'offre d'entrée mais celle qui suit l'accompagnement. À abandonner, sauf si une page de vente TTL est décidée — ce sera alors une page neuve. |
+| **n°6** `intelligent-euclid` | Ancienne template `app/tts-app/`, obsolète depuis longtemps. À abandonner. |
+| `ttl-review-577589` | Branche **vide** (aucune différence avec `main`). À supprimer. |
+
+Restent valables et sans rapport avec TTS : **n°7** (skeletons), **n°8/n°10**
+(journal des séances), **n°9**, **n°11**, **n°12**.
+
+---
+
 ## À réintégrer, du plus récent au plus ancien
 
 ### ~~1. `claude/ttm-coach-clientes-review-8402d3` — 10 août~~ ✅ RÉINTÉGRÉE le 15/08/2026

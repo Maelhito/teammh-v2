@@ -13,7 +13,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase-admin";
  * bloquaient comme une pop-up. D'où le « je clique et rien ne s'ouvre ».
  *
  * La destination est décidée ici, côté serveur, car elle dépend de l'offre de
- * la cliente : l'app TTS (/tts) n'est pas l'app TTM (/dashboard).
+ * la cliente : l'app TTL (/ttl) n'est pas l'app TTM (/dashboard).
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const coach = await checkCoachAccess();
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .eq("user_id", id)
     .maybeSingle();
 
-  const cible = offreRow?.offre === "TTS" ? "/tts" : "/dashboard";
+  const cible = offreRow?.offre === "TTL" ? "/ttl" : "/dashboard";
 
   const response = NextResponse.redirect(new URL(cible, request.url));
   response.cookies.set("preview_user_id", id, {

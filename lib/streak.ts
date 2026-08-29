@@ -1,12 +1,12 @@
 /**
- * ⚠ Ancien compteur de série, conservé pour TTS uniquement.
+ * ⚠ Ancien compteur de série, conservé pour TTL uniquement.
  *
  * Il compte des JOURS consécutifs : avec 3 séances par semaine, il repart à 1
  * à chaque séance. L'app cliente TTM ne l'utilise plus — sa série est
  * recalculée depuis les données par `lib/serie.ts`.
  *
  * `getStreak` lit `streak_freezes`, colonne ajoutée par la migration 8 de
- * `sql/tts.sql`. Tant que cette migration n'est pas exécutée en base, la
+ * `sql/ttl.sql`. Tant que cette migration n'est pas exécutée en base, la
  * requête échoue et la fonction renvoie 0 quoi qu'il arrive.
  */
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";

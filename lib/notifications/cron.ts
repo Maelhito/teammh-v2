@@ -5,7 +5,7 @@
  *   • /api/cron/notifications        — jamais déclenché par Vercel (retiré du
  *     vercel.json pour cause de plan Hobby), confié à cron-job.org où il
  *     échouait silencieusement ;
- *   • /api/cron/tts-notifications    — 0 7 UTC, plus un second passage
+ *   • /api/cron/ttl-notifications    — 0 7 UTC, plus un second passage
  *     `?region=nc` à 0 21 UTC, avec un tri par plage de décalage horaire codée
  *     en dur qui ne couvrait que la Nouvelle-Calédonie. Toute personne dans un
  *     troisième fuseau (Bali, Australie) recevait sa notification « du matin »
@@ -36,7 +36,7 @@ type Admin = ReturnType<typeof createSupabaseAdminClient>;
 const HEURE_MATIN = 7;
 /** Heure locale du rappel « ta séance t'attend ». */
 const HEURE_RAPPEL_SOIR = 19;
-/** Au-delà de ce nombre de jours sans activité, on relance la cliente TTS. */
+/** Au-delà de ce nombre de jours sans activité, on relance la cliente TTL. */
 const INACTIVITY_DAYS = 2;
 
 /** Décompose un instant dans le fuseau d'une personne. */
@@ -120,14 +120,14 @@ export async function executerCronNotifications(options: OptionsCron = {}): Prom
   const ids = [...new Set(subs.map((s) => s.user_id as string))];
   const fuseaux = await getFuseaux(ids);
 
-  // Les clientes TTS ont leurs propres relances, en plus de celles de TTM.
+  // Les clientes TTL ont leurs propres relances, en plus de celles de TTM.
   const { data: offres } = await admin
     .from("offres_clientes")
     .select("user_id")
-    .eq("offre", "TTS");
-  const clientesTts = new Set((offres ?? []).map((o) => o.user_id as string));
+    .eq("offre", "TTL");
+  const clientesTtl = new Set((offres ?? []).map((o) => o.user_id as string));
 
-  logs.push(`[cron] ${ids.length} personne(s) — dont ${clientesTts.size} sur TTS`);
+  logs.push(`[cron] ${ids.length} personne(s) — dont ${clientesTtl.size} sur TTL`);
 
   const simulation: NonNullable<ResultatCron["simulation"]> = [];
 
@@ -140,7 +140,7 @@ export async function executerCronNotifications(options: OptionsCron = {}): Prom
       const declencherait: string[] = [];
       if (hour === HEURE_MATIN) {
         declencherait.push("notifs du matin");
-        if (clientesTts.has(userId)) declencherait.push("relances TTS");
+        if (clientesTtl.has(userId)) declencherait.push("relances TTL");
       }
       if (hour === HEURE_RAPPEL_SOIR) declencherait.push("rappel du soir");
       simulation.push({
@@ -155,8 +155,8 @@ export async function executerCronNotifications(options: OptionsCron = {}): Prom
     if (hour === HEURE_MATIN) {
       envoyees += await envoyerNotifsDuMatin(admin, userId, timezone, dateStr, logs);
 
-      if (clientesTts.has(userId)) {
-        envoyees += await envoyerNotifsTts(admin, userId, dateStr, dayOfWeek, utcNow, logs);
+      if (clientesTtl.has(userId)) {
+        envoyees += await envoyerNotifsTtl(admin, userId, dateStr, dayOfWeek, utcNow, logs);
       }
     }
 
@@ -435,7 +435,7 @@ async function sendRdvCoachAvant(
   return n;
 }
 
-// ─── Relances TTS (Time To Start) ─────────────────────────────────────────────
+// ─── Relances TTL (Time To Last) ─────────────────────────────────────────────
 /**
  * Ces quatre relances partaient auparavant à heure UTC fixe, en pariant que
  * l'horaire choisi tombait « le matin » pour la région visée. C'est pour ça
@@ -447,7 +447,7 @@ async function sendRdvCoachAvant(
  * son pays. Le tri par région disparaît, et personne ne peut plus être oublié
  * parce qu'il vit dans un troisième fuseau.
  */
-async function envoyerNotifsTts(
+async function envoyerNotifsTtl(
   admin: Admin,
   userId: string,
   dateStr: string,
@@ -458,10 +458,10 @@ async function envoyerNotifsTts(
   let n = 0;
 
   const [{ data: lastVideo }, { data: lastSeance }, { data: profile }, { data: prefs }] = await Promise.all([
-    admin.from("tts_modules_progress").select("watched_at").eq("user_id", userId).order("watched_at", { ascending: false }).limit(1).maybeSingle(),
-    admin.from("tts_seances_progress").select("validated_at").eq("user_id", userId).order("validated_at", { ascending: false }).limit(1).maybeSingle(),
+    admin.from("ttl_modules_progress").select("watched_at").eq("user_id", userId).order("watched_at", { ascending: false }).limit(1).maybeSingle(),
+    admin.from("ttl_seances_progress").select("validated_at").eq("user_id", userId).order("validated_at", { ascending: false }).limit(1).maybeSingle(),
     admin.from("user_profiles").select("streak_current, streak_last_activity").eq("user_id", userId).maybeSingle(),
-    admin.from("tts_objectifs").select("jours_entrainement").eq("user_id", userId).maybeSingle(),
+    admin.from("ttl_objectifs").select("jours_entrainement").eq("user_id", userId).maybeSingle(),
   ]);
 
   const timestamps = [lastVideo?.watched_at, lastSeance?.validated_at].filter(Boolean) as string[];
@@ -469,48 +469,48 @@ async function envoyerNotifsTts(
   const diffDays = lastActivity ? Math.floor((utcNow.getTime() - lastActivity.getTime()) / 86400000) : Infinity;
 
   // 1. Relance générale si inactivité prolongée
-  if (diffDays >= INACTIVITY_DAYS && await tryMarkSent(admin, userId, "tts_inactivite", dateStr)) {
+  if (diffDays >= INACTIVITY_DAYS && await tryMarkSent(admin, userId, "ttl_inactivite", dateStr)) {
     await sendPushToUser(userId, {
       title: "🔥 On ne t'a pas vue !",
-      body: "Ta séance et tes modules t'attendent sur Time To Start — reviens quand tu veux 💪",
-      url: "/tts",
+      body: "Ta séance et tes modules t'attendent sur Time To Last — reviens quand tu veux 💪",
+      url: "/ttl",
     });
-    logs.push(`[tts-inactivite] notif envoyée → ${userId} (${diffDays === Infinity ? "jamais active" : `${diffDays}j`})`);
+    logs.push(`[ttl-inactivite] notif envoyée → ${userId} (${diffDays === Infinity ? "jamais active" : `${diffDays}j`})`);
     n += 1;
   }
 
   // 2. Rappel si aujourd'hui est un des jours d'entraînement qu'elle s'est fixés
   const joursChoisis = (prefs?.jours_entrainement ?? []).map(Number);
   const estJourEntrainement = joursChoisis.includes(dayOfWeek);
-  if (estJourEntrainement && await tryMarkSent(admin, userId, "tts_jour_entrainement", dateStr)) {
+  if (estJourEntrainement && await tryMarkSent(admin, userId, "ttl_jour_entrainement", dateStr)) {
     await sendPushToUser(userId, {
       title: "💪 C'est ton jour de séance !",
       body: "Tu t'étais dit que tu t'entraînerais aujourd'hui — on y va ?",
-      url: "/tts/bibliotheque?tab=seances",
+      url: "/ttl/bibliotheque?tab=seances",
     });
-    logs.push(`[tts-jour-entrainement] notif envoyée → ${userId}`);
+    logs.push(`[ttl-jour-entrainement] notif envoyée → ${userId}`);
     n += 1;
   }
 
   // 3. Maintien de flamme les autres jours — sans doubler le rappel ci-dessus
   if (!estJourEntrainement) {
     const streakCurrent = profile?.streak_current ?? 0;
-    if (streakCurrent > 0 && await tryMarkSent(admin, userId, "tts_flamme_danger", dateStr)) {
+    if (streakCurrent > 0 && await tryMarkSent(admin, userId, "ttl_flamme_danger", dateStr)) {
       await sendPushToUser(userId, {
         title: "🔥 Garde ta flamme allumée",
         body: `${streakCurrent} jour${streakCurrent > 1 ? "s" : ""} de suite — une capsule de 2 min suffit aujourd'hui`,
-        url: "/tts",
+        url: "/ttl",
       });
-      logs.push(`[tts-flamme-danger] notif envoyée → ${userId} (série ${streakCurrent})`);
+      logs.push(`[ttl-flamme-danger] notif envoyée → ${userId} (série ${streakCurrent})`);
       n += 1;
     }
   }
 
   // 4. Récap dominical
-  if (dayOfWeek === 0 && await tryMarkSent(admin, userId, "tts_recap_dominical", dateStr)) {
+  if (dayOfWeek === 0 && await tryMarkSent(admin, userId, "ttl_recap_dominical", dateStr)) {
     const weekAgo = new Date(utcNow.getTime() - 7 * 86400000).toISOString();
     const { count: seancesWeek } = await admin
-      .from("tts_seances_progress")
+      .from("ttl_seances_progress")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
       .gte("validated_at", weekAgo);
@@ -521,9 +521,9 @@ async function envoyerNotifsTts(
       body: nb > 0
         ? `${nb} séance${nb > 1 ? "s" : ""} validée${nb > 1 ? "s" : ""} cette semaine · flamme à ${streakCurrent}j. Bravo !`
         : `Pas de séance cette semaine — nouvelle semaine, nouvelle chance dès demain 💪`,
-      url: "/tts/profil",
+      url: "/ttl/profil",
     });
-    logs.push(`[tts-recap-dominical] notif envoyée → ${userId} (${nb} séances, série ${streakCurrent})`);
+    logs.push(`[ttl-recap-dominical] notif envoyée → ${userId} (${nb} séances, série ${streakCurrent})`);
     n += 1;
   }
 
