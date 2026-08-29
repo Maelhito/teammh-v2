@@ -55,12 +55,23 @@ export async function POST(req: NextRequest) {
   }, { onConflict: "user_id" });
 
   const dateDebut = dateDemarrage;
-  await admin.from("offres_clientes").upsert({
+  // Inscription publique : l'accès reste fermé tant que l'abonnement Stripe
+  // n'est pas actif. Une offre attribuée depuis l'Admin, elle, ouvre tout de
+  // suite (voir `upsertOffre`).
+  const ligneOffre = {
     user_id: data.user.id,
     offre: "TTL",
     date_debut: dateDebut,
     updated_at: new Date().toISOString(),
-  }, { onConflict: "user_id" });
+  };
+  const { error: offreError } = await admin
+    .from("offres_clientes")
+    .upsert({ ...ligneOffre, paiement_requis: true }, { onConflict: "user_id" });
+  if (offreError) {
+    // Repli tant que la colonne n'existe pas : mieux vaut une inscription qui
+    // aboutit qu'un compte à moitié créé.
+    await admin.from("offres_clientes").upsert(ligneOffre, { onConflict: "user_id" });
+  }
 
   await admin.from("offres_clientes_historique").insert({
     user_id: data.user.id,

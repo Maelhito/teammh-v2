@@ -27,8 +27,10 @@
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { sendPushToUser } from "@/lib/push";
 import { decodeAssignments } from "@/lib/programme-planning";
-import { formatHeureDans, partiesDans } from "@/lib/temps";
+import { formatHeureDans, partiesDans, aujourdhuiDans } from "@/lib/temps";
 import { getFuseaux } from "@/lib/temps-serveur";
+import { calculerSerie } from "@/lib/serie";
+import type { Offre } from "@/lib/offers/types";
 
 type Admin = ReturnType<typeof createSupabaseAdminClient>;
 
@@ -36,7 +38,7 @@ type Admin = ReturnType<typeof createSupabaseAdminClient>;
 const HEURE_MATIN = 7;
 /** Heure locale du rappel « ta séance t'attend ». */
 const HEURE_RAPPEL_SOIR = 19;
-/** Au-delà de ce nombre de jours sans activité, on relance la cliente TTL. */
+/** Au-delà de ce nombre de jours sans activité, on relance la cliente. */
 const INACTIVITY_DAYS = 2;
 
 /** Décompose un instant dans le fuseau d'une personne. */
@@ -120,14 +122,40 @@ export async function executerCronNotifications(options: OptionsCron = {}): Prom
   const ids = [...new Set(subs.map((s) => s.user_id as string))];
   const fuseaux = await getFuseaux(ids);
 
-  // Les clientes TTL ont leurs propres relances, en plus de celles de TTM.
+  // Les relances de régularité s'adressent à TOUTES les clientes de l'app,
+  // quelle que soit leur offre. Deux exclusions, volontaires :
+  //   • un coach ou un admin — sans ce filtre, son absence d'activité de
+  //     cliente le ferait relancer comme une cliente inactive ;
+  //   • une cliente en pause, terminée, ou dont l'accès a été révoqué — on ne
+  //     rappelle pas à quelqu'un d'aller s'entraîner sur une app qu'il ne peut
+  //     plus ouvrir.
+  const { data: profils } = await admin
+    .from("user_profiles")
+    .select("user_id, role, statut, acces_app")
+    .in("user_id", ids);
+
+  const relancesPour = new Set(
+    (profils ?? [])
+      .filter(
+        (p) =>
+          (p.role ?? "cliente") === "cliente" &&
+          (p.statut ?? "active") === "active" &&
+          p.acces_app !== false
+      )
+      .map((p) => p.user_id as string)
+  );
+
+  // L'offre décide OÙ lire l'activité et vers quelle page renvoyer.
+  // Sans ligne d'offre, c'est TTM — comme le fait déjà le middleware.
   const { data: offres } = await admin
     .from("offres_clientes")
-    .select("user_id")
-    .eq("offre", "TTL");
-  const clientesTtl = new Set((offres ?? []).map((o) => o.user_id as string));
+    .select("user_id, offre")
+    .in("user_id", ids);
+  const offreParUser = new Map<string, Offre>(
+    (offres ?? []).map((o) => [o.user_id as string, o.offre as Offre])
+  );
 
-  logs.push(`[cron] ${ids.length} personne(s) — dont ${clientesTtl.size} sur TTL`);
+  logs.push(`[cron] ${ids.length} personne(s) — dont ${relancesPour.size} relançable(s)`);
 
   const simulation: NonNullable<ResultatCron["simulation"]> = [];
 
@@ -140,7 +168,9 @@ export async function executerCronNotifications(options: OptionsCron = {}): Prom
       const declencherait: string[] = [];
       if (hour === HEURE_MATIN) {
         declencherait.push("notifs du matin");
-        if (clientesTtl.has(userId)) declencherait.push("relances TTL");
+        if (relancesPour.has(userId)) {
+          declencherait.push(`relances ${offreParUser.get(userId) ?? "TTM"}`);
+        }
       }
       if (hour === HEURE_RAPPEL_SOIR) declencherait.push("rappel du soir");
       simulation.push({
@@ -155,8 +185,11 @@ export async function executerCronNotifications(options: OptionsCron = {}): Prom
     if (hour === HEURE_MATIN) {
       envoyees += await envoyerNotifsDuMatin(admin, userId, timezone, dateStr, logs);
 
-      if (clientesTtl.has(userId)) {
-        envoyees += await envoyerNotifsTtl(admin, userId, dateStr, dayOfWeek, utcNow, logs);
+      if (relancesPour.has(userId)) {
+        envoyees += await envoyerRelances(
+          admin, userId, offreParUser.get(userId) ?? "TTM",
+          timezone, dateStr, dayOfWeek, utcNow, logs
+        );
       }
     }
 
@@ -434,22 +467,123 @@ async function sendRdvCoachAvant(
   }
   return n;
 }
-
-// ─── Relances TTL (Time To Last) ─────────────────────────────────────────────
+// ─── Relances de régularité — toutes les clientes, TTM comme TTL ─────────────
 /**
- * Ces quatre relances partaient auparavant à heure UTC fixe, en pariant que
- * l'horaire choisi tombait « le matin » pour la région visée. C'est pour ça
- * qu'existaient un second cron `?region=nc` et un tri par plage de décalage
- * horaire en dur : un seul horaire UTC ne peut pas être le matin à la fois à
- * Paris et à Nouméa.
+ * Quatre relances de motivation, envoyées quand il est 7h CHEZ LA CLIENTE.
+ * Elles partaient auparavant à heure UTC fixe, en pariant que l'horaire choisi
+ * tombait « le matin » pour la région visée : d'où un second cron `?region=nc`
+ * et un tri par plage de décalage horaire en dur. Un seul horaire UTC ne peut
+ * pas être le matin à la fois à Paris et à Nouméa.
  *
- * Elles sont désormais appelées quand il est 7h CHEZ LA CLIENTE, quel que soit
- * son pays. Le tri par région disparaît, et personne ne peut plus être oublié
- * parce qu'il vit dans un troisième fuseau.
+ * Elles ne visaient que TTL ; elles s'adressent maintenant à toutes les
+ * clientes de l'app. Mais l'activité ne se lit PAS au même endroit selon
+ * l'offre :
+ *   • TTL — modules et séances de son parcours (`ttl_*`), série stockée sur
+ *     `user_profiles` ;
+ *   • TTM — journal des séances (`seances_log`), et série RECALCULÉE depuis la
+ *     grille du programme par `lib/serie.ts`, TTM ne tenant aucun compteur.
+ *
+ * Lire les tables TTL pour une cliente TTM la ferait passer pour éternellement
+ * inactive et lui annoncerait « 0 séance » tous les dimanches.
  */
-async function envoyerNotifsTtl(
+
+/** Ce que les quatre relances ont besoin de savoir, quelle que soit l'offre. */
+interface ActiviteCliente {
+  /** dernière trace d'activité, tous supports confondus */
+  derniereActivite: Date | null;
+  /** série en cours, dans le sens propre à l'offre */
+  serie: number;
+  /** séances validées sur les sept derniers jours */
+  seancesDerniereSemaine: number;
+  /** jours d'entraînement que la cliente s'est fixés (0 = dimanche) */
+  joursChoisis: number[];
+  accueil: string;
+  seances: string;
+  profil: string;
+}
+
+async function lireActiviteTtl(admin: Admin, userId: string, utcNow: Date): Promise<ActiviteCliente> {
+  const semaineAvant = new Date(utcNow.getTime() - 7 * 86400000).toISOString();
+
+  const [{ data: lastVideo }, { data: lastSeance }, { data: profile }, { data: prefs }, { count: seancesWeek }] =
+    await Promise.all([
+      admin.from("ttl_modules_progress").select("watched_at").eq("user_id", userId).order("watched_at", { ascending: false }).limit(1).maybeSingle(),
+      admin.from("ttl_seances_progress").select("validated_at").eq("user_id", userId).order("validated_at", { ascending: false }).limit(1).maybeSingle(),
+      admin.from("user_profiles").select("streak_current").eq("user_id", userId).maybeSingle(),
+      admin.from("ttl_objectifs").select("jours_entrainement").eq("user_id", userId).maybeSingle(),
+      admin.from("ttl_seances_progress").select("id", { count: "exact", head: true }).eq("user_id", userId).gte("validated_at", semaineAvant),
+    ]);
+
+  const marqueurs = [lastVideo?.watched_at, lastSeance?.validated_at].filter(Boolean) as string[];
+
+  return {
+    derniereActivite: marqueurs.length
+      ? new Date(Math.max(...marqueurs.map((t) => new Date(t).getTime())))
+      : null,
+    serie: profile?.streak_current ?? 0,
+    seancesDerniereSemaine: seancesWeek ?? 0,
+    joursChoisis: (prefs?.jours_entrainement ?? []).map(Number),
+    accueil: "/ttl",
+    seances: "/ttl/bibliotheque?tab=seances",
+    profil: "/ttl/profil",
+  };
+}
+
+async function lireActiviteTtm(
   admin: Admin,
   userId: string,
+  timezone: string,
+  utcNow: Date
+): Promise<ActiviteCliente> {
+  const semaineAvant = new Date(utcNow.getTime() - 7 * 86400000).toISOString();
+
+  const [{ data: journal }, { data: assignations }] = await Promise.all([
+    admin
+      .from("seances_log")
+      .select("id, grid_key, assignment_id, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false }),
+    // Tout l'historique, programmes terminés compris : une série ne s'efface
+    // pas parce qu'un programme s'achève. Les programmes en pause sont écartés,
+    // ils ne doivent ni créditer ni pénaliser.
+    admin
+      .from("client_programmes")
+      .select("*, programme:programmes(nom, duree_semaines, description)")
+      .eq("user_id", userId)
+      .in("statut", ["en_cours", "termine"])
+      .order("date_debut", { ascending: true }),
+  ]);
+
+  const lignes = journal ?? [];
+  const derniere = lignes[0]?.created_at as string | undefined;
+
+  // Refaire une séance ré-enregistre une ligne : on compte les séances
+  // distinctes, pas les lignes, exactement comme le tableau de bord.
+  const distinctes = new Set(
+    lignes
+      .filter((l) => (l.created_at as string) >= semaineAvant && l.grid_key)
+      .map((l) => `${l.assignment_id}:${l.grid_key}`)
+  );
+
+  return {
+    derniereActivite: derniere ? new Date(derniere) : null,
+    serie: calculerSerie(decodeAssignments(assignations), lignes, aujourdhuiDans(timezone)).serie,
+    seancesDerniereSemaine: distinctes.size,
+    // Une cliente TTM ne choisit pas ses jours : son calendrier est posé par le
+    // coach, et la notification « ta séance du jour » part déjà le matin.
+    // Ajouter un second rappel ici ferait doublon.
+    joursChoisis: [],
+    accueil: "/dashboard",
+    seances: "/entrainement",
+    profil: "/profil",
+  };
+}
+
+async function envoyerRelances(
+  admin: Admin,
+  userId: string,
+  offre: Offre,
+  timezone: string,
   dateStr: string,
   dayOfWeek: number,
   utcNow: Date,
@@ -457,73 +591,70 @@ async function envoyerNotifsTtl(
 ): Promise<number> {
   let n = 0;
 
-  const [{ data: lastVideo }, { data: lastSeance }, { data: profile }, { data: prefs }] = await Promise.all([
-    admin.from("ttl_modules_progress").select("watched_at").eq("user_id", userId).order("watched_at", { ascending: false }).limit(1).maybeSingle(),
-    admin.from("ttl_seances_progress").select("validated_at").eq("user_id", userId).order("validated_at", { ascending: false }).limit(1).maybeSingle(),
-    admin.from("user_profiles").select("streak_current, streak_last_activity").eq("user_id", userId).maybeSingle(),
-    admin.from("ttl_objectifs").select("jours_entrainement").eq("user_id", userId).maybeSingle(),
-  ]);
+  const a = offre === "TTL"
+    ? await lireActiviteTtl(admin, userId, utcNow)
+    : await lireActiviteTtm(admin, userId, timezone, utcNow);
 
-  const timestamps = [lastVideo?.watched_at, lastSeance?.validated_at].filter(Boolean) as string[];
-  const lastActivity = timestamps.length ? new Date(Math.max(...timestamps.map((t) => new Date(t).getTime()))) : null;
-  const diffDays = lastActivity ? Math.floor((utcNow.getTime() - lastActivity.getTime()) / 86400000) : Infinity;
+  const diffDays = a.derniereActivite
+    ? Math.floor((utcNow.getTime() - a.derniereActivite.getTime()) / 86400000)
+    : Infinity;
 
-  // 1. Relance générale si inactivité prolongée
-  if (diffDays >= INACTIVITY_DAYS && await tryMarkSent(admin, userId, "ttl_inactivite", dateStr)) {
+  // 1. Relance générale si inactivité prolongée.
+  //
+  // Deux messages, pas un : « on ne t'a pas vue » suppose qu'on l'ait vue une
+  // fois. Une cliente qui n'a jamais validé de séance n'est pas une revenante
+  // en retard, c'est quelqu'un qui n'a pas encore commencé — et elles sont
+  // nombreuses, beaucoup suivant leur programme sans jamais appuyer sur
+  // « séance terminée ».
+  const jamaisActive = a.derniereActivite === null;
+  if (diffDays >= INACTIVITY_DAYS && await tryMarkSent(admin, userId, "relance_inactivite", dateStr)) {
     await sendPushToUser(userId, {
-      title: "🔥 On ne t'a pas vue !",
-      body: "Ta séance et tes modules t'attendent sur Time To Last — reviens quand tu veux 💪",
-      url: "/ttl",
+      title: jamaisActive ? "🚀 Ta première séance t'attend" : "🔥 On ne t'a pas vue !",
+      body: jamaisActive
+        ? "Tout est prêt de ton côté — on commence quand tu veux 💪"
+        : "Ta séance t'attend — reviens quand tu veux 💪",
+      url: a.accueil,
     });
-    logs.push(`[ttl-inactivite] notif envoyée → ${userId} (${diffDays === Infinity ? "jamais active" : `${diffDays}j`})`);
+    logs.push(`[relance-inactivite] notif envoyée → ${userId} (${offre}, ${jamaisActive ? "jamais active" : `${diffDays}j`})`);
     n += 1;
   }
 
   // 2. Rappel si aujourd'hui est un des jours d'entraînement qu'elle s'est fixés
-  const joursChoisis = (prefs?.jours_entrainement ?? []).map(Number);
-  const estJourEntrainement = joursChoisis.includes(dayOfWeek);
-  if (estJourEntrainement && await tryMarkSent(admin, userId, "ttl_jour_entrainement", dateStr)) {
+  const estJourEntrainement = a.joursChoisis.includes(dayOfWeek);
+  if (estJourEntrainement && await tryMarkSent(admin, userId, "relance_jour_entrainement", dateStr)) {
     await sendPushToUser(userId, {
       title: "💪 C'est ton jour de séance !",
       body: "Tu t'étais dit que tu t'entraînerais aujourd'hui — on y va ?",
-      url: "/ttl/bibliotheque?tab=seances",
+      url: a.seances,
     });
-    logs.push(`[ttl-jour-entrainement] notif envoyée → ${userId}`);
+    logs.push(`[relance-jour-entrainement] notif envoyée → ${userId} (${offre})`);
     n += 1;
   }
 
   // 3. Maintien de flamme les autres jours — sans doubler le rappel ci-dessus
-  if (!estJourEntrainement) {
-    const streakCurrent = profile?.streak_current ?? 0;
-    if (streakCurrent > 0 && await tryMarkSent(admin, userId, "ttl_flamme_danger", dateStr)) {
+  if (!estJourEntrainement && a.serie > 0) {
+    if (await tryMarkSent(admin, userId, "relance_flamme_danger", dateStr)) {
       await sendPushToUser(userId, {
         title: "🔥 Garde ta flamme allumée",
-        body: `${streakCurrent} jour${streakCurrent > 1 ? "s" : ""} de suite — une capsule de 2 min suffit aujourd'hui`,
-        url: "/ttl",
+        body: `${a.serie} séance${a.serie > 1 ? "s" : ""} d'affilée — ne casse pas la série aujourd'hui`,
+        url: a.accueil,
       });
-      logs.push(`[ttl-flamme-danger] notif envoyée → ${userId} (série ${streakCurrent})`);
+      logs.push(`[relance-flamme-danger] notif envoyée → ${userId} (${offre}, série ${a.serie})`);
       n += 1;
     }
   }
 
   // 4. Récap dominical
-  if (dayOfWeek === 0 && await tryMarkSent(admin, userId, "ttl_recap_dominical", dateStr)) {
-    const weekAgo = new Date(utcNow.getTime() - 7 * 86400000).toISOString();
-    const { count: seancesWeek } = await admin
-      .from("ttl_seances_progress")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .gte("validated_at", weekAgo);
-    const streakCurrent = profile?.streak_current ?? 0;
-    const nb = seancesWeek ?? 0;
+  if (dayOfWeek === 0 && await tryMarkSent(admin, userId, "relance_recap_dominical", dateStr)) {
+    const nb = a.seancesDerniereSemaine;
     await sendPushToUser(userId, {
       title: "📊 Ton récap de la semaine",
       body: nb > 0
-        ? `${nb} séance${nb > 1 ? "s" : ""} validée${nb > 1 ? "s" : ""} cette semaine · flamme à ${streakCurrent}j. Bravo !`
+        ? `${nb} séance${nb > 1 ? "s" : ""} validée${nb > 1 ? "s" : ""} cette semaine · série à ${a.serie}. Bravo !`
         : `Pas de séance cette semaine — nouvelle semaine, nouvelle chance dès demain 💪`,
-      url: "/ttl/profil",
+      url: a.profil,
     });
-    logs.push(`[ttl-recap-dominical] notif envoyée → ${userId} (${nb} séances, série ${streakCurrent})`);
+    logs.push(`[relance-recap-dominical] notif envoyée → ${userId} (${offre}, ${nb} séances, série ${a.serie})`);
     n += 1;
   }
 

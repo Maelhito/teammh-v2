@@ -153,18 +153,28 @@ export async function upsertOffre(
     ? ((existing as { phase?: string }).phase as Phase | undefined)
     : await getClientPhase(admin, user_id);
 
-  const { error: upsertError } = await admin
+  // Une offre attribuée ici vient de l'admin : c'est sa décision, l'accès
+  // s'ouvre sans passer par la caisse. Sans ce drapeau, une cliente basculée en
+  // TTL depuis l'Admin était renvoyée sur la page de paiement et bloquée là.
+  const ligne = {
+    user_id,
+    offre,
+    date_debut: dateDebut,
+    ...(phase ? { phase } : {}),
+    updated_at: new Date().toISOString(),
+  };
+
+  let { error: upsertError } = await admin
     .from("offres_clientes")
-    .upsert(
-      {
-        user_id,
-        offre,
-        date_debut: dateDebut,
-        ...(phase ? { phase } : {}),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    );
+    .upsert({ ...ligne, paiement_requis: false }, { onConflict: "user_id" });
+
+  // Repli tant que la migration n'est pas passée : le changement d'offre doit
+  // aboutir même si la colonne n'existe pas encore.
+  if (upsertError) {
+    ({ error: upsertError } = await admin
+      .from("offres_clientes")
+      .upsert(ligne, { onConflict: "user_id" }));
+  }
   if (upsertError) return { error: upsertError.message, status: 500 };
 
   const { error: histError } = await admin.from("offres_clientes_historique").insert({

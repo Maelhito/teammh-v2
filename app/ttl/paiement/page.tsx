@@ -22,7 +22,12 @@ export default async function TtlPaiementPage({ searchParams }: PageProps) {
   const { data: { session } } = await supabase.auth.getSession();
   const { userId, firstName, isPreview } = await getEffectiveUser(session);
 
-  await requireTtlAccess(userId, isPreview, { skipSubscriptionCheck: true });
+  const offre = await requireTtlAccess(userId, isPreview, { skipSubscriptionCheck: true });
+
+  // Offre attribuée depuis l'Admin : rien à payer, cette page n'a pas de sens.
+  if (!isPreview && offre && !offre.paiement_requis) {
+    redirect("/ttl");
+  }
 
   // Déjà abonnée : on ne montre jamais les offres, pour éviter un double abonnement
   // Stripe (deux souscriptions actives sur le même customer, double débit mensuel).

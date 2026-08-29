@@ -71,16 +71,38 @@ export interface TtlCapsule {
 export interface OffreCliente {
   offre: "TTM" | "TTL";
   date_debut: string;
+  /**
+   * true : l'offre vient d'une inscription publique, l'accès est conditionné à
+   * un abonnement Stripe actif.
+   * false : l'offre a été attribuée par l'admin — c'est sa décision, l'accès est
+   * immédiat et aucun paiement n'est demandé.
+   */
+  paiement_requis: boolean;
 }
 
 export async function getOffreCliente(userId: string): Promise<OffreCliente | null> {
   const admin = createSupabaseAdminClient();
+
+  const avecColonne = await admin
+    .from("offres_clientes")
+    .select("offre, date_debut, paiement_requis")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!avecColonne.error) {
+    return avecColonne.data
+      ? { ...avecColonne.data, paiement_requis: avecColonne.data.paiement_requis ?? false }
+      : null;
+  }
+
+  // Repli tant que la migration n'est pas passée : personne n'est enfermé
+  // dehors, on considère l'accès comme accordé.
   const { data } = await admin
     .from("offres_clientes")
     .select("offre, date_debut")
     .eq("user_id", userId)
     .maybeSingle();
-  return data ?? null;
+  return data ? { ...data, paiement_requis: false } : null;
 }
 
 export async function getOnboardingModules(): Promise<TtlModule[]> {

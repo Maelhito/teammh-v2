@@ -184,7 +184,7 @@ export default async function TtlProfilPage() {
             </details>
           )}
 
-          <TtlManageSubscriptionButton />
+          {offre?.paiement_requis && <TtlManageSubscriptionButton />}
           <TtlSignOutButton />
         </div>
       </div>

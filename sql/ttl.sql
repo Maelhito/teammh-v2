@@ -241,3 +241,11 @@ ALTER TABLE user_profiles
 
 ALTER TABLE ttl_objectifs
   ADD COLUMN IF NOT EXISTS jours_entrainement TEXT[] DEFAULT '{}';
+
+-- ============================================================
+-- MIGRATION 9 — accès payant ou attribué par l'admin.
+-- Voir sql/offres_clientes_paiement_requis.sql pour le détail.
+-- ============================================================
+
+ALTER TABLE offres_clientes
+  ADD COLUMN IF NOT EXISTS paiement_requis BOOLEAN NOT NULL DEFAULT false;
