@@ -57,6 +57,23 @@ const PALIERS_INACTIVITE = [3, 7, 14, 30, 60, 90];
  */
 const UNE_SEULE_FOIS = "1970-01-01";
 
+/**
+ * Mise en service des relances de régularité.
+ *
+ * Une cliente n'est relancée qu'à partir du moment où elle s'est manifestée
+ * APRÈS cette date. Sans cette ligne, le jour du déploiement, 24 clientes
+ * étaient déjà absentes depuis 3 à 118 jours : elles auraient toutes reçu leur
+ * relance de rattrapage le lendemain matin, plus un récap le dimanche suivant.
+ * Personne n'avait rien demandé.
+ *
+ * Ce n'est pas une exclusion définitive : le jour où l'une d'elles rouvre
+ * l'app, valide une séance ou saisit ses mesures, sa dernière trace passe de
+ * l'autre côté de la ligne et les relances s'appliquent normalement. Pour une
+ * cliente qui vient de s'inscrire et n'a encore rien fait, c'est sa date de
+ * démarrage qui fait foi — elle reçoit donc bien son message d'accueil.
+ */
+const DEBUT_RELANCES = Date.parse("2026-08-30T00:00:00Z");
+
 /** Décompose un instant dans le fuseau d'une personne. */
 function localTime(utcNow: Date, timezone: string) {
   const p = partiesDans(utcNow, timezone);
@@ -147,7 +164,7 @@ export async function executerCronNotifications(options: OptionsCron = {}): Prom
   //     plus ouvrir.
   const { data: profils } = await admin
     .from("user_profiles")
-    .select("user_id, role, statut, acces_app")
+    .select("user_id, role, statut, acces_app, date_demarrage")
     .in("user_id", ids);
 
   const relancesPour = new Set(
@@ -159,6 +176,11 @@ export async function executerCronNotifications(options: OptionsCron = {}): Prom
           p.acces_app !== false
       )
       .map((p) => p.user_id as string)
+  );
+
+  // Sert de point de départ pour une cliente qui n'a encore aucune trace.
+  const demarrageParUser = new Map<string, string | null>(
+    (profils ?? []).map((p) => [p.user_id as string, (p.date_demarrage as string | null) ?? null])
   );
 
   // L'offre décide OÙ lire l'activité et vers quelle page renvoyer.
@@ -204,6 +226,7 @@ export async function executerCronNotifications(options: OptionsCron = {}): Prom
       if (relancesPour.has(userId)) {
         envoyees += await envoyerRelances(
           admin, userId, offreParUser.get(userId) ?? "TTM",
+          demarrageParUser.get(userId) ?? null,
           timezone, dateStr, dayOfWeek, utcNow, logs
         );
       }
@@ -633,6 +656,7 @@ async function envoyerRelances(
   admin: Admin,
   userId: string,
   offre: Offre,
+  dateDemarrage: string | null,
   timezone: string,
   dateStr: string,
   dayOfWeek: number,
@@ -645,8 +669,23 @@ async function envoyerRelances(
     ? await lireActiviteTtl(admin, userId, utcNow)
     : await lireActiviteTtm(admin, userId, timezone, utcNow);
 
-  // 1. Relance d'inactivité.
-  if (a.derniereActivite === null) {
+  // Le point de départ de son absence : sa dernière trace, ou à défaut le jour
+  // où son accompagnement a démarré. Antérieur à la mise en service = on ne
+  // relance pas (voir DEBUT_RELANCES).
+  const debutAbsence = a.derniereActivite
+    ?? (dateDemarrage ? new Date(dateDemarrage + "T00:00:00Z") : null);
+
+  if (!debutAbsence || debutAbsence.getTime() < DEBUT_RELANCES) {
+    return 0;
+  }
+
+  // 1. Relance d'inactivité, au palier le plus haut déjà franchi. Comparer avec
+  // `>=` plutôt qu'avec une égalité stricte : un passage de cron manqué ne doit
+  // pas faire sauter le palier pour toujours.
+  const diffDays = Math.floor((utcNow.getTime() - debutAbsence.getTime()) / 86400000);
+  const palier = [...PALIERS_INACTIVITE].reverse().find((seuil) => diffDays >= seuil);
+
+  if (palier && a.derniereActivite === null) {
     // Jamais aucune trace : ce n'est pas une revenante en retard, c'est
     // quelqu'un qui n'a pas encore commencé. Message d'accueil, pas de
     // reproche — et une seule fois, jamais répété.
@@ -656,23 +695,17 @@ async function envoyerRelances(
         body: "Tout est prêt de ton côté — on commence quand tu veux 💪",
         url: a.accueil,
       });
-      logs.push(`[relance-premier-pas] notif envoyée → ${userId} (${offre})`);
+      logs.push(`[relance-premier-pas] notif envoyée → ${userId} (${offre}, ${diffDays}j après son démarrage)`);
       n += 1;
     }
-  } else {
-    const diffDays = Math.floor((utcNow.getTime() - a.derniereActivite.getTime()) / 86400000);
-    // Le palier le plus haut déjà franchi. Comparer avec `>=` plutôt qu'avec
-    // une égalité stricte : un passage de cron manqué ne doit pas faire sauter
-    // le palier pour toujours.
-    const palier = [...PALIERS_INACTIVITE].reverse().find((seuil) => diffDays >= seuil);
-
+  } else if (palier && a.derniereActivite) {
     // La clé d'unicité porte le JOUR DE SA DERNIÈRE ACTIVITÉ : chaque période
     // d'absence a la sienne. Une cliente qui revient puis décroche à nouveau
     // sera donc relancée à nouveau, sans que les paliers déjà franchis
     // rejouent pour autant.
     const cleAbsence = a.derniereActivite.toISOString().slice(0, 10);
 
-    if (palier && await tryMarkSent(admin, userId, `relance_inactivite_${palier}`, cleAbsence)) {
+    if (await tryMarkSent(admin, userId, `relance_inactivite_${palier}`, cleAbsence)) {
       await sendPushToUser(userId, {
         title: "🔥 On ne t'a pas vue !",
         body: "Ta séance t'attend — reviens quand tu veux 💪",
