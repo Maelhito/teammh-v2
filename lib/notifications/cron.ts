@@ -38,8 +38,24 @@ type Admin = ReturnType<typeof createSupabaseAdminClient>;
 const HEURE_MATIN = 7;
 /** Heure locale du rappel « ta séance t'attend ». */
 const HEURE_RAPPEL_SOIR = 19;
-/** Au-delà de ce nombre de jours sans activité, on relance la cliente. */
-const INACTIVITY_DAYS = 2;
+/**
+ * Les paliers d'inactivité, en jours. Une relance part à chaque palier franchi,
+ * et une seule fois par palier.
+ *
+ * Pourquoi des paliers plutôt qu'un simple seuil : le seuil valait 2 jours et
+ * la relance repartait CHAQUE jour tant qu'il était dépassé. Sur TTL, avec une
+ * seule utilisatrice, ça ne se voyait pas. Étendu à toutes les clientes, ça
+ * revenait à pousser une notification quotidienne à quelqu'un absent depuis
+ * trois mois. Six relances au total, puis le silence.
+ */
+const PALIERS_INACTIVITE = [3, 7, 14, 30, 60, 90];
+
+/**
+ * Date figée servant de verrou dans `notif_log`, dont la clé d'unicité est
+ * (user_id, type, sent_date). L'utiliser comme date d'envoi rend la
+ * notification unique À VIE plutôt qu'unique dans la journée.
+ */
+const UNE_SEULE_FOIS = "1970-01-01";
 
 /** Décompose un instant dans le fuseau d'une personne. */
 function localTime(utcNow: Date, timezone: string) {
@@ -529,6 +545,40 @@ async function lireActiviteTtl(admin: Admin, userId: string, utcNow: Date): Prom
   };
 }
 
+/**
+ * Dernière trace d'une cliente TTM dans l'app.
+ *
+ * Surtout pas les seules séances validées : beaucoup de clientes suivent leur
+ * programme sans jamais appuyer sur « séance terminée ». Sur les 27 clientes de
+ * l'app au moment d'écrire ces lignes, 24 n'avaient aucune séance validée et
+ * étaient pourtant actives ailleurs — mesures, modules, photos. Les relancer
+ * comme inactives aurait été faux pour presque toutes.
+ */
+async function derniereTraceTtm(admin: Admin, userId: string): Promise<Date | null> {
+  const sources: [string, string][] = [
+    ["seances_log", "created_at"],
+    ["module_completions", "completed_at"],
+    ["mesures", "created_at"],
+    ["photos_progression", "created_at"],
+  ];
+
+  const dates = await Promise.all(
+    sources.map(async ([table, colonne]) => {
+      const { data } = await admin
+        .from(table)
+        .select(colonne)
+        .eq("user_id", userId)
+        .order(colonne, { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return (data as Record<string, string> | null)?.[colonne] ?? null;
+    })
+  );
+
+  const instants = dates.filter(Boolean).map((d) => new Date(d as string).getTime());
+  return instants.length ? new Date(Math.max(...instants)) : null;
+}
+
 async function lireActiviteTtm(
   admin: Admin,
   userId: string,
@@ -537,7 +587,7 @@ async function lireActiviteTtm(
 ): Promise<ActiviteCliente> {
   const semaineAvant = new Date(utcNow.getTime() - 7 * 86400000).toISOString();
 
-  const [{ data: journal }, { data: assignations }] = await Promise.all([
+  const [{ data: journal }, { data: assignations }, derniereTrace] = await Promise.all([
     admin
       .from("seances_log")
       .select("id, grid_key, assignment_id, created_at")
@@ -552,10 +602,10 @@ async function lireActiviteTtm(
       .eq("user_id", userId)
       .in("statut", ["en_cours", "termine"])
       .order("date_debut", { ascending: true }),
+    derniereTraceTtm(admin, userId),
   ]);
 
   const lignes = journal ?? [];
-  const derniere = lignes[0]?.created_at as string | undefined;
 
   // Refaire une séance ré-enregistre une ligne : on compte les séances
   // distinctes, pas les lignes, exactement comme le tableau de bord.
@@ -566,7 +616,7 @@ async function lireActiviteTtm(
   );
 
   return {
-    derniereActivite: derniere ? new Date(derniere) : null,
+    derniereActivite: derniereTrace,
     serie: calculerSerie(decodeAssignments(assignations), lignes, aujourdhuiDans(timezone)).serie,
     seancesDerniereSemaine: distinctes.size,
     // Une cliente TTM ne choisit pas ses jours : son calendrier est posé par le
@@ -595,28 +645,42 @@ async function envoyerRelances(
     ? await lireActiviteTtl(admin, userId, utcNow)
     : await lireActiviteTtm(admin, userId, timezone, utcNow);
 
-  const diffDays = a.derniereActivite
-    ? Math.floor((utcNow.getTime() - a.derniereActivite.getTime()) / 86400000)
-    : Infinity;
+  // 1. Relance d'inactivité.
+  if (a.derniereActivite === null) {
+    // Jamais aucune trace : ce n'est pas une revenante en retard, c'est
+    // quelqu'un qui n'a pas encore commencé. Message d'accueil, pas de
+    // reproche — et une seule fois, jamais répété.
+    if (await tryMarkSent(admin, userId, "relance_premier_pas", UNE_SEULE_FOIS)) {
+      await sendPushToUser(userId, {
+        title: "🚀 Ta première séance t'attend",
+        body: "Tout est prêt de ton côté — on commence quand tu veux 💪",
+        url: a.accueil,
+      });
+      logs.push(`[relance-premier-pas] notif envoyée → ${userId} (${offre})`);
+      n += 1;
+    }
+  } else {
+    const diffDays = Math.floor((utcNow.getTime() - a.derniereActivite.getTime()) / 86400000);
+    // Le palier le plus haut déjà franchi. Comparer avec `>=` plutôt qu'avec
+    // une égalité stricte : un passage de cron manqué ne doit pas faire sauter
+    // le palier pour toujours.
+    const palier = [...PALIERS_INACTIVITE].reverse().find((seuil) => diffDays >= seuil);
 
-  // 1. Relance générale si inactivité prolongée.
-  //
-  // Deux messages, pas un : « on ne t'a pas vue » suppose qu'on l'ait vue une
-  // fois. Une cliente qui n'a jamais validé de séance n'est pas une revenante
-  // en retard, c'est quelqu'un qui n'a pas encore commencé — et elles sont
-  // nombreuses, beaucoup suivant leur programme sans jamais appuyer sur
-  // « séance terminée ».
-  const jamaisActive = a.derniereActivite === null;
-  if (diffDays >= INACTIVITY_DAYS && await tryMarkSent(admin, userId, "relance_inactivite", dateStr)) {
-    await sendPushToUser(userId, {
-      title: jamaisActive ? "🚀 Ta première séance t'attend" : "🔥 On ne t'a pas vue !",
-      body: jamaisActive
-        ? "Tout est prêt de ton côté — on commence quand tu veux 💪"
-        : "Ta séance t'attend — reviens quand tu veux 💪",
-      url: a.accueil,
-    });
-    logs.push(`[relance-inactivite] notif envoyée → ${userId} (${offre}, ${jamaisActive ? "jamais active" : `${diffDays}j`})`);
-    n += 1;
+    // La clé d'unicité porte le JOUR DE SA DERNIÈRE ACTIVITÉ : chaque période
+    // d'absence a la sienne. Une cliente qui revient puis décroche à nouveau
+    // sera donc relancée à nouveau, sans que les paliers déjà franchis
+    // rejouent pour autant.
+    const cleAbsence = a.derniereActivite.toISOString().slice(0, 10);
+
+    if (palier && await tryMarkSent(admin, userId, `relance_inactivite_${palier}`, cleAbsence)) {
+      await sendPushToUser(userId, {
+        title: "🔥 On ne t'a pas vue !",
+        body: "Ta séance t'attend — reviens quand tu veux 💪",
+        url: a.accueil,
+      });
+      logs.push(`[relance-inactivite] notif envoyée → ${userId} (${offre}, ${diffDays}j, palier ${palier})`);
+      n += 1;
+    }
   }
 
   // 2. Rappel si aujourd'hui est un des jours d'entraînement qu'elle s'est fixés
