@@ -13,22 +13,10 @@ interface Cliente {
   date_debut: string | null;
 }
 
-interface DemandeBilan {
-  id: string;
-  user_id: string;
-  message: string | null;
-  created_at: string;
-  prenom: string | null;
-  nom: string | null;
-}
-
 export default function ClientesOffres() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [demandes, setDemandes] = useState<DemandeBilan[]>([]);
-  const [demandesLoading, setDemandesLoading] = useState(true);
 
   const [pendingChange, setPendingChange] = useState<{ cliente: Cliente; offre: Offre } | null>(null);
   const [confirmStep, setConfirmStep] = useState(0); // 0 = pas de modale, 1 = modale 1, 2 = modale 2
@@ -36,7 +24,6 @@ export default function ClientesOffres() {
 
   useEffect(() => {
     load();
-    loadDemandes();
   }, []);
 
   function load() {
@@ -49,27 +36,6 @@ export default function ClientesOffres() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Erreur de chargement"))
       .finally(() => setLoading(false));
-  }
-
-  function loadDemandes() {
-    setDemandesLoading(true);
-    fetch("/api/admin/ttl/demandes-bilan")
-      .then(async (r) => {
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error ?? "Erreur de chargement des demandes de bilan");
-        setDemandes(d.demandes ?? []);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : "Erreur de chargement des demandes de bilan"))
-      .finally(() => setDemandesLoading(false));
-  }
-
-  async function handleTraiter(id: string) {
-    const res = await fetch("/api/admin/ttl/demandes-bilan", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    if (res.ok) setDemandes((prev) => prev.filter((d) => d.id !== id));
   }
 
   async function applyChange(cliente: Cliente, offre: Offre, confirmed: boolean) {
@@ -111,29 +77,6 @@ export default function ClientesOffres() {
   return (
     <div>
       <PageHeader title="Clientes et offres" subtitle="Affecter ou changer l'offre d'une cliente" />
-
-      {!demandesLoading && demandes.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700, color: "#D97706" }}>
-            🔔 {demandes.length} demande{demandes.length > 1 ? "s" : ""} de bilan en attente
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {demandes.map((d) => (
-              <div key={d.id} style={{ ...cardStyle, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", borderColor: "#D97706" }}>
-                <div>
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "var(--admin-text)" }}>
-                    {d.prenom || d.nom ? `${d.prenom ?? ""} ${d.nom ?? ""}`.trim() : d.user_id}
-                  </p>
-                  <p style={{ margin: 0, fontSize: 12, color: "var(--admin-text-muted)" }}>
-                    {d.message ?? "Demande de bilan"} · {new Date(d.created_at).toLocaleDateString("fr-FR")}
-                  </p>
-                </div>
-                <button onClick={() => handleTraiter(d.id)} style={btnGhost}>Marquer traité</button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {error && <p style={{ color: "#F87171", fontSize: 13 }}>{error}</p>}
 

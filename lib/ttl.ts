@@ -175,11 +175,6 @@ export async function getObjectif(userId: string): Promise<string | null> {
   return data?.objectif ?? null;
 }
 
-export async function createDemandeBilan(userId: string, message: string | null): Promise<void> {
-  const admin = createSupabaseAdminClient();
-  await admin.from("ttl_demandes_bilan").insert({ user_id: userId, message });
-}
-
 /** 0=dimanche … 6=samedi, comme Date.getDay() */
 export async function getJoursEntrainement(userId: string): Promise<number[]> {
   const admin = createSupabaseAdminClient();

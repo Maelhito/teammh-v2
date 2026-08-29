@@ -192,9 +192,9 @@ CREATE INDEX IF NOT EXISTS idx_ttl_seances_progress_user ON ttl_seances_progress
 ALTER TABLE ttl_seances_progress ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- MIGRATION 6 — objectif capturé à l'inscription + demandes de
--- bilan (CTA de conversion vers Time To Move, uniquement visible
--- côté admin qui recontacte la cliente).
+-- MIGRATION 6 — objectif capturé à l'inscription.
+-- (La table des demandes de bilan a existé ici : la passerelle vers
+-- Time To Move a été retirée, TTL venant désormais APRÈS TTM.)
 -- À exécuter après les blocs précédents.
 -- ============================================================
 
@@ -205,19 +205,6 @@ CREATE TABLE IF NOT EXISTS ttl_objectifs (
 );
 
 ALTER TABLE ttl_objectifs ENABLE ROW LEVEL SECURITY;
-
-CREATE TABLE IF NOT EXISTS ttl_demandes_bilan (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  message TEXT,
-  traite BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_ttl_demandes_bilan_user ON ttl_demandes_bilan(user_id);
-CREATE INDEX IF NOT EXISTS idx_ttl_demandes_bilan_traite ON ttl_demandes_bilan(traite);
-
-ALTER TABLE ttl_demandes_bilan ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
 -- MIGRATION 7 — abonnement Stripe TTL. L'accès à /ttl est payant

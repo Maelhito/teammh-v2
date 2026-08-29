@@ -3,14 +3,13 @@ import { getEffectiveUser } from "@/lib/preview";
 import { requireTtlAccess } from "@/lib/ttl-access";
 import { getOnboardingModules, getWatchedVideoIds, getSeancesProgress, getObjectif, getJoursEntrainement } from "@/lib/ttl";
 import { ttlObjectifLabel } from "@/lib/ttl-objectifs";
-import { computeTtlBadges, isBilanUnlocked } from "@/lib/ttl-badges";
+import { computeTtlBadges } from "@/lib/ttl-badges";
 import { getStreak } from "@/lib/streak";
 import TtlHeader from "@/components/TtlHeader";
 import TtlBottomNav from "@/components/TtlBottomNav";
 import PreviewBanner from "@/components/PreviewBanner";
 import TtlSignOutButton from "./TtlSignOutButton";
 import TtlManageSubscriptionButton from "./TtlManageSubscriptionButton";
-import TtlUpgradeTeaser from "@/components/TtlUpgradeTeaser";
 import TtlStreakFlame from "@/components/TtlStreakFlame";
 import TtlJoursEntrainement from "./TtlJoursEntrainement";
 import { ttlColors } from "@/lib/ttl-theme";
@@ -59,7 +58,6 @@ export default async function TtlProfilPage() {
   const lockedByCategory = badgeCategories
     .map((category) => ({ category, items: lockedBadges.filter((b) => b.category === category) }))
     .filter((g) => g.items.length > 0);
-  const bilanUnlocked = isBilanUnlocked({ onboardingDone, seancesValidees, streakCurrent: streakInfo.streak_current });
 
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 100 }}>
@@ -185,13 +183,6 @@ export default async function TtlProfilPage() {
               ))}
             </details>
           )}
-
-          <TtlUpgradeTeaser
-            unlocked={bilanUnlocked}
-            title={bilanUnlocked ? "Ta régularité mérite un coach" : "Ton bilan gratuit avec un coach"}
-            subtitle="Un accompagnement personnalisé pourrait t'aider à aller encore plus loin."
-            lockedHint="Termine ton onboarding, valide 5 séances ou tiens 7 jours de suite pour le débloquer."
-          />
 
           <TtlManageSubscriptionButton />
           <TtlSignOutButton />

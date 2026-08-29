@@ -40,14 +40,3 @@ export function computeTtlBadges({ hasWatchedAny, onboardingDone, seancesValidee
 export function nextBadgeToUnlock(badges: TtlBadge[]): TtlBadge | null {
   return badges.find((b) => !b.earned) ?? null;
 }
-
-interface BilanUnlockParams {
-  onboardingDone: boolean;
-  seancesValidees: number;
-  streakCurrent: number;
-}
-
-/** Le bilan gratuit avec un coach (passerelle TTM) est présenté comme une récompense à débloquer, pas un CTA permanent. */
-export function isBilanUnlocked({ onboardingDone, seancesValidees, streakCurrent }: BilanUnlockParams): boolean {
-  return onboardingDone || seancesValidees >= 5 || streakCurrent >= 7;
-}

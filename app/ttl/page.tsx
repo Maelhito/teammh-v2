@@ -15,14 +15,13 @@ import {
 } from "@/lib/ttl";
 import { computeTtlModuleUnlock } from "@/lib/ttl-unlock";
 import { ttlObjectifLabel, ttlObjectifEmoji, ttlObjectifTagline } from "@/lib/ttl-objectifs";
-import { computeTtlBadges, isBilanUnlocked } from "@/lib/ttl-badges";
+import { computeTtlBadges } from "@/lib/ttl-badges";
 import { getStreak } from "@/lib/streak";
 import { ttlColors } from "@/lib/ttl-theme";
 import TtlHeader from "@/components/TtlHeader";
 import TtlBottomNav from "@/components/TtlBottomNav";
 import PreviewBanner from "@/components/PreviewBanner";
 import { TtlProgressRing } from "@/components/TtlUI";
-import TtlUpgradeTeaser from "@/components/TtlUpgradeTeaser";
 import PushSubscriber from "@/components/PushSubscriber";
 import TtlWelcomePopup from "@/components/TtlWelcomePopup";
 
@@ -105,7 +104,6 @@ export default async function TtlAccueilPage() {
     joursDepuisDebut,
   });
   const badgesEarned = badges.filter((b) => b.earned).length;
-  const bilanUnlocked = isBilanUnlocked({ onboardingDone, seancesValidees, streakCurrent: streakInfo.streak_current });
 
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 100 }}>
@@ -152,13 +150,6 @@ export default async function TtlAccueilPage() {
               Aucun contenu pour l&apos;instant — reviens bientôt.
             </p>
           )}
-
-          <TtlUpgradeTeaser
-            unlocked={bilanUnlocked}
-            title={bilanUnlocked ? "Prête pour la suite ?" : "Ton bilan gratuit avec un coach"}
-            subtitle="Avec un coach, ce parcours devient un vrai programme sur mesure, suivi chaque semaine."
-            lockedHint="Termine ton onboarding, valide 5 séances ou tiens 7 jours de suite pour le débloquer."
-          />
 
           {quests.length > 0 && (
             <>

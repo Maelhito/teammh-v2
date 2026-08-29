@@ -70,6 +70,12 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('ttl-images', 'ttl-images', true), ('ttl-docs', 'ttl-docs', true)
 ON CONFLICT (id) DO NOTHING;
 
--- ─── 5. Vérification — doit renvoyer 0 ligne ────────────────────────────────
+-- ─── 5. La passerelle « bilan avec un coach » est retirée ───────────────────
+-- Elle proposait à une cliente TTS de passer à l'accompagnement TTM. TTL venant
+-- maintenant APRÈS TTM, elle n'a plus d'objet. La table est vide (0 demande).
+DROP TABLE IF EXISTS ttl_demandes_bilan;
+DROP TABLE IF EXISTS tts_demandes_bilan;
+
+-- ─── 6. Vérification — doit renvoyer 0 ligne ────────────────────────────────
 SELECT table_name FROM information_schema.tables
 WHERE table_schema = 'public' AND table_name LIKE 'tts%';
