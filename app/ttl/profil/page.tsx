@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getEffectiveUser } from "@/lib/preview";
 import { requireTtlAccess } from "@/lib/ttl-access";
-import { getOnboardingModules, getWatchedVideoIds, getSeancesProgress, getObjectif, getJoursEntrainement } from "@/lib/ttl";
+import { getOnboardingModules, getWatchedVideoIds, getSeancesProgress, getObjectif, getJoursEntrainement, getTtlSubscription } from "@/lib/ttl";
 import { ttlObjectifLabel } from "@/lib/ttl-objectifs";
 import { computeTtlBadges } from "@/lib/ttl-badges";
 import { getStreak } from "@/lib/streak";
@@ -23,13 +23,14 @@ export default async function TtlProfilPage() {
 
   const offre = await requireTtlAccess(userId, isPreview);
 
-  const [modules, watchedIds, seancesProgress, objectif, streakInfo, joursEntrainement] = await Promise.all([
+  const [modules, watchedIds, seancesProgress, objectif, streakInfo, joursEntrainement, abonnement] = await Promise.all([
     getOnboardingModules(),
     userId ? getWatchedVideoIds(userId) : Promise.resolve(new Set<string>()),
     userId ? getSeancesProgress(userId) : Promise.resolve([]),
     userId ? getObjectif(userId) : Promise.resolve(null),
     userId ? getStreak(userId) : Promise.resolve({ streak_current: 0, streak_last_activity: null, streak_freezes: 0 }),
     userId ? getJoursEntrainement(userId) : Promise.resolve([]),
+    userId ? getTtlSubscription(userId) : Promise.resolve(null),
   ]);
 
   const dateDebutLabel = offre?.date_debut
@@ -184,7 +185,10 @@ export default async function TtlProfilPage() {
             </details>
           )}
 
-          {offre?.paiement_requis && <TtlManageSubscriptionButton />}
+          {/* Ce qui compte, c'est qu'un abonnement existe — pas la façon dont
+              l'offre a été attribuée. Une cliente que le coach a abonnée à la
+              main dans Stripe doit pouvoir le résilier elle-même. */}
+          {abonnement && <TtlManageSubscriptionButton />}
           <TtlSignOutButton />
         </div>
       </div>

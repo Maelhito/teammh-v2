@@ -1,20 +1,43 @@
 import { redirect } from "next/navigation";
-import { getOffreCliente, getTtlSubscription, isTtlSubscriptionActive, type OffreCliente } from "@/lib/ttl";
+import {
+  getOffreCliente,
+  getTtlSubscription,
+  isTtlSubscriptionActive,
+  type OffreCliente,
+  type TtlSubscription,
+} from "@/lib/ttl";
+
+/**
+ * LA règle d'accès à TTL, en un seul endroit — la page de paiement s'appuie sur
+ * la même, sans quoi les deux se renvoyaient la balle en boucle.
+ *
+ * Un abonnement, QUELLE QUE SOIT SON ORIGINE, fait foi. Y compris celui que le
+ * coach crée à la main dans Stripe sur la carte déjà enregistrée d'une cliente
+ * TTM : le jour où elle le résilie depuis l'app, son accès s'arrête à la fin de
+ * la période payée, comme pour n'importe quel abonnement.
+ *
+ * Sans aucun abonnement, seule une inscription publique reste à la porte : une
+ * offre attribuée depuis l'Admin est un accès offert, c'est la décision du
+ * coach.
+ */
+export function accesTtlAccorde(
+  offre: OffreCliente | null,
+  abonnement: TtlSubscription | null
+): boolean {
+  if (!offre) return false;
+  if (abonnement) return isTtlSubscriptionActive(abonnement);
+  return !offre.paiement_requis;
+}
 
 interface RequireTtlAccessOptions {
   skipSubscriptionCheck?: boolean;
 }
 
 /**
- * Vérifie que l'utilisateur a bien l'offre TTL, et — seulement s'il s'est
- * inscrit lui-même — qu'il a un abonnement Stripe actif.
+ * Vérifie que l'utilisateur a bien l'offre TTL et qu'il y a droit
+ * (voir `accesTtlAccorde`).
  *
- * Une offre attribuée depuis l'Admin (`paiement_requis` à false) ouvre l'accès
- * immédiatement : c'est le choix du coach, pas une vente en ligne. Sans cette
- * distinction, toute cliente basculée en TTL depuis l'Admin atterrissait sur la
- * page de paiement et n'en sortait jamais.
- *
- * Redirige vers /dashboard (mauvaise offre) ou /ttl/paiement (pas d'abonnement).
+ * Redirige vers /dashboard (mauvaise offre) ou /ttl/paiement (accès fermé).
  * Désactivé en dev pour permettre de tester sans compte Stripe réel.
  */
 export async function requireTtlAccess(
@@ -29,9 +52,9 @@ export async function requireTtlAccess(
     redirect("/dashboard");
   }
 
-  if (!isDev && !isPreview && !opts.skipSubscriptionCheck && offre?.paiement_requis) {
-    const subscription = userId ? await getTtlSubscription(userId) : null;
-    if (!isTtlSubscriptionActive(subscription)) {
+  if (!isDev && !isPreview && !opts.skipSubscriptionCheck) {
+    const abonnement = userId ? await getTtlSubscription(userId) : null;
+    if (!accesTtlAccorde(offre, abonnement)) {
       redirect("/ttl/paiement");
     }
   }

@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getEffectiveUser } from "@/lib/preview";
-import { requireTtlAccess } from "@/lib/ttl-access";
+import { requireTtlAccess, accesTtlAccorde } from "@/lib/ttl-access";
 import { getTtlStripeOffers } from "@/lib/ttl-stripe-offers";
-import { getTtlSubscription, isTtlSubscriptionActive } from "@/lib/ttl";
+import { getTtlSubscription } from "@/lib/ttl";
 import TtlHeader from "@/components/TtlHeader";
 import PreviewBanner from "@/components/PreviewBanner";
 import { ttlColors } from "@/lib/ttl-theme";
@@ -24,16 +24,14 @@ export default async function TtlPaiementPage({ searchParams }: PageProps) {
 
   const offre = await requireTtlAccess(userId, isPreview, { skipSubscriptionCheck: true });
 
-  // Offre attribuée depuis l'Admin : rien à payer, cette page n'a pas de sens.
-  if (!isPreview && offre && !offre.paiement_requis) {
-    redirect("/ttl");
-  }
-
-  // Déjà abonnée : on ne montre jamais les offres, pour éviter un double abonnement
-  // Stripe (deux souscriptions actives sur le même customer, double débit mensuel).
+  // Rien à payer ici si l'accès est déjà ouvert — que ce soit parce que le coach
+  // a offert l'offre, ou parce qu'un abonnement est actif. Ce second cas évite
+  // aussi un double abonnement Stripe (deux souscriptions sur le même customer,
+  // double débit mensuel). La règle est la même que celle qui garde /ttl : deux
+  // règles différentes, et les deux pages se renvoyaient la balle en boucle.
   if (!isPreview) {
-    const subscription = userId ? await getTtlSubscription(userId) : null;
-    if (isTtlSubscriptionActive(subscription)) {
+    const abonnement = userId ? await getTtlSubscription(userId) : null;
+    if (accesTtlAccorde(offre, abonnement)) {
       redirect("/ttl");
     }
   }
