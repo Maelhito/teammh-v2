@@ -85,7 +85,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
     ).length;
     mission = {
       title: "Ton programme du mois",
-      subtitle: currentProgramme.titre || `Mois ${currentProgramme.numero_mois}`,
+      subtitle: currentProgramme.titre || "Programme du mois",
       progress: validatedThisWeek / currentProgramme.videos.length,
       href: "/ttl/sport",
     };

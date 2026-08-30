@@ -25,20 +25,16 @@ interface Programme {
 interface VideoForm {
   titre: string;
   lien: string;
-  description: string;
   materiel: string[];
   cover: { url: string; name: string } | null;
 }
-
-const EMPTY_FORM: VideoForm = { titre: "", lien: "", description: "", materiel: [], cover: null };
 
 export default function SportAdmin() {
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [numeroMois, setNumeroMois] = useState("");
-  const [titreProgramme, setTitreProgramme] = useState("");
+  const [nomProgramme, setNomProgramme] = useState("");
   const [savingProgramme, setSavingProgramme] = useState(false);
 
   const [videoForms, setVideoForms] = useState<Record<string, VideoForm>>({});
@@ -57,12 +53,27 @@ export default function SportAdmin() {
       .finally(() => setLoading(false));
   }
 
+  /** « Séance 1 », « Séance 2 »… proposé d'office : le nom qui compte est celui du programme. */
+  function titreParDefaut(programmeId: string) {
+    const programme = programmes.find((p) => p.id === programmeId);
+    return `Séance ${(programme?.videos.length ?? 0) + 1}`;
+  }
+
   function getForm(programmeId: string): VideoForm {
-    return videoForms[programmeId] ?? EMPTY_FORM;
+    return videoForms[programmeId] ?? { titre: titreParDefaut(programmeId), lien: "", materiel: [], cover: null };
   }
 
   function setForm(programmeId: string, patch: Partial<VideoForm>) {
     setVideoForms((prev) => ({ ...prev, [programmeId]: { ...getForm(programmeId), ...patch } }));
+  }
+
+  function resetForm(programmeId: string) {
+    setVideoForms((prev) => {
+      const next = { ...prev };
+      delete next[programmeId];
+      return next;
+    });
+    setFormVersion((prev) => ({ ...prev, [programmeId]: (prev[programmeId] ?? 0) + 1 }));
   }
 
   function toggleMateriel(programmeId: string, item: string) {
@@ -73,9 +84,8 @@ export default function SportAdmin() {
 
   async function handleAddProgramme(e: React.FormEvent) {
     e.preventDefault();
-    const mois = Number(numeroMois);
-    if (!numeroMois || !Number.isInteger(mois) || mois < 1) {
-      setError("Indique un numéro de mois valide (ex: 1) avant d'ajouter le programme");
+    if (!nomProgramme.trim()) {
+      setError("Donne un nom au programme");
       return;
     }
     setSavingProgramme(true);
@@ -84,13 +94,12 @@ export default function SportAdmin() {
       const res = await fetch("/api/admin/ttl/programmes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ numero_mois: mois, titre: titreProgramme || null }),
+        body: JSON.stringify({ titre: nomProgramme.trim() }),
       });
       const d = await res.json();
       if (!res.ok) { setError(d.error ?? "Erreur"); return; }
       setProgrammes((prev) => [...prev, { ...d.programme, videos: [] }].sort((a, b) => a.numero_mois - b.numero_mois));
-      setNumeroMois("");
-      setTitreProgramme("");
+      setNomProgramme("");
     } finally {
       setSavingProgramme(false);
     }
@@ -107,8 +116,8 @@ export default function SportAdmin() {
 
   async function handleAddVideo(programmeId: string) {
     const form = getForm(programmeId);
-    if (!form.titre.trim() || !form.lien.trim()) {
-      setError("Titre et lien YouTube requis pour la vidéo");
+    if (!form.lien.trim()) {
+      setError("Le lien YouTube est requis");
       return;
     }
     setSavingVideo(programmeId);
@@ -120,9 +129,9 @@ export default function SportAdmin() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           programme_id: programmeId,
-          titre: form.titre,
-          lien_youtube: form.lien,
-          description: form.description || null,
+          titre: form.titre.trim() || titreParDefaut(programmeId),
+          lien_youtube: form.lien.trim(),
+          description: null,
           materiel: form.materiel,
           cover_url: form.cover?.url ?? null,
           ordre: (programme?.videos.length ?? 0) + 1,
@@ -131,8 +140,7 @@ export default function SportAdmin() {
       const d = await res.json();
       if (!res.ok) { setError(d.error ?? "Erreur"); return; }
       setProgrammes((prev) => prev.map((p) => p.id === programmeId ? { ...p, videos: [...p.videos, d.video] } : p));
-      setVideoForms((prev) => ({ ...prev, [programmeId]: EMPTY_FORM }));
-      setFormVersion((prev) => ({ ...prev, [programmeId]: (prev[programmeId] ?? 0) + 1 }));
+      resetForm(programmeId);
     } finally {
       setSavingVideo(null);
     }
@@ -151,25 +159,17 @@ export default function SportAdmin() {
 
   return (
     <div>
-      <PageHeader title="Sport Time To Last" subtitle="Un programme par mois, exactement 3 vidéos YouTube" />
+      <PageHeader title="Sport Time To Last" subtitle="Un programme, exactement 3 séances vidéo" />
 
       {error && <p style={{ color: "#F87171", fontSize: 13 }}>{error}</p>}
 
       <form onSubmit={handleAddProgramme} style={{ display: "flex", gap: 8, marginBottom: 20 }}>
         <input
-          type="number"
-          min={1}
-          required
-          placeholder="N° du mois (obligatoire, ex: 1)"
-          value={numeroMois}
-          onChange={(e) => setNumeroMois(e.target.value)}
-          style={{ ...inputStyle, maxWidth: 200 }}
-        />
-        <input
           type="text"
-          placeholder="Titre (optionnel)"
-          value={titreProgramme}
-          onChange={(e) => setTitreProgramme(e.target.value)}
+          required
+          placeholder="Nom du programme (ex: Prise en main)"
+          value={nomProgramme}
+          onChange={(e) => setNomProgramme(e.target.value)}
           style={inputStyle}
         />
         <button type="submit" disabled={savingProgramme} style={btnPrimary}>
@@ -187,7 +187,7 @@ export default function SportAdmin() {
               <div key={p.id} style={cardStyle}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                   <p style={{ margin: 0, fontWeight: 700, color: "var(--admin-text)", fontSize: 15 }}>
-                    Mois {p.numero_mois} {p.titre ? `— ${p.titre}` : ""} <span style={{ fontSize: 12, color: "var(--admin-text-muted)" }}>({p.videos.length}/3)</span>
+                    {p.titre || "Programme sans nom"} <span style={{ fontSize: 12, color: "var(--admin-text-muted)" }}>({p.videos.length}/3)</span>
                   </p>
                   <button onClick={() => handleDeleteProgramme(p.id)} style={btnGhost}>Supprimer</button>
                 </div>
@@ -206,28 +206,22 @@ export default function SportAdmin() {
 
                 {p.videos.length < 3 ? (
                   <div key={formVersion[p.id] ?? 0} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 6 }}>
                       <input
                         type="text"
-                        placeholder="Titre vidéo"
+                        placeholder="Séance"
                         value={form.titre}
                         onChange={(e) => setForm(p.id, { titre: e.target.value })}
                         style={inputStyle}
                       />
                       <input
                         type="url"
-                        placeholder="Lien YouTube"
+                        placeholder="Lien YouTube (obligatoire)"
                         value={form.lien}
                         onChange={(e) => setForm(p.id, { lien: e.target.value })}
                         style={inputStyle}
                       />
                     </div>
-                    <textarea
-                      placeholder="Description (optionnel)"
-                      value={form.description}
-                      onChange={(e) => setForm(p.id, { description: e.target.value })}
-                      style={{ ...inputStyle, minHeight: 50, resize: "vertical" }}
-                    />
                     <div>
                       <label style={{ display: "block", fontSize: 11, color: "var(--admin-text-muted)", marginBottom: 6, letterSpacing: "0.04em" }}>
                         MATÉRIEL (optionnel)
@@ -262,11 +256,11 @@ export default function SportAdmin() {
                       onUploaded={(result) => setForm(p.id, { cover: result })}
                     />
                     <button onClick={() => handleAddVideo(p.id)} disabled={savingVideo === p.id} style={{ ...btnPrimary, alignSelf: "flex-start" }}>
-                      {savingVideo === p.id ? "..." : "+ Vidéo"}
+                      {savingVideo === p.id ? "..." : "+ Séance"}
                     </button>
                   </div>
                 ) : (
-                  <p style={{ fontSize: 12, color: "var(--admin-text-muted)", fontStyle: "italic", margin: 0 }}>3 vidéos complètes.</p>
+                  <p style={{ fontSize: 12, color: "var(--admin-text-muted)", fontStyle: "italic", margin: 0 }}>3 séances complètes.</p>
                 )}
               </div>
             );

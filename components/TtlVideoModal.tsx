@@ -11,6 +11,7 @@ interface Props {
   materiel?: string[];
   docUrl?: string | null;
   docName?: string | null;
+  autoplay?: boolean;
   watched?: boolean;
   onMarkWatched?: () => Promise<void>;
   onClose: () => void;
@@ -23,13 +24,14 @@ export default function TtlVideoModal({
   materiel,
   docUrl,
   docName,
+  autoplay,
   watched,
   onMarkWatched,
   onClose,
 }: Props) {
   const [marking, setMarking] = useState(false);
   const [isWatched, setIsWatched] = useState(!!watched);
-  const embed = youtubeEmbedUrl(lien_youtube);
+  const embed = youtubeEmbedUrl(lien_youtube, { autoplay });
 
   async function handleMark() {
     if (!onMarkWatched || marking) return;

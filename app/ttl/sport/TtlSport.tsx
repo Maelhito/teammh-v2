@@ -73,7 +73,7 @@ export default function TtlSport({ current, previous, future, seancesProgress, i
       {current ? (
         <>
           <p className="font-body" style={{ color: ttlColors.redBright, fontSize: 11, fontWeight: 700, letterSpacing: "1px", margin: "0 0 10px" }}>
-            MOIS {current.numero_mois} · EN COURS · {(current.titre || "Programme").toUpperCase()}
+            EN COURS · {(current.titre || "Programme").toUpperCase()}
           </p>
           {current.videos.map((v) => {
             const key = progressKey(v.id, semaine);
@@ -99,7 +99,7 @@ export default function TtlSport({ current, previous, future, seancesProgress, i
 
       {previous.length > 0 && (
         <>
-          <p className="font-body" style={{ color: "#fff", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", margin: "22px 0 10px" }}>MOIS PRÉCÉDENTS</p>
+          <p className="font-body" style={{ color: "#fff", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", margin: "22px 0 10px" }}>PROGRAMMES PRÉCÉDENTS</p>
           {previous.map((p) => {
             const isOpen = openMonth === p.id;
             return (
@@ -109,7 +109,7 @@ export default function TtlSport({ current, previous, future, seancesProgress, i
                   className="font-body"
                   style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: "none", border: "none", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600 }}
                 >
-                  Mois {p.numero_mois}{p.titre ? ` · ${p.titre}` : ""}
+                  {p.titre || "Programme"}
                   <span style={{ color: ttlColors.muted, fontSize: 12 }}>{isOpen ? "▲" : "▼"}</span>
                 </button>
                 {isOpen && (
@@ -134,7 +134,7 @@ export default function TtlSport({ current, previous, future, seancesProgress, i
               key={p.id}
               thumbEmoji="🔒"
               thumbVariant="module"
-              title={`Mois ${p.numero_mois}${p.titre ? ` · ${p.titre}` : ""}`}
+              title={p.titre || "Programme"}
               subtitle="Se débloque avec ton avancement"
               locked
             />
@@ -148,6 +148,7 @@ export default function TtlSport({ current, previous, future, seancesProgress, i
           lien_youtube={openSeanceVideo.lien_youtube}
           description={openSeanceVideo.description}
           materiel={openSeanceVideo.materiel}
+          autoplay
           onClose={() => setOpenSeanceVideo(null)}
         />
       )}

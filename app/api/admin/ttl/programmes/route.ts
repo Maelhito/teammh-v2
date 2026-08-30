@@ -36,20 +36,33 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
-  const { numero_mois, titre } = await request.json();
-  if (!numero_mois) return NextResponse.json({ error: "numero_mois requis" }, { status: 400 });
+  const { titre } = await request.json();
+  const nom = typeof titre === "string" ? titre.trim() : "";
+  if (!nom) return NextResponse.json({ error: "Le nom du programme est requis" }, { status: 400 });
 
   const admin = createSupabaseAdminClient();
+
+  // Le numéro d'ordre n'est plus saisi à la main : il sert uniquement, en
+  // interne, à savoir quel programme s'ouvre à quel mois d'abonnement. On le
+  // place à la suite du dernier programme créé.
+  const { data: dernier } = await admin
+    .from("ttl_programmes")
+    .select("numero_mois")
+    .order("numero_mois", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const numeroMois = (dernier?.numero_mois ?? 0) + 1;
+
   const { data, error } = await admin
     .from("ttl_programmes")
-    .insert({ numero_mois: Number(numero_mois), titre: titre ? String(titre).slice(0, 200) : null })
+    .insert({ numero_mois: numeroMois, titre: nom.slice(0, 200) })
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   after(() => sendPushToAllTtl({
-    title: "🏋️ Nouveau mois de sport disponible !",
-    body: `Mois ${data.numero_mois}${data.titre ? ` — ${data.titre}` : ""} vient d'arriver dans ta bibliothèque.`,
+    title: "🏋️ Nouveau programme disponible !",
+    body: `${data.titre} vient d'arriver dans ta partie sport.`,
     url: "/ttl/sport",
   }));
 

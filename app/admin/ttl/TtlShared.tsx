@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { youtubeEmbedUrl } from "@/lib/youtube";
 
 export const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -113,20 +114,6 @@ export function FileUploadButton({
   );
 }
 
-export function youtubeEmbedUrl(url: string): string | null {
-  try {
-    const u = new URL(url);
-    let id: string | null = null;
-    if (u.hostname.includes("youtu.be")) id = u.pathname.slice(1);
-    else if (u.searchParams.get("v")) id = u.searchParams.get("v");
-    else if (u.pathname.startsWith("/embed/")) id = u.pathname.replace("/embed/", "");
-    if (!id) return null;
-    return `https://www.youtube.com/embed/${id}?autoplay=1`;
-  } catch {
-    return null;
-  }
-}
-
 export function Modal({ children, onClose, maxWidth = 420 }: { children: React.ReactNode; onClose: () => void; maxWidth?: number }) {
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: 16 }}>
@@ -187,7 +174,7 @@ export function VideoPreviewModal({
   extra?: React.ReactNode;
   onClose: () => void;
 }) {
-  const embed = youtubeEmbedUrl(lien_youtube);
+  const embed = youtubeEmbedUrl(lien_youtube, { autoplay: true });
   return (
     <Modal onClose={onClose} maxWidth={560}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
