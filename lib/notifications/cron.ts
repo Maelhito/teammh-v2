@@ -563,7 +563,7 @@ async function lireActiviteTtl(admin: Admin, userId: string, utcNow: Date): Prom
     seancesDerniereSemaine: seancesWeek ?? 0,
     joursChoisis: (prefs?.jours_entrainement ?? []).map(Number),
     accueil: "/ttl",
-    seances: "/ttl/bibliotheque?tab=seances",
+    seances: "/ttl/sport",
     profil: "/ttl/profil",
   };
 }

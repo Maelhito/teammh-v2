@@ -38,7 +38,7 @@ export default function TtlWelcomePopup({ firstName, objectifLabel }: Props) {
               : "On te donne les premières clés dès maintenant."}
           </p>
           <p className="font-body" style={{ color: ttlColors.muted, fontSize: 13, margin: "10px 0 20px" }}>
-            Onboarding, séances, recettes, capsules motivation — tout est là pour t'aider à démarrer du bon pied.
+            Ton parcours, tes séances, tes recettes — tout est là pour t'aider à démarrer du bon pied.
           </p>
           <button
             onClick={() => setVisible(false)}

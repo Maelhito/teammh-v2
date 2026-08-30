@@ -1,8 +1,7 @@
 import { isAdminUser } from "@/lib/is-admin";
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
-import { sendPushToAllTtl } from "@/lib/push";
 
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient();
@@ -46,11 +45,10 @@ export async function POST(request: NextRequest) {
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  after(() => sendPushToAllTtl({
-    title: "💡 Nouvelle capsule motiv' disponible !",
-    body: `${data.titre} vient d'être ajoutée à ta bibliothèque.`,
-    url: "/ttl/bibliotheque?tab=capsules",
-  }));
+  // Aucune notification : les capsules ne sont plus affichées dans l'app cliente
+  // (barre du bas : Accueil, Sport, Alimentation, Profil). Prévenir toutes les
+  // clientes d'un contenu qu'elles ne peuvent pas ouvrir n'aurait pas de sens.
+  // À rétablir le jour où les capsules retrouvent une place côté cliente.
 
   return NextResponse.json({ capsule: data });
 }

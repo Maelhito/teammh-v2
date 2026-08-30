@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import { ttlColors } from "@/lib/ttl-theme";
 
 const ITEMS = [
-  { href: "/ttl", label: "Accueil", icon: "⌂", match: (p: string) => p === "/ttl" },
-  { href: "/ttl/parcours", label: "Mon Parcours", icon: "🎯", match: (p: string) => p.startsWith("/ttl/parcours") || p.startsWith("/ttl/modules") },
-  { href: "/ttl/bibliotheque", label: "Bibliothèque", icon: "▦", match: (p: string) => p.startsWith("/ttl/bibliotheque") },
+  { href: "/ttl", label: "Accueil", icon: "⌂", match: (p: string) => p === "/ttl" || p.startsWith("/ttl/modules") },
+  { href: "/ttl/sport", label: "Sport", icon: "🏋️", match: (p: string) => p.startsWith("/ttl/sport") },
+  { href: "/ttl/alimentation", label: "Alimentation", icon: "🥗", match: (p: string) => p.startsWith("/ttl/alimentation") },
   { href: "/ttl/profil", label: "Profil", icon: "◯", match: (p: string) => p.startsWith("/ttl/profil") },
 ];
 

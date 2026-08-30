@@ -9,7 +9,6 @@ import {
   computeCurrentNumeroMois,
   computeCurrentSemaine,
   getRecettes,
-  getCapsules,
   getObjectif,
   getSeancesProgress,
 } from "@/lib/ttl";
@@ -20,32 +19,37 @@ import { getStreak } from "@/lib/streak";
 import { ttlColors } from "@/lib/ttl-theme";
 import TtlHeader from "@/components/TtlHeader";
 import TtlBottomNav from "@/components/TtlBottomNav";
+import TtlParcoursTimeline from "@/components/TtlParcoursTimeline";
 import PreviewBanner from "@/components/PreviewBanner";
-import { TtlProgressRing } from "@/components/TtlUI";
+import { TtlProgressRing, TtlSectionTitle } from "@/components/TtlUI";
 import PushSubscriber from "@/components/PushSubscriber";
 import TtlWelcomePopup from "@/components/TtlWelcomePopup";
 
 export const dynamic = "force-dynamic";
 
 const QUEST_STYLES: Record<string, { bg: string; emoji: string; label: string; href: string }> = {
-  seance: { bg: "#3a1414", emoji: "🏋️", label: "Séance du mois", href: "/ttl/bibliotheque?tab=seances" },
-  recette: { bg: "#1f2a14", emoji: "🥗", label: "Recette du jour", href: "/ttl/bibliotheque?tab=recettes" },
-  capsule: { bg: "#241433", emoji: "💡", label: "Capsule motiv'", href: "/ttl/bibliotheque?tab=capsules" },
+  seance: { bg: "#3a1414", emoji: "🏋️", label: "Séance du mois", href: "/ttl/sport" },
+  recette: { bg: "#1f2a14", emoji: "🥗", label: "Recette du jour", href: "/ttl/alimentation" },
 };
 
-export default async function TtlAccueilPage() {
+interface PageProps {
+  searchParams: Promise<{ locked?: string }>;
+}
+
+export default async function TtlAccueilPage({ searchParams }: PageProps) {
+  const { locked } = await searchParams;
+
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
   const { userId, firstName, isPreview } = await getEffectiveUser(session);
 
   const offre = await requireTtlAccess(userId, isPreview);
 
-  const [modules, watchedIds, programmes, recettes, capsules, streakInfo, objectif, seancesProgress] = await Promise.all([
+  const [modules, watchedIds, programmes, recettes, streakInfo, objectif, seancesProgress] = await Promise.all([
     getOnboardingModules(),
     userId ? getWatchedVideoIds(userId) : Promise.resolve(new Set<string>()),
     getProgrammes(),
     getRecettes(),
-    getCapsules(),
     userId ? getStreak(userId) : Promise.resolve({ streak_current: 0, streak_last_activity: null, streak_freezes: 0 }),
     userId ? getObjectif(userId) : Promise.resolve(null),
     userId ? getSeancesProgress(userId) : Promise.resolve([]),
@@ -64,7 +68,6 @@ export default async function TtlAccueilPage() {
   const currentProgramme = sortedProgrammes.filter((p) => p.numero_mois <= currentNumeroMois).pop() ?? null;
 
   const recetteDuJour = recettes[0] ?? null;
-  const capsuleDuJour = capsules[0] ?? null;
   const seancesValidees = seancesProgress.length;
 
   // Mission du jour : onboarding en priorité, sinon la séance de la semaine en cours
@@ -74,7 +77,7 @@ export default async function TtlAccueilPage() {
       title: "Ta mission du jour",
       subtitle: currentModule.titre,
       progress: completedModules / totalModules,
-      href: unlocks[currentModuleIndex] ? `/ttl/modules/${currentModule.id}` : "/ttl/parcours",
+      href: unlocks[currentModuleIndex] ? `/ttl/modules/${currentModule.id}` : "#parcours",
     };
   } else if (currentProgramme && currentProgramme.videos.length > 0) {
     const validatedThisWeek = currentProgramme.videos.filter((v) =>
@@ -84,14 +87,13 @@ export default async function TtlAccueilPage() {
       title: "Ton programme du mois",
       subtitle: currentProgramme.titre || `Mois ${currentProgramme.numero_mois}`,
       progress: validatedThisWeek / currentProgramme.videos.length,
-      href: "/ttl/bibliotheque?tab=seances",
+      href: "/ttl/sport",
     };
   }
 
   const quests = [
     currentProgramme && currentProgramme.videos.length > 0 ? "seance" : null,
     recetteDuJour ? "recette" : null,
-    capsuleDuJour ? "capsule" : null,
   ].filter(Boolean) as (keyof typeof QUEST_STYLES)[];
 
   const joursDepuisDebut = offre?.date_debut ? Math.floor((Date.now() - new Date(offre.date_debut).getTime()) / 86400000) : 0;
@@ -170,6 +172,28 @@ export default async function TtlAccueilPage() {
                 })}
               </div>
             </>
+          )}
+
+          {totalModules > 0 && (
+            <div id="parcours" style={{ scrollMarginTop: 20 }}>
+              <TtlSectionTitle count={`${completedModules}/${totalModules}`}>Mon parcours</TtlSectionTitle>
+
+              {locked === "1" && (
+                <div className="font-body" style={{ marginBottom: 16, backgroundColor: ttlColors.card, border: "1px solid rgba(230,57,70,0.35)", borderRadius: 10, padding: "12px 16px" }}>
+                  <p style={{ fontSize: "0.8rem", color: ttlColors.redBright, margin: 0 }}>
+                    Ce module n&apos;est pas encore disponible.
+                  </p>
+                </div>
+              )}
+
+              <TtlParcoursTimeline modules={modules} watchedIds={watchedIds} unlocks={unlocks} />
+
+              <div style={{ background: "rgba(178,34,34,0.08)", border: "1px solid rgba(178,34,34,0.3)", borderRadius: 16, padding: 14, marginTop: 4 }}>
+                <p className="font-body" style={{ color: "#cbb", fontSize: 12, margin: 0 }}>
+                  Chaque module se débloque automatiquement une fois le précédent terminé.
+                </p>
+              </div>
+            </div>
           )}
 
           <Link href="/ttl/profil" style={{ textDecoration: "none" }}>

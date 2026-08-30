@@ -34,7 +34,7 @@ export default async function TtlModulePage({ params }: PageProps) {
   const moduleData = modules[index];
 
   const unlocks = computeTtlModuleUnlock(modules, watchedIds);
-  if (!unlocks[index]) redirect("/ttl/parcours?locked=1");
+  if (!unlocks[index]) redirect("/ttl?locked=1#parcours");
 
   const videos = moduleData.videos.map((v) => ({ ...v, watched: watchedIds.has(v.id) }));
 
@@ -43,7 +43,7 @@ export default async function TtlModulePage({ params }: PageProps) {
       {isPreview && <PreviewBanner name={firstName} />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>
-        <TtlHeader variant="page" back backHref="/ttl/parcours" title={`Module ${index + 1}`} subtitle={moduleData.titre} />
+        <TtlHeader variant="page" back backHref="/ttl" title={`Module ${index + 1}`} subtitle={moduleData.titre} />
 
         <div style={{ padding: "20px 20px 0" }}>
           <TtlModuleVideos videos={videos} />

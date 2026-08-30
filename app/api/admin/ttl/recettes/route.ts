@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   after(() => sendPushToAllTtl({
     title: "🥗 Nouvelle recette disponible !",
     body: `${data.titre} vient d'être ajoutée à ta bibliothèque.`,
-    url: "/ttl/bibliotheque?tab=recettes",
+    url: "/ttl/alimentation",
   }));
 
   return NextResponse.json({ recette: data });

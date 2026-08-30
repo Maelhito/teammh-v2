@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   after(() => sendPushToAllTtl({
     title: "🏋️ Nouveau mois de sport disponible !",
     body: `Mois ${data.numero_mois}${data.titre ? ` — ${data.titre}` : ""} vient d'arriver dans ta bibliothèque.`,
-    url: "/ttl/bibliotheque?tab=seances",
+    url: "/ttl/sport",
   }));
 
   return NextResponse.json({ programme: data });
