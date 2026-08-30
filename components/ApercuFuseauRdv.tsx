@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { dateLisible, decalageLisible, ecartEntre, instantDepuis, nomLisible } from "@/lib/temps";
+import { dateLisible, decalageLisible, formatDateDans, formatHeureDans, instantDepuis, nomLisible } from "@/lib/temps";
 
 interface Props {
   clienteId: string;
@@ -59,35 +59,55 @@ export default function ApercuFuseauRdv({
   const instant = instantDepuis(date, heure, saisie);
   if (!instant) return null;
 
-  const ecart = ecartEntre(instant, saisie, fuseaux.cliente);
   const elle = prenomCliente?.trim() || "elle";
   const memeFuseau = fuseaux.coach === fuseaux.cliente;
 
+  // Trois lectures du même instant : l'heure tapée, celle de la cliente, celle
+  // du coach. La troisième manquait — et quand le coach tape « son heure à
+  // elle », le fuseau de saisie n'est plus le sien : lui annoncer « chez toi »
+  // était alors faux, et c'est ce qui rendait la grille incompréhensible.
+  const heureCliente = formatHeureDans(instant, fuseaux.cliente);
+  const jourCliente = formatDateDans(instant, fuseaux.cliente);
+  const heureCoach = formatHeureDans(instant, fuseaux.coach);
+  const jourCoach = formatDateDans(instant, fuseaux.coach);
+  const saisieEstCoach = saisie === fuseaux.coach;
+  const decale = heureCliente !== heureCoach || jourCliente !== jourCoach;
+
   const cadre: React.CSSProperties = {
     marginTop: 8, padding: "9px 11px", borderRadius: 9,
-    border: `1px solid ${ecart ? "#E8B4B4" : "#e8e8e8"}`,
-    backgroundColor: ecart ? "#FDF6F6" : "#fafafa",
+    border: `1px solid ${decale ? "#E8B4B4" : "#e8e8e8"}`,
+    backgroundColor: decale ? "#FDF6F6" : "#fafafa",
     fontFamily: "system-ui", fontSize: 12, color: "#1a1a1a", lineHeight: 1.55,
   };
 
   return (
     <div style={cadre}>
-      {ecart ? (
+      {memeFuseau ? (
+        <div style={{ color: "#666" }}>
+          {heureCliente} chez toi comme pour {elle} — même fuseau ({nomLisible(fuseaux.cliente)}).
+        </div>
+      ) : (
         <>
+          {/* Ce que vit la cliente : c'est le rendez-vous, et c'est ce que
+              montre son calendrier. */}
           <div>
-            <strong>{ecart.heureAuteur}</strong> à {nomLisible(saisie)} ={" "}
-            <strong style={{ color: "#B22222" }}>{ecart.heureLecteur}</strong> pour {elle} ({nomLisible(fuseaux.cliente)})
+            Pour {elle} : <strong style={{ color: "#B22222" }}>{dateLisible(jourCliente)} à {heureCliente}</strong> ({nomLisible(fuseaux.cliente)})
           </div>
-          {!ecart.memeJour && (
+          {/* Ce que le coach vivra, sur sa propre horloge. */}
+          <div style={{ marginTop: 3 }}>
+            Chez toi : <strong>{dateLisible(jourCoach)} à {heureCoach}</strong> ({nomLisible(fuseaux.coach)})
+          </div>
+          {jourCliente !== jourCoach && (
             <div style={{ color: "#B22222", marginTop: 3 }}>
-              ⚠ Chez {elle}, c'est le {dateLisible(ecart.jourLecteur)} — pas le même jour.
+              ⚠ Ce n&apos;est pas le même jour pour vous deux — normal, vous n&apos;êtes pas dans le même fuseau.
+            </div>
+          )}
+          {!saisieEstCoach && (
+            <div style={{ color: "#888", marginTop: 3, fontSize: 11 }}>
+              Heure tapée à l&apos;heure de {nomLisible(saisie)}.
             </div>
           )}
         </>
-      ) : (
-        <div style={{ color: "#666" }}>
-          {heure} chez toi comme pour {elle} — même fuseau ({nomLisible(fuseaux.cliente)}).
-        </div>
       )}
 
       {!memeFuseau && (

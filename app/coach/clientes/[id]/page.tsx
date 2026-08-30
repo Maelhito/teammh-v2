@@ -15,7 +15,7 @@ import { estSeanceValidee, type SeanceValidee } from "@/lib/seances-validees";
 import { FiltresProgrammes, avancementDe, correspondAuxFiltres, FILTRES_TOUS, type Filtres } from "../../programmes/FiltresProgrammes";
 import { progCatLabel, avancementComplet, normaliseProgCategorie } from "../../programmes/constantes";
 import ApercuFuseauRdv from "@/components/ApercuFuseauRdv";
-import { aujourdhuiDans, formatHeureDans, fuseauAppareil, occurrenceLe } from "@/lib/temps";
+import { aujourdhuiDans, dateLisible, decalageLisible, formatDateDans, formatHeureDans, fuseauAppareil, heureAffichee, nomLisible, occurrenceLe } from "@/lib/temps";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Cliente { id: string; email: string; prenom: string | null; nom: string | null; statut: string; acces_app?: boolean; date_demarrage: string | null; }
@@ -81,15 +81,20 @@ let _k = 0;
 function nk() { return `ci${++_k}_${Date.now()}`; }
 
 /**
- * L'événement tombe-t-il ce jour-là, pour la personne qui regarde l'écran ?
+ * L'événement tombe-t-il ce jour-là — dans le calendrier de la CLIENTE ?
  *
- * Toute la logique (récurrences, changement d'heure, jour qui diffère selon le
- * fuseau du lecteur) vit dans `occurrenceLe` — cette fonction n'est plus qu'un
- * adaptateur. Elle existait auparavant en cinq copies quasi identiques, chacune
- * comparant des dates murales sans fuseau.
+ * Le fuseau de référence est celui de la cliente, pas celui du coach qui
+ * regarde. Un rendez-vous à 8h à Nouméa, c'est 23h la veille à Paris : placé au
+ * fuseau du lecteur, il s'affichait le vendredi dans la grille alors que sa
+ * fiche annonçait le samedi. Deux jours différents pour le même rendez-vous,
+ * sur le même écran.
+ *
+ * C'est aussi la seule référence cohérente avec le reste de la grille : séances,
+ * tâches et jours de programme sont des dates nues, vécues à l'heure de la
+ * cliente. L'heure du coach, elle, est rappelée à part quand elle diffère.
  */
-function isEventOnDay(event: CalendarEvent, day: Date, fuseauLecteur: string | null): boolean {
-  return occurrenceLe(event, toLocalDate(day), fuseauLecteur).tombe;
+function isEventOnDay(event: CalendarEvent, day: Date, fuseauCliente: string | null): boolean {
+  return occurrenceLe(event, toLocalDate(day), fuseauCliente).tombe;
 }
 // Les couleurs et libellés viennent de lib/couleurs-calendrier (source unique)
 function evColor(ev: CalendarEvent): string {
@@ -510,24 +515,33 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
 }
 
 // ─── Calendrier mensuel avec drag & drop ──────────────────────────────────────
-function MonthCalendar({ layers, today, events, seancesValidees, onEditItem, onMoveItem, onAddEvent, onEventClick }: {
+function MonthCalendar({ layers, today, events, seancesValidees, fuseauCliente, prenomCliente, onEditItem, onMoveItem, onAddEvent, onEventClick }: {
   /** Un calque par programme affiché — en cours, ou terminé et figé (historique) */
   layers: ProgrammeLayer[];
   today: Date;
   events: CalendarEvent[];
   /** Séances que la cliente a validées depuis son app */
   seancesValidees: SeanceValidee[];
+  /** Fuseau de la cliente — la grille est à son heure à elle. */
+  fuseauCliente: string | null;
+  prenomCliente: string | null;
   onEditItem: (assignmentId: string, cellKey: string, item: CellItem) => void;
   onMoveItem: (assignmentId: string, fromKey: string, itemKey: string, toKey: string) => void;
   onAddEvent: (date: Date) => void;
   onEventClick?: (ev: CalendarEvent) => void;
 }) {
   const [monthOffset, setMonthOffset] = useState(0);
-  // Le fuseau du coach qui regarde le calendrier de sa cliente. Connu seulement
-  // dans le navigateur : au rendu serveur, `occurrenceLe` retombe sur la date
-  // murale, donc pas d'écart d'hydratation.
+  // Le fuseau du coach qui regarde l'écran. Connu seulement dans le navigateur :
+  // au rendu serveur, on retombe sur la date murale, donc pas d'écart
+  // d'hydratation. Il ne sert plus à placer les événements — seulement à dire au
+  // coach à quelle heure ça tombe chez lui.
   const [fuseauLecteur, setFuseauLecteur] = useState<string | null>(null);
   useEffect(() => { setFuseauLecteur(fuseauAppareil()); }, []);
+  // La grille est celle de la cliente : c'est son fuseau qui décide du jour et
+  // de l'heure affichés.
+  const fuseauGrille = fuseauCliente ?? fuseauLecteur;
+  const decalageAvecCoach = Boolean(fuseauCliente && fuseauLecteur && fuseauCliente !== fuseauLecteur);
+  const elle = prenomCliente?.trim() || "la cliente";
   // Un drop cible une case d'un programme précis → clé "assignmentId|cellKey"
   const [dragOver, setDragOver] = useState<string | null>(null);
   const dragRef = useRef<{ assignmentId: string; cellKey: string; itemKey: string } | null>(null);
@@ -577,6 +591,13 @@ function MonthCalendar({ layers, today, events, seancesValidees, onEditItem, onM
         </button>
       </div>
 
+      {decalageAvecCoach && (
+        <p style={{ fontSize: 11, color: "#8a6d3b", backgroundColor: "#FDF8EE", border: "1px solid #F0E2C0", borderRadius: 8, padding: "7px 10px", margin: "0 0 12px", fontFamily: "system-ui", lineHeight: 1.5 }}>
+          🕒 Jours et heures à l&apos;heure de {elle} — {nomLisible(fuseauCliente!)} ({decalageLisible(fuseauCliente!)}).
+          Toi tu es à {nomLisible(fuseauLecteur!)} ({decalageLisible(fuseauLecteur!)}) : ouvre un rendez-vous pour voir l&apos;heure qu&apos;il sera chez toi.
+        </p>
+      )}
+
       <div className="coach-month-scroll"><div className="coach-month-inner">
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, marginBottom: 3 }}>
         {JOURS_COURT.slice(1).concat(JOURS_COURT[0]).map(j => (
@@ -600,7 +621,7 @@ function MonthCalendar({ layers, today, events, seancesValidees, onEditItem, onM
             })
             .filter(l => l.cellKey !== null);
           const isDragTarget = dragOver === dayId;
-          const dayEvents = events.filter(ev => isEventOnDay(ev, day, fuseauLecteur));
+          const dayEvents = events.filter(ev => isEventOnDay(ev, day, fuseauGrille));
 
           /** Case cible de ce jour pour le programme de l'item en cours de drag. */
           const dropTargetKey = (): string | null => {
@@ -643,11 +664,25 @@ function MonthCalendar({ layers, today, events, seancesValidees, onEditItem, onM
                   {day.getDate()}
                 </span>
               </div>
-              {dayEvents.map(ev => (
-                <div key={ev.id} onClick={() => onEventClick?.(ev)} style={{ padding: "2px 5px", borderRadius: 4, marginBottom: 2, backgroundColor: `${evColor(ev)}15`, borderLeft: `2px solid ${evColor(ev)}`, cursor: "pointer" }}>
-                  <p style={{ fontSize: 8, fontWeight: 700, color: evColor(ev), margin: 0, fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.titre}</p>
-                </div>
-              ))}
+              {dayEvents.map(ev => {
+                // L'heure de la cliente : celle de la grille, et celle qui compte
+                // pour elle. Sans elle, la pastille ne disait pas à quelle heure.
+                const heureCliente = heureAffichee(ev, fuseauGrille);
+                const heureCoach = decalageAvecCoach ? heureAffichee(ev, fuseauLecteur) : null;
+                const jourCoach = decalageAvecCoach && ev.starts_at ? formatDateDans(ev.starts_at, fuseauLecteur!) : null;
+                // Sans instant enregistré (vieil événement), on ne sait pas le
+                // convertir : on n'invente pas une heure « chez toi ».
+                const infobulle = heureCoach && jourCoach
+                  ? `${ev.titre} — ${heureCliente} pour ${elle}, ${heureCoach} chez toi le ${dateLisible(jourCoach)}`
+                  : ev.titre;
+                return (
+                  <div key={ev.id} onClick={() => onEventClick?.(ev)} title={infobulle} style={{ padding: "2px 5px", borderRadius: 4, marginBottom: 2, backgroundColor: `${evColor(ev)}15`, borderLeft: `2px solid ${evColor(ev)}`, cursor: "pointer" }}>
+                    <p style={{ fontSize: 8, fontWeight: 700, color: evColor(ev), margin: 0, fontFamily: "system-ui", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {heureCliente ? `${heureCliente} ` : ""}{ev.titre}
+                    </p>
+                  </div>
+                );
+              })}
               {dayLayers.map(({ layer, cellKey, items }) =>
                 items.map(item => {
                   const label = item.type === "seance" ? item.seanceName : item.type === "seance_locale" ? item.nom : `🎬 ${item.titre}`;
@@ -1441,6 +1476,8 @@ export default function ClienteFichePage() {
   const [addEvDate, setAddEvDate] = useState(toLocalDate(new Date()));
   const [showSeanceList, setShowSeanceList] = useState(false);
   const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null);
+  // Le fuseau de la cliente : c'est lui qui règle le calendrier ci-dessous.
+  const [fuseauCliente, setFuseauCliente] = useState<string | null>(null);
 
   const loadCalEvents = useCallback(() => {
     fetch(`/api/coach/clientes/${id}/evenements`).then(r => r.json()).then(d => setCalEvents(d.events ?? []));
@@ -1476,6 +1513,10 @@ export default function ClienteFichePage() {
       })
       .then(d => setCliente(d?.cliente ?? null))
       .catch(() => setCliente(null));
+    fetch(`/api/coach/clientes/${id}/fuseau`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => setFuseauCliente(d?.cliente ?? null))
+      .catch(() => setFuseauCliente(null));
     loadAssignments();
     loadCalEvents();
   }, [id, loadAssignments, loadCalEvents, router]);
@@ -1646,6 +1687,8 @@ export default function ClienteFichePage() {
       <MonthCalendar
         layers={layers} today={today} seancesValidees={seancesValidees}
         events={calEvents}
+        fuseauCliente={fuseauCliente}
+        prenomCliente={cliente?.prenom ?? null}
         onEditItem={(assignmentId, cellKey, item) => setEditTarget({ assignmentId, cellKey, item })}
         onMoveItem={handleMoveItem}
         onAddEvent={(date) => { setAddEvDate(toLocalDate(date)); setShowAddEv(true); }}
