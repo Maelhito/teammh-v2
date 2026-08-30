@@ -36,7 +36,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
-  const { titre } = await request.json();
+  const { titre, cover_url } = await request.json();
   const nom = typeof titre === "string" ? titre.trim() : "";
   if (!nom) return NextResponse.json({ error: "Le nom du programme est requis" }, { status: 400 });
 
@@ -55,7 +55,11 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await admin
     .from("ttl_programmes")
-    .insert({ numero_mois: numeroMois, titre: nom.slice(0, 200) })
+    .insert({
+      numero_mois: numeroMois,
+      titre: nom.slice(0, 200),
+      cover_url: cover_url ? String(cover_url).slice(0, 500) : null,
+    })
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -66,6 +70,38 @@ export async function POST(request: NextRequest) {
     url: "/ttl/sport",
   }));
 
+  return NextResponse.json({ programme: data });
+}
+
+export async function PATCH(request: NextRequest) {
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+
+  const { id, titre, cover_url } = await request.json();
+  if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
+
+  const patch: { titre?: string; cover_url?: string | null } = {};
+  if (typeof titre === "string") {
+    const nom = titre.trim();
+    if (!nom) return NextResponse.json({ error: "Le nom du programme est requis" }, { status: 400 });
+    patch.titre = nom.slice(0, 200);
+  }
+  // cover_url === null efface la couverture, undefined la laisse telle quelle.
+  if (cover_url !== undefined) patch.cover_url = cover_url ? String(cover_url).slice(0, 500) : null;
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: "Rien à modifier" }, { status: 400 });
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("ttl_programmes")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Aucune notification : modifier un programme existant n'est pas une nouveauté.
   return NextResponse.json({ programme: data });
 }
 

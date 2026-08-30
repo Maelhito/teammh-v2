@@ -19,6 +19,7 @@ interface Programme {
   id: string;
   numero_mois: number;
   titre: string | null;
+  cover_url: string | null;
   videos: Video[];
 }
 
@@ -35,6 +36,8 @@ export default function SportAdmin() {
   const [error, setError] = useState<string | null>(null);
 
   const [nomProgramme, setNomProgramme] = useState("");
+  const [coverProgramme, setCoverProgramme] = useState<{ url: string; name: string } | null>(null);
+  const [programmeVersion, setProgrammeVersion] = useState(0);
   const [savingProgramme, setSavingProgramme] = useState(false);
 
   const [videoForms, setVideoForms] = useState<Record<string, VideoForm>>({});
@@ -94,15 +97,28 @@ export default function SportAdmin() {
       const res = await fetch("/api/admin/ttl/programmes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ titre: nomProgramme.trim() }),
+        body: JSON.stringify({ titre: nomProgramme.trim(), cover_url: coverProgramme?.url ?? null }),
       });
       const d = await res.json();
       if (!res.ok) { setError(d.error ?? "Erreur"); return; }
       setProgrammes((prev) => [...prev, { ...d.programme, videos: [] }].sort((a, b) => a.numero_mois - b.numero_mois));
       setNomProgramme("");
+      setCoverProgramme(null);
+      setProgrammeVersion((v) => v + 1);
     } finally {
       setSavingProgramme(false);
     }
+  }
+
+  async function handleProgrammeCover(id: string, url: string | null) {
+    const res = await fetch("/api/admin/ttl/programmes", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, cover_url: url }),
+    });
+    const d = await res.json();
+    if (!res.ok) { setError(d.error ?? "Erreur"); return; }
+    setProgrammes((prev) => prev.map((p) => p.id === id ? { ...p, cover_url: d.programme.cover_url } : p));
   }
 
   async function handleDeleteProgramme(id: string) {
@@ -163,18 +179,27 @@ export default function SportAdmin() {
 
       {error && <p style={{ color: "#F87171", fontSize: 13 }}>{error}</p>}
 
-      <form onSubmit={handleAddProgramme} style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        <input
-          type="text"
-          required
-          placeholder="Nom du programme (ex: Prise en main)"
-          value={nomProgramme}
-          onChange={(e) => setNomProgramme(e.target.value)}
-          style={inputStyle}
+      <form key={programmeVersion} onSubmit={handleAddProgramme} style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            type="text"
+            required
+            placeholder="Nom du programme (ex: Prise en main)"
+            value={nomProgramme}
+            onChange={(e) => setNomProgramme(e.target.value)}
+            style={inputStyle}
+          />
+          <button type="submit" disabled={savingProgramme} style={btnPrimary}>
+            {savingProgramme ? "..." : "+ Programme"}
+          </button>
+        </div>
+        <FileUploadButton
+          bucket="ttl-images"
+          accept="image/*"
+          label="🖼 Couverture du programme (optionnel)"
+          value={coverProgramme}
+          onUploaded={setCoverProgramme}
         />
-        <button type="submit" disabled={savingProgramme} style={btnPrimary}>
-          {savingProgramme ? "..." : "+ Programme"}
-        </button>
       </form>
 
       {loading ? (
@@ -185,10 +210,33 @@ export default function SportAdmin() {
             const form = getForm(p.id);
             return (
               <div key={p.id} style={cardStyle}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <p style={{ margin: 0, fontWeight: 700, color: "var(--admin-text)", fontSize: 15 }}>
-                    {p.titre || "Programme sans nom"} <span style={{ fontSize: 12, color: "var(--admin-text-muted)" }}>({p.videos.length}/3)</span>
-                  </p>
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
+                  {p.cover_url ? (
+                    <img
+                      src={p.cover_url}
+                      alt={p.titre ?? "Couverture"}
+                      style={{ width: 110, height: 62, objectFit: "cover", borderRadius: 8, flexShrink: 0, border: "1px solid var(--admin-border)" }}
+                    />
+                  ) : (
+                    <div style={{ width: 110, height: 62, borderRadius: 8, flexShrink: 0, border: "1px dashed var(--admin-border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🖼</div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: "0 0 6px", fontWeight: 700, color: "var(--admin-text)", fontSize: 15 }}>
+                      {p.titre || "Programme sans nom"} <span style={{ fontSize: 12, color: "var(--admin-text-muted)" }}>({p.videos.length}/3)</span>
+                    </p>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <FileUploadButton
+                        bucket="ttl-images"
+                        accept="image/*"
+                        label={p.cover_url ? "🖼 Changer la couverture" : "🖼 Ajouter une couverture"}
+                        value={null}
+                        onUploaded={(result) => handleProgrammeCover(p.id, result.url)}
+                      />
+                      {p.cover_url && (
+                        <button onClick={() => handleProgrammeCover(p.id, null)} style={btnGhost}>Retirer</button>
+                      )}
+                    </div>
+                  </div>
                   <button onClick={() => handleDeleteProgramme(p.id)} style={btnGhost}>Supprimer</button>
                 </div>
 

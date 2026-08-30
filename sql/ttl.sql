@@ -249,3 +249,13 @@ ALTER TABLE ttl_objectifs
 
 ALTER TABLE offres_clientes
   ADD COLUMN IF NOT EXISTS paiement_requis BOOLEAN NOT NULL DEFAULT false;
+
+-- ============================================================
+-- MIGRATION 10 — image de couverture du programme sport.
+-- Jusqu'ici la couverture était par séance ; il en faut une par
+-- programme, affichée en tête de la partie Sport de l'app cliente.
+-- À exécuter après les blocs précédents.
+-- ============================================================
+
+ALTER TABLE ttl_programmes
+  ADD COLUMN IF NOT EXISTS cover_url TEXT;

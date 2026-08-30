@@ -34,6 +34,8 @@ export interface TtlProgramme {
   id: string;
   numero_mois: number;
   titre: string | null;
+  /** Couverture du programme entier, affichée en tête de la partie Sport. */
+  cover_url: string | null;
   videos: TtlProgrammeVideo[];
 }
 

@@ -64,6 +64,25 @@ export default function TtlSport({ current, previous, future, seancesProgress, i
 
   return (
     <div style={{ padding: "20px 20px 100px" }}>
+      {current?.cover_url && (
+        <div
+          style={{
+            position: "relative", width: "100%", height: 156, borderRadius: 18, overflow: "hidden", marginBottom: 16,
+            backgroundImage: `url(${current.cover_url})`, backgroundSize: "cover", backgroundPosition: "center",
+          }}
+        >
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.05) 30%, rgba(0,0,0,0.8) 100%)" }} />
+          <div style={{ position: "absolute", left: 16, right: 16, bottom: 14 }}>
+            <p className="font-body" style={{ color: ttlColors.redBright, fontSize: 10, fontWeight: 700, letterSpacing: "1.5px", margin: "0 0 4px" }}>
+              EN COURS
+            </p>
+            <p className="font-body" style={{ color: "#fff", fontSize: 19, fontWeight: 700, margin: 0, lineHeight: 1.2, textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}>
+              {current.titre || "Programme"}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", paddingBottom: 4 }}>
         {SEMAINES.map((s) => (
           <TtlFilterChip key={s} active={semaine === s} onClick={() => setSemaine(s)}>Semaine {s}</TtlFilterChip>
@@ -72,9 +91,11 @@ export default function TtlSport({ current, previous, future, seancesProgress, i
 
       {current ? (
         <>
-          <p className="font-body" style={{ color: ttlColors.redBright, fontSize: 11, fontWeight: 700, letterSpacing: "1px", margin: "0 0 10px" }}>
-            EN COURS · {(current.titre || "Programme").toUpperCase()}
-          </p>
+          {!current.cover_url && (
+            <p className="font-body" style={{ color: ttlColors.redBright, fontSize: 11, fontWeight: 700, letterSpacing: "1px", margin: "0 0 10px" }}>
+              EN COURS · {(current.titre || "Programme").toUpperCase()}
+            </p>
+          )}
           {current.videos.map((v) => {
             const key = progressKey(v.id, semaine);
             return (
