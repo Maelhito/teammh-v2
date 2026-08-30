@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { FUSEAU_PAR_DEFAUT, aujourdhuiDans, fuseauOuDefaut } from "@/lib/temps";
+import { rattacherUnCompte } from "@/lib/equipe-comptes";
 
 export async function POST(req: NextRequest) {
   const { prenom, nom, email, password, role = "cliente", timezone } = await req.json();
@@ -50,6 +51,13 @@ export async function POST(req: NextRequest) {
     timezone_auto: true,
     role: safeRole,
   }, { onConflict: "user_id" });
+
+  // Une coach inscrite par le lien coach doit exister aussi comme fiche équipe :
+  // sans elle, l'admin ne peut pas lui attribuer de clientes, et elle n'en voit
+  // aucune de son côté.
+  if (safeRole === "coach") {
+    await rattacherUnCompte(admin, data.user);
+  }
 
   return NextResponse.json({ success: true }, { status: 201 });
 }

@@ -2,6 +2,7 @@ import { isAdminUser } from "@/lib/is-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { rattacherUnCompte } from "@/lib/equipe-comptes";
 
 
 
@@ -37,17 +38,23 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { userId, role } = await req.json();
-  if (!userId || !["cliente", "coach", "admin"].includes(role)) {
+  if (!userId || !["cliente", "coach", "admin", "nutrition"].includes(role)) {
     return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
   }
 
   const admin = createSupabaseAdminClient();
 
   // 1. Mise à jour dans user_metadata (toujours disponible)
-  const { error } = await admin.auth.admin.updateUserById(userId, {
+  const { data: maj, error } = await admin.auth.admin.updateUserById(userId, {
     user_metadata: { role },
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Passer quelqu'un en coach / nutrition, c'est le faire entrer dans l'équipe :
+  // sa fiche `team_members` suit, sinon il reste invisible à l'attribution.
+  if (maj?.user && (role === "coach" || role === "nutrition")) {
+    await rattacherUnCompte(admin, maj.user);
+  }
 
   // 2. Tentative de sync dans user_profiles.role (si la colonne existe)
   try {

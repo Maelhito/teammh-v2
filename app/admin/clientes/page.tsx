@@ -1,11 +1,17 @@
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { fetchClients } from "@/lib/admin/fetchClients";
 import ClientsTable from "../ClientsTable";
+import { synchroniserComptesEquipe } from "@/lib/equipe-comptes";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminClientesPage() {
   const admin = createSupabaseAdminClient();
+
+  // Rattrapage des comptes équipe créés avant que l'inscription ne fabrique la
+  // fiche : sans ça, une coach déjà inscrite resterait absente du menu.
+  await synchroniserComptesEquipe(admin);
+
   const [{ clients, error }, { data: teamMembers }] = await Promise.all([
     fetchClients(),
     admin.from("team_members").select("id, nom, titre, role").order("created_at", { ascending: true }),
