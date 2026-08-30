@@ -1,10 +1,11 @@
 /**
  * Module unique du temps — TeamMJ.
  *
- * Règle du projet : personne ne vit dans le même fuseau. Mael et Julie sont à
- * Bali (UTC+8), les coachs en Australie (UTC+10/+11, et ils bougent), les
- * clientes en Nouvelle-Calédonie (UTC+11) — et n'importe qui peut partir en
- * vacances ailleurs.
+ * Règle du projet : personne ne vit dans le même fuseau. Mael et Julie sont en
+ * France (UTC+1/+2 selon la saison), les coachs en Australie (UTC+10/+11, avec
+ * heure d'été), les clientes en Nouvelle-Calédonie (UTC+11, sans heure d'été)
+ * — et n'importe qui peut partir en vacances ailleurs. Jusqu'à 10 heures
+ * séparent celui qui pose un rendez-vous de celle qui le vit.
  *
  * Deux conséquences, à respecter partout :
  *
@@ -392,7 +393,7 @@ export function occurrenceLe(
 }
 
 /** Décale une date "AAAA-MM-JJ" d'un nombre de jours entiers. */
-function decalerJour(dateStr: string, jours: number): string {
+export function decalerJour(dateStr: string, jours: number): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
   if (!m) return dateStr;
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) + jours * 86400000);

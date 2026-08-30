@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { redirect } from "next/navigation";
 import DashboardCoach from "./DashboardCoach";
-import { FUSEAU_PAR_DEFAUT, aujourdhuiDans, semaineDans } from "@/lib/temps";
+import { FUSEAU_PAR_DEFAUT, aujourdhuiDans, decalerJour, semaineDans } from "@/lib/temps";
 import { getFuseau } from "@/lib/temps-serveur";
 
 export const dynamic = "force-dynamic";
@@ -23,19 +23,36 @@ export default async function CoachPage() {
 
   const admin = createSupabaseAdminClient();
 
+  // Les casquettes du coach : `coach_id` / `nutrition_id` d'une cliente
+  // désignent un `team_members`, jamais un compte auth. Liste vide = admin,
+  // qui voit tout le monde — même règle que la page « Mes clientes ».
+  const teamMemberIds: string[] = session?.user?.user_metadata?.team_member_ids ?? [];
+
   // ── Clientes actives ───────────────────────────────────────────────────────
   const { data: { users } = { users: [] } } = await admin.auth.admin.listUsers({ perPage: 500 });
   const clientIds = users
     .filter(u => (u.user_metadata?.role ?? "cliente") === "cliente")
     .map(u => u.id);
 
-  const { data: profiles } = clientIds.length
+  const { data: tousProfils } = clientIds.length
     ? await admin
         .from("user_profiles")
-        .select("user_id, prenom, nom, statut")
+        .select("user_id, prenom, nom, statut, coach_id, nutrition_id")
         .in("user_id", clientIds)
         .eq("statut", "active")
     : { data: [] };
+
+  /** La cliente m'est-elle attribuée, et à quel titre ? */
+  const estMaCliente = (p: { coach_id?: string | null; nutrition_id?: string | null }) =>
+    teamMemberIds.length === 0
+    || (!!p.coach_id && teamMemberIds.includes(p.coach_id))
+    || (!!p.nutrition_id && teamMemberIds.includes(p.nutrition_id));
+
+  // Le tableau de bord affichait TOUTES les clientes actives, y compris celles
+  // d'un autre coach — le compteur comme la liste. « Mes clientes » filtrait
+  // déjà correctement : les deux écrans se contredisaient.
+  const profiles = (tousProfils ?? []).filter(estMaCliente);
+  const profilParCliente = Object.fromEntries((tousProfils ?? []).map(p => [p.user_id, p]));
 
   const activeClients = (profiles ?? []).map(p => {
     const u = users.find(u => u.id === p.user_id);
@@ -67,21 +84,47 @@ export default async function CoachPage() {
         .lte("date", todayStr)
     : { count: 0 };
 
-  // ── Événements semaine du coach (créés par lui, hors séances + tâches) ─────
-  // On filtre par user_id = coach → chaque coach voit uniquement SES rendez-vous
+  // ── Événements de la semaine ──────────────────────────────────────────────
+  // Le filtre était `user_id = coach` : un coach ne voyait que les rendez-vous
+  // qu'il avait posés lui-même. Ceux que l'admin planifie POUR lui — le cas
+  // courant — n'apparaissaient nulle part dans son agenda.
+  //
+  // La fenêtre est élargie d'un jour de chaque côté : `date` est la date murale
+  // du fuseau de saisie, et un rendez-vous voisin du lundi ou du dimanche peut
+  // basculer dans la semaine du coach une fois converti à son heure. Les jours
+  // en trop sont ignorés à l'affichage, qui ne rend que les 7 colonnes.
   const eventsQuery = coachUserId
     ? admin
         .from("calendar_events")
-        .select("id, titre, date, heure, starts_at, event_type, target_user_id, lien")
-        .eq("user_id", coachUserId)
+        .select("id, titre, date, heure, starts_at, event_type, target_user_id, lien, user_id")
         .not("event_type", "in", '("seance","tache")')
-        .gte("date", mondayStr)
-        .lte("date", sundayStr)
+        .gte("date", decalerJour(mondayStr, -1))
+        .lte("date", decalerJour(sundayStr, 1))
         .order("date")
         .order("heure", { nullsFirst: true })
     : null;
 
-  const { data: weekEvents } = eventsQuery ? await eventsQuery : { data: [] };
+  const { data: weekEventsBruts } = eventsQuery ? await eventsQuery : { data: [] };
+
+  /**
+   * Ce rendez-vous me concerne-t-il ?
+   *
+   * Soit je l'ai posé, soit il vise une cliente qui m'est attribuée — et par la
+   * bonne casquette : un rendez-vous nutrition appartient à la nutritionniste,
+   * pas au coach sportif de la même cliente.
+   */
+  const meConcerne = (ev: { user_id: string | null; target_user_id: string | null; event_type: string | null }) => {
+    if (ev.user_id === coachUserId) return true;
+    if (teamMemberIds.length === 0) return true; // admin : vue complète
+    if (!ev.target_user_id) return false;        // diffusion à toutes
+    const p = profilParCliente[ev.target_user_id];
+    if (!p) return false;
+    return ev.event_type === "nutrition"
+      ? !!p.nutrition_id && teamMemberIds.includes(p.nutrition_id)
+      : !!p.coach_id && teamMemberIds.includes(p.coach_id);
+  };
+
+  const weekEvents = (weekEventsBruts ?? []).filter(meConcerne);
 
   // Construction du label "Rendez-vous [prénom cliente]"
   const clientMap = Object.fromEntries(activeClients.map(c => [c.id, c]));
