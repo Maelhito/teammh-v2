@@ -58,7 +58,7 @@ const BCOLORS: Record<BlocType, string> = {
 const BLOC_LABELS: Record<BlocType, string> = {
   echauffement: "WARM UP",
   corps:        "WOD",
-  finisher:     "COOL DOWN",
+  finisher:     "FINISHER",
 };
 
 function ytEmbed(url: string) {
@@ -831,8 +831,8 @@ function BlocCard({
           <span style={{ color: "#ccc", fontSize: 12 }}>✏</span>
         </div>
 
-        {/* WOD — Timer complet (format select + config + live timer) */}
-        {bloc.type === "corps" && (
+        {/* WOD + Finisher — Timer complet (format select + config + live timer) */}
+        {(bloc.type === "corps" || bloc.type === "finisher") && (
           <div style={{ ...rowSep }}>
             {/* Format select */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -1160,7 +1160,7 @@ export default function SeanceBuilder({ data, onChange }: SeanceBuilderProps) {
           </button>
           <button onClick={toggleFinisher}
             style={{ padding: "7px 14px", borderRadius: 7, border: `1px solid ${hasFinisher ? "#8B5CF6" : "#2a2a2a"}`, backgroundColor: hasFinisher ? "rgba(139,92,246,0.08)" : "transparent", color: hasFinisher ? "#8B5CF6" : "#555", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>
-            {hasFinisher ? "🏁 Retirer cool down" : "+ Cool down"}
+            {hasFinisher ? "🏁 Retirer le finisher" : "+ Finisher"}
           </button>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 7, backgroundColor: "#161616", border: "1px solid #2a2a2a" }}>
             <span style={{ fontSize: 12 }}>⏱</span>
