@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ReglageFuseau from "@/components/ReglageFuseau";
+import ChangerMotDePasse from "@/components/ChangerMotDePasse";
 
 interface Props {
   prenom: string;
@@ -146,6 +147,14 @@ export default function ProfilCoachClient({ prenom: initPrenom, nom: initNom, em
           d'un rendez-vous à une cliente. */}
       <div style={{ marginTop: 20 }}>
         <ReglageFuseau theme="clair" />
+      </div>
+
+      {/* Changer mot de passe */}
+      <div style={{ backgroundColor: "#fff", borderRadius: 14, border: "1px solid #e8e8e8", padding: "24px", marginTop: 20 }}>
+        <h2 style={{ fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", margin: "0 0 16px", fontFamily: "system-ui" }}>
+          Mot de passe
+        </h2>
+        <ChangerMotDePasse theme="clair" />
       </div>
     </div>
   );

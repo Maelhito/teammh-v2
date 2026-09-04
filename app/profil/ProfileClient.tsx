@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import type { UserProfile, ProgrammeType, ProgrammeDuree } from "@/lib/user-profile";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import ReglageFuseau from "@/components/ReglageFuseau";
+import ChangerMotDePasse from "@/components/ChangerMotDePasse";
 import { FUSEAU_PAR_DEFAUT } from "@/lib/temps";
 
 interface TeamMember {
@@ -528,6 +529,11 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
         <Field label="PRÉNOM" value={prenom} onChange={setPrenom} placeholder="Ton prénom" />
         <Field label="NOM" value={nom} onChange={setNom} placeholder="Ton nom" />
         <Field label="DATE DE DÉMARRAGE" value={dateDemarrage} onChange={setDateDemarrage} type="date" />
+      </Section>
+
+      {/* Changer mot de passe */}
+      <Section title="MOT DE PASSE">
+        <ChangerMotDePasse />
       </Section>
 
       {/* Progression modules */}
