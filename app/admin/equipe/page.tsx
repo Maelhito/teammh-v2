@@ -1,5 +1,6 @@
 import TeamAdmin from "../TeamAdmin";
 import RolesTable from "../RolesTable";
+import ResetPasswordAdmin from "../ResetPasswordAdmin";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default function AdminEquipePage() {
         </h1>
       </div>
       <TeamAdmin />
+      <ResetPasswordAdmin />
       <RolesTable teamOnly />
     </div>
   );
