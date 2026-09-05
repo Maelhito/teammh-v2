@@ -1,0 +1,171 @@
+{
+  "nom": "Own your move",
+  "categorie": "n2",
+  "avancement": "cycle_4",
+  "cycle_prog": "prog_1",
+  "niveau": "debutant",
+  "duree_semaines": 6,
+  "note": "",
+  "seances": [
+    {
+      "nom": "Séance 1 : Full bands 🤝",
+      "categorie": "bas_du_corps",
+      "duree_estimee": 30,
+      "semaines": [1, 2, 3],
+      "jours": [1],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT focus bas du corps}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : EMOM",
+          "format": "emom",
+          "emom_rounds": "10",
+          "emom_interval_min": "1",
+          "emom_interval_sec": "0",
+          "texte": "Consigne : Réalises l'exercice indiqué avec le nombre de répétition indiqué au début de chaque minute, puis prends le temps restant comme récupération. Si tu as mis 40\" à faire le 1er exo alors il te reste 20\" avant de passer au suivant.\n\nEnchaîne 5x ce circuit :\n\nMin 1 : 12 {{Abduction de hanche debout - push frontale}}\nMin 2 : 20 {{Relevé de bassin - abduction bands}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : TABATA",
+          "format": "tabata",
+          "tabata_work": "40",
+          "tabata_rest": "20",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 40\" puis prendre 20' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n\n- {{Crabe touch côté bands}}\n- {{Butterfly allongé}}  (change de cote a chaque tour)"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 3 : TABATA",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n\n- {{Abduction de hanche allongé}}\n- {{Kick back bands debout}}  (change de côté à chaque tour)"
+        }
+      ]
+    },
+    {
+      "nom": "Séance 2 : Haut du corps",
+      "categorie": "haut_du_corps",
+      "duree_estimee": 35,
+      "semaines": [1, 2, 3],
+      "jours": [3],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT focus haut du corps}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : EMOM",
+          "format": "emom",
+          "emom_rounds": "20",
+          "emom_interval_min": "1",
+          "emom_interval_sec": "0",
+          "texte": "Consigne : Réalises l'exercice indiqué avec le nombre de répétition indiqué au début de chaque minute, puis prends le temps restant comme récupération. Si tu as mis 40\" à faire le 1er exo alors il te reste 20\" avant de passer au suivant.\n\nEnchaîne 4x ce circuit :\n\nMin 1 : 10 {{Thruster}}\nMin 2 : 5 {{Pas de l’ours}}\nMin 3 : 10 {{Commando}}\nMin 4 : 8 {{Squat kick alterné}}\nMin 5 : REPOS"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : TABATA",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n\n- {{Dips n1}}\n- {{Gainage déplace haltère}}"
+        }
+      ]
+    },
+    {
+      "nom": "Séance 1 : Bas du corps",
+      "categorie": "bas_du_corps",
+      "duree_estimee": 30,
+      "semaines": [4, 5, 6],
+      "jours": [1],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT focus bas du corps}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : EMOM",
+          "format": "emom",
+          "emom_rounds": "10",
+          "emom_interval_min": "1",
+          "emom_interval_sec": "0",
+          "texte": "Consigne : Toute les minutes tu dois faire :\n\n8 répétitions de : {{Goblet squat}}\n\nMAIS tu vas travailler en tempo !\nPour chaque répétition tu vas descendre en 3 secondes, maintenir la position du squat en bas 3 secondes et remonter en 1sec et ensuite tu repars direct sans pause.\n\n1 : Descend lentement 3secondes\n2 : Maintiens 3 secondes la position\n3 : Remonte en 1 secondes\n4 : Dès que tu es revenu a la position initiale tu repars direct.\n\nRépète ça chaque minute pendant 10 tours"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : Tabata",
+          "format": "tabata",
+          "tabata_work": "40",
+          "tabata_rest": "20",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 40\" puis prendre 20' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n\n- {{Step touch alterné}}\n- {{Fentes arrières push press alternés}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 3 : Tabata",
+          "format": "tabata",
+          "tabata_work": "40",
+          "tabata_rest": "20",
+          "tabata_tours": "4",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 40\" puis prendre 20' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 2 tours :\n\n- {{Gainage coudes}}\n- {{Chaise}}"
+        }
+      ]
+    },
+    {
+      "nom": "Séance 2 : Haut du corps",
+      "categorie": "haut_du_corps",
+      "duree_estimee": 30,
+      "semaines": [4, 5, 6],
+      "jours": [3],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT focus haut du corps}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : EMOM",
+          "format": "emom",
+          "emom_rounds": "8",
+          "emom_interval_min": "2",
+          "emom_interval_sec": "0",
+          "texte": "Consigne : Tu as 2min pour effectuer les 2 exercices suivants 👇\nSi tu termines avant la fin des 2 min tu récupères/respire/souffle/marche ...\nQuand les 2min sont écouler ça va biper et c'est repartit pour un tour a enchaîner les 2 exos suivants et ainsi de suite pour 10 tours au total.\n\nEnchaîne 8 tours : (haltères entre 3 et 5kg minimum)\n\n- 10 {{Thruster}}\n- 6 {{Devil press n2}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : Tabata",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n\n- {{Elévation latérale}}\n- {{Russian twist}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 3 : Tabata",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n\n- {{Haltère swing}}  (5 kg minimum et si tu as une kettlebell c'est encore mieux)\n- {{Hollow hold}}"
+        }
+      ]
+    }
+  ],
+  "id": "346a43b0-ef17-48c3-987c-96e93429fb7d"
+}

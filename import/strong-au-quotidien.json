@@ -1,0 +1,204 @@
+{
+  "id": "05af635d-2017-4632-b4b2-79556017ab34",
+  "nom": "STRONG au quotidien",
+  "categorie": "n2",
+  "avancement": "cycle_2",
+  "cycle_prog": "prog_1",
+  "niveau": "debutant",
+  "duree_semaines": 6,
+  "note": "",
+  "seances": [
+    {
+      "nom": "Séance 1 : Bas du corps",
+      "categorie": "bas_du_corps",
+      "duree_estimee": 40,
+      "semaines": [
+        1,
+        2,
+        3
+      ],
+      "jours": [
+        1
+      ],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT full body}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : EMOM",
+          "format": "emom",
+          "emom_rounds": "16",
+          "emom_interval_min": "1",
+          "emom_interval_sec": "0",
+          "texte": "Consigne : Réalises l'exercice indiqué avec le nombre de répétition indiqué au début de chaque minute, puis prends le temps restant comme récupération. Si tu as mis 40\" à faire le 1er exo alors il te reste 20\" avant de passer au suivant.\n\n4 tours à faire\n\nMin 1 : 20-30 {{Montée de genoux overhead}}\nMin 2 : 20-30 {{Mountain climber lent}}\nMin 3 : 1min {{2 mollets 1 squat}}\nMin 4 : 12 {{Squat touch côté aux haltères}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : TABATA",
+          "format": "tabata",
+          "tabata_work": "40",
+          "tabata_rest": "20",
+          "tabata_tours": "12",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 40\" puis prendre 20\" de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours\n\n- {{Thruster}}\n- {{Pas latéraux bands overhead}}\n- {{Chaise}}\n\nRécupération : 1' de repos avant d'enchaîner sur le WOD suivant."
+        }
+      ]
+    },
+    {
+      "nom": "Séance 2 : Haut du corps",
+      "categorie": "haut_du_corps",
+      "duree_estimee": 30,
+      "semaines": [
+        1,
+        2,
+        3
+      ],
+      "jours": [
+        3
+      ],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT full body}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : TABATA",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10\" de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n\n- {{Dips n1}}\n- {{Gorilla row}}\n\nRécupération : 1' de repos avant d'enchaîner sur le WOD suivant."
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : TABATA",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10\" de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours\n\n- {{Tirage horizontale unilatéral avec élastique}}\n(change de bras à chaque tours)\n- {{Superman brasse}}\n\nRécupération : 1' de repos avant d'enchaîner sur le WOD suivant."
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 3 : TABATA",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10\" de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours\n\n- {{Commando}}\n- {{Gainage coudes spider}}\n\nRécupération : 1' de repos avant d'enchaîner sur le WOD suivant."
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 4 : TABATA",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10\" de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours\n\n- {{Chassé alterné}}\n- {{Tirage menton - push press élastique}}\n\nRécupération : 1' de repos avant d'enchaîner sur le WOD suivant."
+        },
+        {
+          "type": "finisher",
+          "nom": "FINISHER",
+          "format": "tabata",
+          "tabata_work": "15",
+          "tabata_rest": "3",
+          "tabata_tours": "8",
+          "texte": "Consigne : Enchaine 4 tours de ce court circuit.\nObjectif : Garde une intensité élevé, C'est un sprint !!\nPas de récupération\n\n-> 15 sec {{Mountain climber rapide}}\n-> 15 sec {{Jumping jack}}"
+        }
+      ]
+    },
+    {
+      "nom": "Séance 1 : Bas du corps",
+      "categorie": "bas_du_corps",
+      "duree_estimee": 35,
+      "semaines": [
+        4,
+        5,
+        6
+      ],
+      "jours": [
+        1
+      ],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT focus bas du corps}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : TABATA",
+          "format": "tabata",
+          "tabata_work": "40",
+          "tabata_rest": "20",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 40\" puis prendre 20' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours\n\n- {{Squat abduction de hanche alternés}}\n- {{Relevé de bassin - abduction bands}}  (rajouter une haltère au niveau du bassin)"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : TABATA",
+          "format": "tabata",
+          "tabata_work": "40",
+          "tabata_rest": "20",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 40\" puis prendre 20' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours\n\n- {{Front squat élastique}}\n- {{Squat clean & jerk élastique}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 3 : TABATA",
+          "format": "tabata",
+          "tabata_work": "40",
+          "tabata_rest": "20",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 40\" puis prendre 20' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours\n\n- {{Crabe bands}}\n- {{cha cha 3 direction}}  (changer de jambe à chaque tour)"
+        }
+      ]
+    },
+    {
+      "nom": "Séance 2 : Haut du corps",
+      "categorie": "haut_du_corps",
+      "duree_estimee": 40,
+      "semaines": [
+        4,
+        5,
+        6
+      ],
+      "jours": [
+        3
+      ],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT focus haut du corps}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : EMOM",
+          "format": "emom",
+          "emom_rounds": "20",
+          "emom_interval_min": "1",
+          "emom_interval_sec": "0",
+          "texte": "Consigne : Réalises l'exercice indiqué avec le nombre de répétition indiqué au début de chaque minute, puis prends le temps restant comme récupération. Si tu as mis 40\" à faire le 1er exo alors il te reste 20\" avant de passer au suivant.\nFais 4 tours\n\nEntre 12 à 14 répétitions de chaque exercice.\n\nMin 1 : {{Biceps curl push press élastique}}\nMin 2 : {{Extension triceps élastique}}\nMin 3 : {{Tirage horizontale alterné avec élastique}}\nMin 4 : {{Tirage menton élastique}}\nMin 5 : REPOS"
+        },
+        {
+          "type": "finisher",
+          "nom": "BLOC 2 : FINISHER",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10\" de récup avant d'enchaîner sur l'exercice suivant.\nEnchaîne 4 tours\n\n- {{Commando}}\n- {{Dead bug bras fixe}}"
+        }
+      ]
+    }
+  ]
+}

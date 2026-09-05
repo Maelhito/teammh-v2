@@ -1,0 +1,184 @@
+{
+  "nom": "CONTROL & CONFIANCE",
+  "categorie": "n2",
+  "avancement": "cycle_3",
+  "cycle_prog": "prog_1",
+  "niveau": "debutant",
+  "duree_semaines": 6,
+  "note": "",
+  "seances": [
+    {
+      "nom": "Séance 1 : Full body",
+      "categorie": "full_body",
+      "duree_estimee": 45,
+      "semaines": [
+        1,
+        2,
+        3
+      ],
+      "jours": [
+        1
+      ],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT full body}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : EMOM",
+          "format": "emom",
+          "emom_rounds": "16",
+          "emom_interval_min": "1",
+          "emom_interval_sec": "0",
+          "texte": "Consigne : Réalises l'exercice indiqué avec le nombre de répétition indiqué au début de chaque minute, puis prends le temps restant comme récupération. Si tu as mis 40\" à faire 10 squats alors il te reste 20\" avant de passer au suivant.\n\nFais 4 tours : Poids de minimum 5kg pour les 3 premiers exo\n\nMin 1 : 10 {{Squat sumo au menton}}\nMin 2 : 10 {{Soulevé de terre aux haltères}}\nMin 3 : 10 {{Snach alterné}}\nMin 4 : 16 {{Knee broken alterné aux haltères}}\n(poids de 2kg max)"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : Tabata",
+          "format": "tabata",
+          "tabata_work": "40",
+          "tabata_rest": "20",
+          "tabata_tours": "9",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 40\" puis prendre 20' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 3 tours :\n\n- {{Squat biceps curl}}\n- {{Jumping jack triphase}}\n- {{Ciseau croisé verticaux}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 3 : Tabata",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "9",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 3 tours :\n\n- {{Chassé alterné}}\n- {{Abdo - touch talon}}\n- {{Mountain climber lent}}"
+        }
+      ]
+    },
+    {
+      "nom": "Séance 2 : Full body",
+      "categorie": "full_body",
+      "duree_estimee": 30,
+      "semaines": [
+        1,
+        2,
+        3
+      ],
+      "jours": [
+        3
+      ],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT full body}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : EMOM",
+          "format": "emom",
+          "emom_rounds": "8",
+          "emom_interval_min": "2",
+          "emom_interval_sec": "0",
+          "texte": "Objectif : Terminer les exercices le plus rapidement possible pour avoir de la récupération avant d'enchaîner le tour suivant. 8 tours à faire.\n\nLors de chaque tour, tu as 2min pour faire :\n\n- 10 {{Goblet squat}}\n- 3 {{Pas de l’ours}}\n- 10 {{Kick jambe alterné}}\n\n😢 Le temps qu'il te reste à la fin des exercices correspond à ton temps de récupération. Exemple : Si tu finis les exos en 1'30, tu as donc 30\" de récupération."
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : Tabata",
+          "format": "tabata",
+          "tabata_work": "40",
+          "tabata_rest": "20",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 40\" puis prendre 20' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n- {{Mountain climber - commando}}\n- {{Relevé de bassin - développé couché}}  (haltères lourdes)"
+        }
+      ]
+    },
+    {
+      "nom": "Séance 1 : Full body",
+      "categorie": "full_body",
+      "duree_estimee": 40,
+      "semaines": [
+        4,
+        5,
+        6
+      ],
+      "jours": [
+        1
+      ],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT full body}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : Pyramidale",
+          "format": "for_time",
+          "for_time_limit": "15",
+          "texte": "Pyramidale : 5 - 10 - 15 - 10 - 5\n\nEnchaine chaque exercice en commençant par 5 répétitions, puis recommence avec 10 répétitions et ainsi de suite en respectant l'ordre ci-dessus.\n\n- {{Squat touch côté aux haltères}}\n- {{Touch côté frontale haltères}}\n- {{Elévation latérale}}\n\nEssaye de prendre le moins de temps de récupération possible. Pour ça ne cherche pas à aller trop vite mais plutôt à être régulière."
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : Tabata",
+          "format": "tabata",
+          "tabata_work": "40",
+          "tabata_rest": "20",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 40\" puis prendre 20' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n- {{Fentes avant push press alternés}}\n- {{Gainage rowing sans haltères}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 3 : Tabata",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n- {{Chaise}}\n- {{Dips n1}}"
+        }
+      ]
+    },
+    {
+      "nom": "Séance 2 : Full body",
+      "categorie": "full_body",
+      "duree_estimee": 40,
+      "semaines": [
+        4,
+        5,
+        6
+      ],
+      "jours": [
+        3
+      ],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT full body}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : EMOM",
+          "format": "emom",
+          "emom_rounds": "20",
+          "emom_interval_min": "1",
+          "emom_interval_sec": "0",
+          "texte": "Consigne : Réalises l'exercice indiqué avec le nombre de répétition indiqué au début de chaque minute, puis prends le temps restant comme récupération. Si tu as mis 40\" à faire 10 squats alors il te reste 20\" avant de passer au suivant.\nFais 4 tours :\n\nMin 1 : 10 {{Squat rebond aux haltères}}\nMin 2 : 12 {{Montée de genoux frontal}}\nMin 3 : 12 {{Rowing buste penché aux haltères}}\nMin 4 : 20 {{Step touch alterné}}\nMin 5 : REPOS"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : Tabata",
+          "format": "tabata",
+          "tabata_work": "40",
+          "tabata_rest": "20",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 40\" puis prendre 20' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n- {{Pas de l’ours}}\n- {{Dead bug}}"
+        }
+      ]
+    }
+  ],
+  "id": "fc7ae666-99c9-4b32-8560-e9701926353a"
+}

@@ -1,0 +1,215 @@
+{
+  "nom": "MOVE & FUN",
+  "categorie": "n2",
+  "avancement": "cycle_3",
+  "cycle_prog": "prog_2",
+  "niveau": "debutant",
+  "duree_semaines": 7,
+  "note": "",
+  "seances": [
+    {
+      "nom": "Séance 1 : Cuisse - Abdo - Fessiers",
+      "categorie": "bas_du_corps",
+      "duree_estimee": 35,
+      "semaines": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "jours": [
+        1
+      ],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT focus bas du corps}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : TABATA",
+          "format": "tabata",
+          "tabata_work": "30",
+          "tabata_rest": "15",
+          "tabata_tours": "6",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 30\" puis prendre 15' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 2 tours :\n\n- {{Jumping jack triphase}}\n- {{Fentes avant alterné haltères épaules}}\n- {{Abdo - coude genoux opposés}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : TABATA",
+          "format": "tabata",
+          "tabata_work": "30",
+          "tabata_rest": "15",
+          "tabata_tours": "6",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 30\" puis prendre 15' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 2 tours :\n\n- {{Relevé de bassin haltères}}\n- {{Sprinteur prudent}}\n- {{Mountain climber lent}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 3 : TABATA",
+          "format": "tabata",
+          "tabata_work": "30",
+          "tabata_rest": "15",
+          "tabata_tours": "6",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 30\" puis prendre 15' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 2 tours :\n\n- {{Gainage touch épaule}}\n- {{Crabe statique touch côté haltères}}\n- {{Hang snach unilatéral}}  (1er tour bras droit, 2eme tour bras gauche)"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 4 : TABATA",
+          "format": "tabata",
+          "tabata_work": "30",
+          "tabata_rest": "15",
+          "tabata_tours": "6",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 30\" puis prendre 15' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 2 tours :\n\n- {{Relevé de bassin 1 jambe}}  (1er tour jambe droit, 2eme tour jambe gauche)\n- {{Fentes arrières alterné haltères épaules}}\n(penche ton buste légèrement en avant et met ton poids du corps sur la jambe avant pendant que tu amènes ta jambe vers l'arrière)\n- {{Abdo - coude genoux opposés}}"
+        },
+        {
+          "type": "finisher",
+          "nom": "FINISHER",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n\n- {{Bird dog n1}}\n- {{Ciseau croisé horizontaux}}"
+        }
+      ]
+    },
+    {
+      "nom": "Séance 2 : Dos - Pecs - Triceps",
+      "categorie": "haut_du_corps",
+      "duree_estimee": 35,
+      "semaines": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "jours": [
+        3
+      ],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT focus haut du corps}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : EMOM",
+          "format": "emom",
+          "emom_rounds": "10",
+          "emom_interval_min": "2",
+          "emom_interval_sec": "0",
+          "texte": "Consigne : Tu as 2min pour effectuer les 2 exercices suivants 👇\nSi tu termines avant la fin des 2 min tu récupères/respire/souffle/marche ...\nQuand les 2min sont écouler ça va biper et c'est repartit pour un tour a enchaîner les 2 exo suivants et ainsi de suite pour 10 tours au total :\n\n- 10 {{Relevé de bassin - pull over genoux mains}}\n+\n- 10 /bras {{Tirage horizontale unilatéral avec élastique}}\nOU\n- 15 {{Tirage TRX (version facile)}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : TABATA",
+          "format": "tabata",
+          "tabata_work": "30",
+          "tabata_rest": "15",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 30\" puis prendre 15' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n\n- {{Burpees n4 (avec pompe)}}  (tu peux amener un pied après l'autre vers l'arrière si besoin)\n- {{Dips n1}}"
+        }
+      ]
+    },
+    {
+      "nom": "Séance 1 : Cuisse - Abdo - Fessier",
+      "categorie": "bas_du_corps",
+      "duree_estimee": 40,
+      "semaines": [
+        5,
+        6,
+        7
+      ],
+      "jours": [
+        1
+      ],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT focus bas du corps}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : EMOM",
+          "format": "emom",
+          "emom_rounds": "10",
+          "emom_interval_min": "2",
+          "emom_interval_sec": "0",
+          "texte": "Consigne : Tu as 2min pour effectuer les 2 exercices suivants 👇\nSi tu termines avant la fin des 2 min tu récupères/respire/souffle/marche ...\nQuand les 2min sont écouler ça va biper et c'est repartit pour un tour a enchaîner les 2 exo suivants et ainsi de suite pour 10 tours au total.\n\nEnchaîne 10 tours :\n\n- 8 {{Sprawl squat}}  (tu peux reculer un pied après l'autre en marchant puis revenir en sautant)\n- 15 {{Squat frontale}}  (sert fort les abdos pour protéger tes lombaires)"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : TABATA",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n\n- {{Fentes sur place haltères épaules}}  (Jambe droite)\n- {{Fentes sur place haltères épaules}}  (jambe gauche)"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 3 : TABATA",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n\n- {{Mountain climber lent}}\n- {{Gainage coude jumping jack}}"
+        }
+      ]
+    },
+    {
+      "nom": "Séance 2 : Epaules - Biceps",
+      "categorie": "haut_du_corps",
+      "duree_estimee": 35,
+      "semaines": [
+        5,
+        6,
+        7
+      ],
+      "jours": [
+        3
+      ],
+      "blocs": [
+        {
+          "type": "echauffement",
+          "nom": "Echauffement",
+          "format": "classique",
+          "texte": "CLIC SUR LA VIDÉO D’ÉCHAUFFEMENT POUR LE FAIRE AVEC NOUS 👇\n{{ECHAUFFEMENT focus haut du corps}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 1 : EMOM",
+          "format": "emom",
+          "emom_rounds": "16",
+          "emom_interval_min": "1",
+          "emom_interval_sec": "0",
+          "texte": "Consigne : Réalises l'exercice indiqué avec le nombre de répétition indiqué au début de chaque minute, puis prends le temps restant comme récupération. Si tu as mis 40\" à faire le 1er exo alors il te reste 20\" avant de passer au suivant.\n\nFais 8x ce circuit :\n\nMin 1 : 12 {{Biceps curl développé arnold}}\nMin 2 : 6 {{Pas de l’ours}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 2 : TABATA",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "16",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 8 tours :\n\n- {{Montée de genoux overhead}}\n- {{Elévation latérale}}"
+        },
+        {
+          "type": "corps",
+          "nom": "BLOC 3 : TABATA",
+          "format": "tabata",
+          "tabata_work": "20",
+          "tabata_rest": "10",
+          "tabata_tours": "8",
+          "texte": "Consigne : Tu dois effectuer chaque exercice pendant 20\" puis prendre 10' de récup avant d'enchaîner sur l'exercice suivant.\n\nEnchaîne 4 tours :\n\n- {{Abdo - crunch}}\n- {{Biceps curl}}"
+        }
+      ]
+    }
+  ],
+  "id": "9be66541-f2f5-449b-8edd-e83c37d82728"
+}
