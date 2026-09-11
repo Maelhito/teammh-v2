@@ -11,7 +11,7 @@ import { getFuseau } from "@/lib/temps-serveur";
 
 export const dynamic = "force-dynamic";
 
-type CellItem = { type: string; seanceName?: string; nom?: string; titre?: string; duree?: number | null };
+type CellItem = { type: string; seanceName?: string; nom?: string; titre?: string; duree?: number | null; url?: string };
 
 function toLocalDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -68,14 +68,19 @@ export default async function CalendrierPage() {
         if (semaine > assignment.duree_semaines) continue;
 
         for (const item of items) {
-          if (item.type !== "seance" && item.type !== "seance_locale") continue;
-          const nom = item.seanceName ?? item.nom ?? item.titre ?? "Séance";
+          // Une vidéo posée dans la grille se planifie et se déplace exactement
+          // comme une séance : elle a droit à la même place dans le calendrier.
+          const estVideo = item.type === "video";
+          if (item.type !== "seance" && item.type !== "seance_locale" && !estVideo) continue;
+          const nom = item.seanceName ?? item.nom ?? item.titre ?? (estVideo ? "Vidéo" : "Séance");
 
           const d = new Date(startDate);
           d.setDate(d.getDate() + (semaine - 1) * 7 + (jour - 1));
 
           seanceEvents.push({
-            id: `grid-${assignment.id}-${key}`,
+            // Plusieurs items peuvent partager une case : l'identifiant porte
+            // aussi le nom, sinon deux blocs du même jour s'écrasent dans React.
+            id: `grid-${assignment.id}-${key}-${nom}`,
             titre: nom,
             date: toLocalDateStr(d),
             heure: null,
@@ -84,9 +89,9 @@ export default async function CalendrierPage() {
             starts_at: null,
             recurrence: "none",
             message: null,
-            lien: null,
+            lien: estVideo ? item.url ?? null : null,
             created_by: "admin",
-            event_type: "seance",
+            event_type: estVideo ? "video" : "seance",
             user_id: null,
             target_user_id: userId,
             team_member_id: null,

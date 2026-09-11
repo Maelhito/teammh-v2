@@ -20,7 +20,7 @@ interface CalendarEvent {
   message: string | null;
   lien: string | null;
   created_by: "admin" | "cliente";
-  event_type: "coach" | "nutrition" | "coaching_groupe" | "seance" | "tache" | null;
+  event_type: "coach" | "nutrition" | "coaching_groupe" | "seance" | "video" | "tache" | null;
   user_id: string | null;
   target_user_id: string | null;
   team_member_id: string | null;
@@ -283,6 +283,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
           const seanceEvts = dayEvts.filter((e) => e.event_type === "seance");
           const hasSeance       = seanceEvts.length > 0 && seanceEvts.some((e) => !isSeanceValidee(e, completedSeances));
           const hasSeanceValidee = seanceEvts.some((e) => isSeanceValidee(e, completedSeances));
+          const hasVideo        = dayEvts.some((e) => e.event_type === "video");
           const hasCoach        = dayEvts.some((e) => e.event_type === "coach");
           const hasCoachingGroupe = dayEvts.some((e) => e.event_type === "coaching_groupe");
           const hasNutrition    = dayEvts.some((e) => e.event_type === "nutrition");
@@ -317,7 +318,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
               }}>
                 {day}
               </span>
-              {(hasSeance || hasSeanceValidee || hasCoach || hasCoachingGroupe || hasNutrition || hasTache || hasPersonal) && (
+              {(hasSeance || hasSeanceValidee || hasVideo || hasCoach || hasCoachingGroupe || hasNutrition || hasTache || hasPersonal) && (
                 <div style={{ display: "flex", gap: 2, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }}>
                   {hasSeanceValidee && (
                     <span style={{ width: 9, height: 9, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.seance.base, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -325,6 +326,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
                     </span>
                   )}
                   {hasSeance        && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.seance.base }} />}
+                  {hasVideo         && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.video.base }} />}
                   {hasCoach         && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.coach.base }} />}
                   {hasCoachingGroupe && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.coaching_groupe.base }} />}
                   {hasNutrition     && <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: COULEURS_EVENEMENT.nutrition.base }} />}
@@ -419,11 +421,12 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
                     style={{
                       display: "inline-flex", alignItems: "center", gap: 6,
                       marginTop: 8, padding: "7px 14px", borderRadius: 8,
-                      backgroundColor: "#2563EB", color: "#fff",
+                      backgroundColor: evt.event_type === "video" ? COULEURS_EVENEMENT.video.base : "#2563EB",
+                      color: "#fff",
                       fontSize: "0.82rem", fontWeight: 700, textDecoration: "none",
                     }}
                   >
-                    📹 Rejoindre le Zoom
+                    {evt.event_type === "video" ? "▶ Voir la vidéo" : "📹 Rejoindre le Zoom"}
                   </a>
                 )}
                 {evt.team_member_id && (() => {

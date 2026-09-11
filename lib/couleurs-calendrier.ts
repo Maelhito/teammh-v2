@@ -16,6 +16,7 @@
 
 export type TypeEvenement =
   | "seance"
+  | "video"
   | "coach"
   | "nutrition"
   | "coaching_groupe"
@@ -39,6 +40,7 @@ export interface TeinteEvenement {
 
 export const COULEURS_EVENEMENT: Record<TypeEvenement, TeinteEvenement> = {
   seance:          { base: "#2563EB", clair: "#60A5FA", fond: "#DBEAFE", texte: "#1E40AF", label: "Séance" },
+  video:           { base: "#A16207", clair: "#FACC15", fond: "#FEF3C7", texte: "#854D0E", label: "Vidéo" },
   coach:           { base: "#EA580C", clair: "#FB923C", fond: "#FFEDD5", texte: "#9A3412", label: "Rendez-vous coach" },
   nutrition:       { base: "#16A34A", clair: "#4ADE80", fond: "#DCFCE7", texte: "#166534", label: "Nutrition" },
   coaching_groupe: { base: "#7C3AED", clair: "#A78BFA", fond: "#EDE9FE", texte: "#5B21B6", label: "Coaching de groupe" },
@@ -47,11 +49,12 @@ export const COULEURS_EVENEMENT: Record<TypeEvenement, TeinteEvenement> = {
 };
 
 /**
- * Contenu vidéo posé dans un programme. Ce n'est pas un événement, mais ça
- * s'affiche dans les mêmes cases de calendrier : la teinte est donc choisie à
- * distance de toute la palette ci-dessus (écart minimal 37).
+ * Contenu vidéo posé dans un programme. Il se planifie et se déplace comme une
+ * séance, et apparaît dans le calendrier de la cliente au même titre : c'est
+ * donc un type d'événement à part entière, à distance de toute la palette
+ * ci-dessus (écart minimal 37).
  */
-export const COULEUR_VIDEO = "#A16207";
+export const COULEUR_VIDEO = COULEURS_EVENEMENT.video.base;
 
 /** Rouge de l'app : réservé au jour courant, jamais à un type d'événement. */
 export const COULEUR_AUJOURDHUI = "#B22222";
@@ -105,6 +108,7 @@ export function labelEvenement(eventType: string | null | undefined): string {
 /** Ordre d'affichage dans les légendes : du plus fréquent au plus rare. */
 export const ORDRE_LEGENDE: TypeEvenement[] = [
   "seance",
+  "video",
   "coach",
   "nutrition",
   "coaching_groupe",
