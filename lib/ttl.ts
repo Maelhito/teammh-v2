@@ -39,14 +39,25 @@ export interface TtlProgramme {
   videos: TtlProgrammeVideo[];
 }
 
-export type TtlRecetteCategorie = "petit_dej" | "dejeuner" | "diner" | "collation";
+export type TtlRecetteCategorie = "repas" | "petit_dej" | "collation";
 
 export const TTL_RECETTE_CATEGORIE_LABELS: Record<TtlRecetteCategorie, string> = {
+  repas: "Repas",
   petit_dej: "Petit-déjeuner",
-  dejeuner: "Déjeuner",
-  diner: "Dîner",
   collation: "Collation",
 };
+
+/** Seuls le petit-déjeuner et la collation se déclinent en sucré / salé. */
+export type TtlRecetteGout = "sucre" | "sale";
+
+export const TTL_RECETTE_GOUT_LABELS: Record<TtlRecetteGout, string> = {
+  sucre: "Sucré",
+  sale: "Salé",
+};
+
+export function categorieAvecGout(categorie: TtlRecetteCategorie | null): boolean {
+  return categorie === "petit_dej" || categorie === "collation";
+}
 
 export interface TtlRecette {
   id: string;
@@ -56,7 +67,18 @@ export interface TtlRecette {
   ingredients: string | null;
   macros: { calories?: number; proteines?: number; glucides?: number; lipides?: number } | null;
   categorie: TtlRecetteCategorie | null;
+  gout: TtlRecetteGout | null;
   duree_minutes: number | null;
+}
+
+/** Les apports caloriques proposés, dans l'ordre d'affichage. */
+export const TTL_PLAN_CALORIES = [1400, 1500, 1600, 1700, 1800] as const;
+
+export interface TtlPlanAlimentaire {
+  id: string;
+  calories: number;
+  pdf_url: string;
+  pages: string[];
 }
 
 export interface TtlCapsule {
@@ -163,6 +185,15 @@ export async function getRecettes(): Promise<TtlRecette[]> {
     .from("ttl_recettes")
     .select("*")
     .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
+export async function getPlansAlimentaires(): Promise<TtlPlanAlimentaire[]> {
+  const admin = createSupabaseAdminClient();
+  const { data } = await admin
+    .from("ttl_plans_alimentaires")
+    .select("id, calories, pdf_url, pages")
+    .order("calories", { ascending: true });
   return data ?? [];
 }
 

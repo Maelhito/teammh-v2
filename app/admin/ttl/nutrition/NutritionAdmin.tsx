@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { inputStyle, cardStyle, PageHeader, FileUploadButton, Modal } from "../TtlShared";
+import { categorieAvecGout, TTL_RECETTE_CATEGORIE_LABELS as CATEGORIE_LABELS, TTL_RECETTE_GOUT_LABELS as GOUT_LABELS } from "@/lib/ttl";
+import type { TtlRecetteCategorie as Categorie, TtlRecetteGout as Gout } from "@/lib/ttl";
+import PlansAdmin from "./PlansAdmin";
 
 interface Macros {
   calories?: number;
@@ -9,15 +12,6 @@ interface Macros {
   glucides?: number;
   lipides?: number;
 }
-
-type Categorie = "petit_dej" | "dejeuner" | "diner" | "collation";
-
-const CATEGORIE_LABELS: Record<Categorie, string> = {
-  petit_dej: "Petit-déjeuner",
-  dejeuner: "Déjeuner",
-  diner: "Dîner",
-  collation: "Collation",
-};
 
 interface Recette {
   id: string;
@@ -27,6 +21,7 @@ interface Recette {
   ingredients: string | null;
   macros: Macros | null;
   categorie: Categorie | null;
+  gout: Gout | null;
   duree_minutes: number | null;
 }
 
@@ -45,6 +40,8 @@ export default function NutritionAdmin() {
   const [glucides, setGlucides] = useState("");
   const [lipides, setLipides] = useState("");
   const [categorie, setCategorie] = useState<Categorie | "">("");
+  const [gout, setGout] = useState<Gout | "">("");
+  const [notifier, setNotifier] = useState(false);
   const [dureeMinutes, setDureeMinutes] = useState("");
   const [formVersion, setFormVersion] = useState(0);
   const [previewRecette, setPreviewRecette] = useState<Recette | null>(null);
@@ -76,6 +73,14 @@ export default function NutritionAdmin() {
     e.preventDefault();
     const cleanIngredients = ingredients.map((i) => i.trim()).filter(Boolean);
     if (!titre.trim()) return;
+    if (!categorie) {
+      setError("Choisis une catégorie : les recettes sans catégorie n'apparaissent dans aucun filtre");
+      return;
+    }
+    if (categorieAvecGout(categorie) && !gout) {
+      setError("Précise si la recette est sucrée ou salée");
+      return;
+    }
     if (cleanIngredients.length === 0) {
       setError("Au moins un ingrédient est requis");
       return;
@@ -99,6 +104,8 @@ export default function NutritionAdmin() {
           ingredients: cleanIngredients.map((i) => `- ${i}`).join("\n"),
           macros: Object.keys(macros).length ? macros : null,
           categorie: categorie || null,
+          gout: categorieAvecGout(categorie || null) ? gout || null : null,
+          notifier,
           duree_minutes: dureeMinutes ? Number(dureeMinutes) : null,
         }),
       });
@@ -107,7 +114,7 @@ export default function NutritionAdmin() {
       setRecettes((prev) => [d.recette, ...prev]);
       setTitre(""); setPhoto(null); setTexte(""); setIngredients([""]);
       setCalories(""); setProteines(""); setGlucides(""); setLipides("");
-      setCategorie(""); setDureeMinutes("");
+      setCategorie(""); setGout(""); setDureeMinutes("");
       setFormVersion((v) => v + 1);
     } finally {
       setSaving(false);
@@ -125,7 +132,11 @@ export default function NutritionAdmin() {
 
   return (
     <div>
-      <PageHeader title="Nutrition Time To Last" subtitle="Bibliothèque de recettes (photo, texte, ingrédients, macros)" />
+      <PageHeader title="Nutrition Time To Last" subtitle="Plans alimentaires et recettes de l'onglet Alimentation" />
+
+      <PlansAdmin />
+
+      <h2 style={{ fontSize: "1.05rem", fontWeight: 800, color: "var(--admin-text)", margin: "0 0 12px", fontFamily: "system-ui" }}>Recettes</h2>
 
       {error && <p style={{ color: "#F87171", fontSize: 13 }}>{error}</p>}
 
@@ -171,14 +182,27 @@ export default function NutritionAdmin() {
           <input type="number" placeholder="Lipides (g)" value={lipides} onChange={(e) => setLipides(e.target.value)} style={inputStyle} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <select value={categorie} onChange={(e) => setCategorie(e.target.value as Categorie | "")} style={inputStyle}>
-            <option value="">Catégorie (optionnel)</option>
+          <select value={categorie} onChange={(e) => { setCategorie(e.target.value as Categorie | ""); setGout(""); }} style={inputStyle}>
+            <option value="">Catégorie</option>
             {(Object.keys(CATEGORIE_LABELS) as Categorie[]).map((c) => (
               <option key={c} value={c}>{CATEGORIE_LABELS[c]}</option>
             ))}
           </select>
           <input type="number" placeholder="Durée (min)" value={dureeMinutes} onChange={(e) => setDureeMinutes(e.target.value)} style={inputStyle} />
         </div>
+        {categorieAvecGout(categorie || null) && (
+          <div style={{ display: "flex", gap: 8 }}>
+            {(Object.keys(GOUT_LABELS) as Gout[]).map((g) => (
+              <button key={g} type="button" onClick={() => setGout(g)} style={{ ...btnGhost, padding: "7px 16px", fontSize: 13, ...(gout === g ? { backgroundColor: "#B22222", borderColor: "#B22222", color: "#fff" } : {}) }}>
+                {GOUT_LABELS[g]}
+              </button>
+            ))}
+          </div>
+        )}
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--admin-text-muted)" }}>
+          <input type="checkbox" checked={notifier} onChange={(e) => setNotifier(e.target.checked)} />
+          Envoyer une notification aux clientes TTL
+        </label>
         <button type="submit" disabled={saving} style={btnPrimary}>{saving ? "..." : "+ Recette"}</button>
       </form>
 
@@ -197,7 +221,7 @@ export default function NutritionAdmin() {
                 <p style={{ margin: 0, fontWeight: 700, color: "var(--admin-text)", fontSize: 14 }}>{r.titre}</p>
                 {(r.categorie || r.duree_minutes) && (
                   <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--admin-text-muted)" }}>
-                    {r.categorie ? CATEGORIE_LABELS[r.categorie] : ""}{r.categorie && r.duree_minutes ? " · " : ""}{r.duree_minutes ? `${r.duree_minutes} min` : ""}
+                    {r.categorie ? CATEGORIE_LABELS[r.categorie] : ""}{r.gout ? ` ${GOUT_LABELS[r.gout].toLowerCase()}` : ""}{r.categorie && r.duree_minutes ? " · " : ""}{r.duree_minutes ? `${r.duree_minutes} min` : ""}
                   </p>
                 )}
               </button>

@@ -36,7 +36,38 @@ export function PageHeader({ title, subtitle }: { title: string; subtitle?: stri
   );
 }
 
-type UploadBucket = "ttl-images" | "ttl-docs";
+export type UploadBucket = "ttl-images" | "ttl-docs";
+
+/** Envoie un fichier dans un bucket TTL et renvoie son URL publique. */
+export async function uploadToTtlBucket(
+  bucket: UploadBucket,
+  file: Blob,
+  filename: string,
+): Promise<{ url: string } | { error: string }> {
+  const urlRes = await fetch("/api/admin/ttl/storage/signed-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bucket, filename }),
+  });
+  const urlData = await urlRes.json();
+  if (!urlRes.ok) return { error: urlData.error ?? "Erreur" };
+
+  const supabase = createSupabaseBrowserClient();
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .uploadToSignedUrl(urlData.storagePath, urlData.token, file, { contentType: file.type || undefined });
+  if (uploadError) return { error: uploadError.message };
+
+  const confirmRes = await fetch("/api/admin/ttl/storage/public-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bucket, storagePath: urlData.storagePath }),
+  });
+  const confirmData = await confirmRes.json();
+  if (!confirmRes.ok) return { error: confirmData.error ?? "Erreur" };
+
+  return { url: confirmData.url };
+}
 
 export function FileUploadButton({
   bucket,
@@ -61,29 +92,10 @@ export function FileUploadButton({
     setUploading(true);
     setError(null);
     try {
-      const urlRes = await fetch("/api/admin/ttl/storage/signed-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bucket, filename: file.name }),
-      });
-      const urlData = await urlRes.json();
-      if (!urlRes.ok) { setError(urlData.error ?? "Erreur"); return; }
+      const result = await uploadToTtlBucket(bucket, file, file.name);
+      if ("error" in result) { setError(result.error); return; }
 
-      const supabase = createSupabaseBrowserClient();
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .uploadToSignedUrl(urlData.storagePath, urlData.token, file, { contentType: file.type || undefined });
-      if (uploadError) { setError(uploadError.message); return; }
-
-      const confirmRes = await fetch("/api/admin/ttl/storage/public-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bucket, storagePath: urlData.storagePath }),
-      });
-      const confirmData = await confirmRes.json();
-      if (!confirmRes.ok) { setError(confirmData.error ?? "Erreur"); return; }
-
-      onUploaded({ url: confirmData.url, name: file.name });
+      onUploaded({ url: result.url, name: file.name });
     } catch {
       setError("Erreur réseau");
     } finally {

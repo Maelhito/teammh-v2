@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getEffectiveUser } from "@/lib/preview";
 import { requireTtlAccess } from "@/lib/ttl-access";
-import { getRecettes } from "@/lib/ttl";
+import { getPlansAlimentaires, getRecettes } from "@/lib/ttl";
 import TtlHeader from "@/components/TtlHeader";
 import TtlBottomNav from "@/components/TtlBottomNav";
 import PreviewBanner from "@/components/PreviewBanner";
@@ -16,16 +16,16 @@ export default async function TtlAlimentationPage() {
 
   await requireTtlAccess(userId, isPreview);
 
-  const recettes = await getRecettes();
+  const [plans, recettes] = await Promise.all([getPlansAlimentaires(), getRecettes()]);
 
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 100 }}>
       {isPreview && <PreviewBanner name={firstName} />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>
-        <TtlHeader variant="page" title="Alimentation" subtitle="Tes recettes, repas par repas" />
+        <TtlHeader variant="page" title="Alimentation" subtitle="Tes plans alimentaires et tes recettes" />
 
-        <TtlAlimentation recettes={recettes} />
+        <TtlAlimentation plans={plans} recettes={recettes} />
       </div>
 
       <TtlBottomNav />
