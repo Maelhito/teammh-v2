@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { limiteDeVieTache } from "@/lib/taches";
 
 export const dynamic = "force-dynamic";
-
-// Une tâche vit 7 jours à partir de sa création, validée ou non : passé ce
-// délai elle disparaît de l'accueil de la cliente (elle reste dans le calendrier).
-const DUREE_DE_VIE_MS = 7 * 24 * 60 * 60 * 1000;
-
-function limiteDeVie() {
-  return new Date(Date.now() - DUREE_DE_VIE_MS).toISOString();
-}
 
 // GET — tâches encore en vie + leur état validé
 export async function GET() {
@@ -24,7 +17,7 @@ export async function GET() {
     .select("id, titre, message, date, created_at, fait_le")
     .eq("target_user_id", session.user.id)
     .eq("event_type", "tache")
-    .gte("created_at", limiteDeVie())
+    .gte("created_at", limiteDeVieTache())
     .order("date", { ascending: true })
     .order("created_at", { ascending: true });
 
@@ -56,7 +49,7 @@ export async function PATCH(req: NextRequest) {
     .eq("id", taskId)
     .eq("target_user_id", session.user.id)
     .eq("event_type", "tache")
-    .gte("created_at", limiteDeVie())
+    .gte("created_at", limiteDeVieTache())
     .select("id");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

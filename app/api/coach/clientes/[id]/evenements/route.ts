@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { estRendezVous } from "@/lib/couleurs-calendrier";
 import { estFuseauValide, instantDepuis } from "@/lib/temps";
 import { getFuseau } from "@/lib/temps-serveur";
+import { MAX_TACHES_EN_COURS, limiteDeVieTache } from "@/lib/taches";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -125,6 +126,22 @@ export async function POST(req: NextRequest, { params }: Params) {
   // seulement suggérée par le formulaire. Tâches et séances n'en ont pas.
   if (estRendezVous(resolvedEventType) && !heure) {
     return NextResponse.json({ error: "Heure requise pour un rendez-vous" }, { status: 400 });
+  }
+
+  // Pas plus de 5 tâches en vie en même temps (moins de 7 jours, validées ou non).
+  if (resolvedEventType === "tache") {
+    const { count, error: countError } = await admin
+      .from("calendar_events")
+      .select("id", { count: "exact", head: true })
+      .eq("target_user_id", clientId)
+      .eq("event_type", "tache")
+      .gte("created_at", limiteDeVieTache());
+    if (countError) return NextResponse.json({ error: countError.message }, { status: 500 });
+    if ((count ?? 0) >= MAX_TACHES_EN_COURS) {
+      return NextResponse.json({
+        error: `Cette cliente a déjà ${MAX_TACHES_EN_COURS} tâches en cours. Une place se libère 7 jours après la création de la plus ancienne (ou supprime-en une).`,
+      }, { status: 400 });
+    }
   }
 
   // Dans quel fuseau le coach vient-il de taper cette heure ? Le sien par
