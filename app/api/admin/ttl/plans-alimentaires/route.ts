@@ -11,56 +11,84 @@ async function requireAdmin() {
   return isAdminUser(user) ? user : null;
 }
 
+function nettoyerUrls(liste: unknown): string[] | null {
+  if (!Array.isArray(liste) || liste.length === 0 || liste.length > 200) return null;
+  return liste.map((u) => String(u).slice(0, 500));
+}
+
+const COLONNES = "id, calories, numero, nb_pages, pdf_url, miniatures";
+
 export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("ttl_plans_alimentaires")
-    .select("id, calories, pdf_url, pages")
-    .order("calories", { ascending: true });
+    .select(COLONNES)
+    .order("calories", { ascending: true })
+    .order("numero", { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ plans: data ?? [] });
+  // Seule la couverture sert dans l'admin : inutile de renvoyer toutes les miniatures.
+  const plans = (data ?? []).map(({ miniatures, ...p }) => ({ ...p, couverture: (miniatures as string[])[0] ?? null }));
+  return NextResponse.json({ plans });
 }
 
-/** Crée ou remplace le plan d'un apport calorique. */
+/** Ajoute un plan (id absent) ou remplace le PDF d'un plan existant (id présent). */
 export async function PUT(request: NextRequest) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
-  const { calories, pdf_url, pages, notifier } = await request.json();
+  const { id, calories, numero, pdf_url, pages, miniatures, notifier } = await request.json();
+  const pagesOk = nettoyerUrls(pages);
+  const miniaturesOk = nettoyerUrls(miniatures);
+  if (!pdf_url || !pagesOk || !miniaturesOk || pagesOk.length !== miniaturesOk.length) {
+    return NextResponse.json({ error: "PDF et pages requis" }, { status: 400 });
+  }
+  const contenu = {
+    pdf_url: String(pdf_url).slice(0, 500),
+    pages: pagesOk,
+    miniatures: miniaturesOk,
+    nb_pages: pagesOk.length,
+    updated_at: new Date().toISOString(),
+  };
+
+  const admin = createSupabaseAdminClient();
+
+  if (id) {
+    const { data, error } = await admin.from("ttl_plans_alimentaires").update(contenu).eq("id", id).select(COLONNES).single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    const { miniatures: m, ...plan } = data;
+    return NextResponse.json({ plan: { ...plan, couverture: (m as string[])[0] ?? null } });
+  }
+
   if (!(TTL_PLAN_CALORIES as readonly number[]).includes(Number(calories))) {
     return NextResponse.json({ error: "Apport calorique invalide" }, { status: 400 });
   }
-  if (!pdf_url || !Array.isArray(pages) || pages.length === 0) {
-    return NextResponse.json({ error: "PDF et pages requis" }, { status: 400 });
+  const num = Number(numero);
+  if (!Number.isInteger(num) || num < 1 || num > 999) {
+    return NextResponse.json({ error: "Numéro de plan invalide" }, { status: 400 });
   }
 
-  const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("ttl_plans_alimentaires")
-    .upsert(
-      {
-        calories: Number(calories),
-        pdf_url: String(pdf_url).slice(0, 500),
-        pages: pages.slice(0, 100).map((p: unknown) => String(p).slice(0, 500)),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "calories" },
-    )
-    .select("id, calories, pdf_url, pages")
+    .insert({ calories: Number(calories), numero: num, ...contenu })
+    .select(COLONNES)
     .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    const message = error.code === "23505" ? `Le plan N°${num} existe déjà pour ${calories} kcal` : error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 
   if (notifier) {
     after(() => sendPushToAllTtl({
-      title: "🥗 Plan alimentaire disponible",
-      body: `Le plan ${data.calories} kcal est disponible dans ton onglet Alimentation.`,
+      title: "🥗 Nouveau plan alimentaire",
+      body: `Le plan N°${data.numero} à ${data.calories} kcal est disponible dans ton onglet Alimentation.`,
       url: "/ttl/alimentation",
     }));
   }
 
-  return NextResponse.json({ plan: data });
+  const { miniatures: m, ...plan } = data;
+  return NextResponse.json({ plan: { ...plan, couverture: (m as string[])[0] ?? null } });
 }
 
 export async function DELETE(request: NextRequest) {

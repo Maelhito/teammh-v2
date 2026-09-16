@@ -2,8 +2,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ttlColors } from "@/lib/ttl-theme";
-import { categorieAvecGout, TTL_RECETTE_CATEGORIE_LABELS, TTL_RECETTE_GOUT_LABELS } from "@/lib/ttl";
-import type { TtlPlanAlimentaire, TtlRecette, TtlRecetteCategorie, TtlRecetteGout } from "@/lib/ttl";
+import { categorieAvecGout, TTL_PLAN_CALORIES, TTL_RECETTE_CATEGORIE_LABELS, TTL_RECETTE_GOUT_LABELS } from "@/lib/ttl";
+import type { TtlPlanAlimentaire, TtlPlanPages, TtlRecette, TtlRecetteCategorie, TtlRecetteGout } from "@/lib/ttl";
 import { TtlFilterChip } from "@/components/TtlUI";
 
 interface Props {
@@ -94,9 +94,46 @@ const panneauStyle: React.CSSProperties = {
 /* Plans alimentaires                                                  */
 /* ------------------------------------------------------------------ */
 
+/** Empêche l'appui long « Enregistrer l'image » et le glisser-déposer des pages. */
+const protegeImage = {
+  draggable: false,
+  onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+} as const;
+const protegeStyle: React.CSSProperties = { WebkitTouchCallout: "none", userSelect: "none", WebkitUserSelect: "none" };
+
 function PanneauPlans({ plans }: { plans: TtlPlanAlimentaire[] }) {
-  const [choisi, setChoisi] = useState<TtlPlanAlimentaire | null>(plans[0] ?? null);
+  const niveaux = TTL_PLAN_CALORIES.filter((c) => plans.some((p) => p.calories === c));
+  const [calories, setCalories] = useState<number | null>(niveaux[0] ?? null);
+  const plansDuNiveau = plans.filter((p) => p.calories === calories);
+  const [choisiId, setChoisiId] = useState<string | null>(plansDuNiveau[0]?.id ?? null);
+  const choisi = plans.find((p) => p.id === choisiId) ?? null;
+
+  const cache = useRef(new Map<string, TtlPlanPages>());
+  const [contenu, setContenu] = useState<TtlPlanPages | null>(null);
+  const [erreur, setErreur] = useState(false);
   const [pageOuverte, setPageOuverte] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!choisiId) return;
+    const enCache = cache.current.get(choisiId);
+    setErreur(false);
+    if (enCache) { setContenu(enCache); return; }
+    setContenu(null);
+    let annule = false;
+    fetch(`/api/ttl/plans-alimentaires/${choisiId}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: TtlPlanPages) => {
+        cache.current.set(choisiId, d);
+        if (!annule) setContenu(d);
+      })
+      .catch(() => { if (!annule) setErreur(true); });
+    return () => { annule = true; };
+  }, [choisiId]);
+
+  function choisirNiveau(c: number) {
+    setCalories(c);
+    setChoisiId(plans.find((p) => p.calories === c)?.id ?? null);
+  }
 
   if (plans.length === 0) {
     return <p className="font-body" style={{ color: ttlColors.muted, fontSize: 13 }}>Les plans alimentaires arrivent bientôt.</p>;
@@ -109,13 +146,13 @@ function PanneauPlans({ plans }: { plans: TtlPlanAlimentaire[] }) {
         <strong>2.</strong> Feuillette ton plan, touche une page pour l&apos;agrandir.
       </p>
 
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(plans.length, 5)}, 1fr)`, gap: 6, marginBottom: 18 }}>
-        {plans.map((p) => {
-          const actif = choisi?.id === p.id;
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${niveaux.length}, 1fr)`, gap: 6, marginBottom: plansDuNiveau.length > 1 ? 10 : 18 }}>
+        {niveaux.map((c) => {
+          const actif = calories === c;
           return (
             <button
-              key={p.id}
-              onClick={() => setChoisi(p)}
+              key={c}
+              onClick={() => choisirNiveau(c)}
               className="font-body"
               style={{
                 background: actif ? ttlColors.red : ttlColors.card,
@@ -123,59 +160,196 @@ function PanneauPlans({ plans }: { plans: TtlPlanAlimentaire[] }) {
                 borderRadius: 12, padding: "10px 2px", cursor: "pointer", color: actif ? "#fff" : ttlColors.offWhite,
               }}
             >
-              <span style={{ display: "block", fontSize: 15, fontWeight: 800 }}>{p.calories.toLocaleString("fr-FR")}</span>
+              <span style={{ display: "block", fontSize: 15, fontWeight: 800 }}>{c.toLocaleString("fr-FR")}</span>
               <span style={{ display: "block", fontSize: 10, color: actif ? "rgba(255,255,255,0.85)" : ttlColors.muted }}>kcal</span>
             </button>
           );
         })}
       </div>
 
+      {plansDuNiveau.length > 1 && (
+        <div className="ttl-alim-slider" style={{ display: "flex", gap: 8, overflowX: "auto", overscrollBehaviorX: "contain", scrollbarWidth: "none", margin: "0 -20px 18px", padding: "0 20px" }}>
+          {plansDuNiveau.map((p) => (
+            <TtlFilterChip key={p.id} active={p.id === choisiId} onClick={() => setChoisiId(p.id)}>Plan N°{p.numero}</TtlFilterChip>
+          ))}
+        </div>
+      )}
+
       {choisi && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
-            <p className="font-body" style={{ color: "#fff", fontSize: 16, fontWeight: 700, margin: 0 }}>Plan {formatKcal(choisi.calories)}</p>
-            <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: 0 }}>{choisi.pages.length} page{choisi.pages.length > 1 ? "s" : ""}</p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+            <p className="font-body" style={{ color: "#fff", fontSize: 16, fontWeight: 700, margin: 0 }}>Plan N°{choisi.numero} · {formatKcal(choisi.calories)}</p>
+            <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: 0 }}>{choisi.nb_pages} pages</p>
           </div>
 
-          <div
-            key={choisi.id}
-            className="ttl-alim-slider"
-            style={{ display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory", overscrollBehaviorX: "contain", scrollbarWidth: "none", margin: "0 -20px", padding: "0 20px 4px", scrollPaddingLeft: 20 }}
-          >
-            {choisi.pages.map((url, i) => (
-              <button
-                key={url}
-                onClick={() => setPageOuverte(i)}
-                style={{ flex: "0 0 62%", scrollSnapAlign: "start", padding: 0, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 12, overflow: "hidden", background: "#fff", cursor: "zoom-in", position: "relative" }}
-              >
-                <img src={url} alt={`Page ${i + 1}`} loading={i < 2 ? "eager" : "lazy"} style={{ display: "block", width: "100%", height: "auto" }} />
-                <span className="font-body" style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(0,0,0,0.65)", color: "#fff", fontSize: 10, padding: "3px 8px", borderRadius: 10 }}>
-                  {i + 1}/{choisi.pages.length}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <a
-            href={choisi.pdf_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-body"
-            style={{ display: "block", textAlign: "center", marginTop: 16, padding: "12px", borderRadius: 12, border: `1px solid ${ttlColors.cardBorder}`, color: ttlColors.offWhite, fontSize: 13, textDecoration: "none" }}
-          >
-            ⬇ Télécharger le PDF
-          </a>
+          {erreur ? (
+            <p className="font-body" style={{ color: ttlColors.muted, fontSize: 13, padding: "40px 0", textAlign: "center" }}>
+              Impossible d&apos;afficher ce plan. Vérifie ta connexion et réessaie.
+            </p>
+          ) : (
+            <Eventail key={choisi.id} miniatures={contenu?.miniatures ?? null} onOpen={setPageOuverte} />
+          )}
         </>
       )}
 
-      {choisi && pageOuverte !== null && (
-        <LecteurPages plan={choisi} depart={pageOuverte} onClose={() => setPageOuverte(null)} />
+      {choisi && contenu && pageOuverte !== null && (
+        <LecteurPages
+          titre={`Plan N°${choisi.numero} · ${formatKcal(choisi.calories)}`}
+          pages={contenu.pages}
+          depart={pageOuverte}
+          onClose={() => setPageOuverte(null)}
+        />
       )}
     </div>
   );
 }
 
-function LecteurPages({ plan, depart, onClose }: { plan: TtlPlanAlimentaire; depart: number; onClose: () => void }) {
+/**
+ * Les pages du plan déployées en éventail : la page courante au centre, les suivantes
+ * et précédentes inclinées de part et d'autre. On glisse pour feuilleter.
+ */
+function Eventail({ miniatures, onOpen }: { miniatures: string[] | null; onOpen: (index: number) => void }) {
+  const [courant, setCourant] = useState(0);
+  const [decalage, setDecalage] = useState(0);
+  const [deploye, setDeploye] = useState(false);
+  const [ratio, setRatio] = useState(4 / 3);
+  const [largeur, setLargeur] = useState(320);
+  const conteneur = useRef<HTMLDivElement>(null);
+  const geste = useRef<{ x: number; index: number; bouge: boolean } | null>(null);
+
+  const total = miniatures?.length ?? 5;
+  const largeurCarte = largeur * 0.74;
+  const hauteurCarte = largeurCarte / ratio;
+  const pas = largeurCarte * 0.42;
+
+  useLayoutEffect(() => {
+    const el = conteneur.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setLargeur(el.clientWidth));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // L'éventail s'ouvre une fois les miniatures prêtes : les cartes partent empilées puis se déploient.
+  useEffect(() => {
+    if (!miniatures) return;
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setDeploye(true)));
+    return () => cancelAnimationFrame(id);
+  }, [miniatures]);
+
+  function aller(index: number) {
+    setCourant(Math.max(0, Math.min(total - 1, index)));
+  }
+
+  function onPointerDown(e: React.PointerEvent) {
+    const carte = (e.target as HTMLElement).closest<HTMLElement>("[data-page]");
+    geste.current = { x: e.clientX, index: carte ? Number(carte.dataset.page) : -1, bouge: false };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function onPointerMove(e: React.PointerEvent) {
+    const g = geste.current;
+    if (!g) return;
+    const dx = e.clientX - g.x;
+    if (Math.abs(dx) > 6) g.bouge = true;
+    if (g.bouge) setDecalage(dx);
+  }
+
+  function onPointerUp(e: React.PointerEvent) {
+    const g = geste.current;
+    geste.current = null;
+    if (!g) return;
+    const dx = e.clientX - g.x;
+    setDecalage(0);
+
+    if (!g.bouge) {
+      if (g.index < 0 || !miniatures) return;
+      if (g.index === courant) onOpen(courant);
+      else aller(g.index);
+      return;
+    }
+    // Un geste franc tourne au moins une page, même court.
+    const pages = Math.abs(dx) < pas * 0.5 ? Math.sign(dx) : Math.round(dx / pas);
+    aller(courant - pages);
+  }
+
+  const enGeste = decalage !== 0;
+  const position = courant - decalage / pas;
+
+  // overflow "clip" et non "hidden" : un bloc "hidden" reste défilable par le focus des flèches.
+  return (
+    <div style={{ margin: "0 -20px", overflow: "clip", ...protegeStyle }}>
+      <div
+        ref={conteneur}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => { geste.current = null; setDecalage(0); }}
+        style={{ position: "relative", height: hauteurCarte + 70, touchAction: "pan-y", cursor: enGeste ? "grabbing" : "grab" }}
+      >
+        {Array.from({ length: total }, (_, i) => {
+          const o = i - position;
+          const distance = Math.abs(o);
+          if (distance > 4.5) return null;
+          const ouvert = deploye ? 1 : 0;
+          const transform = [
+            "translateX(-50%)",
+            `translateX(${o * pas * ouvert}px)`,
+            `translateY(${distance * 10 * ouvert}px)`,
+            `rotate(${o * 8 * ouvert}deg)`,
+            `scale(${1 - Math.min(distance, 4) * 0.07 * ouvert})`,
+          ].join(" ");
+          return (
+            <div
+              key={i}
+              data-page={i}
+              style={{
+                position: "absolute", left: "50%", top: 22, width: largeurCarte, height: hauteurCarte,
+                transform, transformOrigin: "50% 120%",
+                zIndex: 100 - Math.round(distance * 10),
+                opacity: distance > 3.5 ? Math.max(0, 4.5 - distance) : 1,
+                transition: enGeste ? "none" : `transform 0.55s cubic-bezier(.2,.9,.25,1.15) ${deploye ? 0 : distance * 45}ms, opacity 0.3s`,
+                borderRadius: 12, overflow: "hidden", background: miniatures ? "#fff" : ttlColors.card,
+                border: `1px solid ${miniatures ? "rgba(0,0,0,0.08)" : ttlColors.cardBorder}`,
+                boxShadow: `0 ${10 + distance * 4}px ${24 + distance * 6}px rgba(0,0,0,${0.55 - Math.min(distance, 3) * 0.08})`,
+              }}
+            >
+              {miniatures && (
+                <img
+                  src={miniatures[i]}
+                  alt={`Page ${i + 1}`}
+                  loading={distance < 3 ? "eager" : "lazy"}
+                  onLoad={i === 0 ? (e) => { const im = e.currentTarget; if (im.naturalHeight) setRatio(im.naturalWidth / im.naturalHeight); } : undefined}
+                  {...protegeImage}
+                  style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none", ...protegeStyle }}
+                />
+              )}
+              {/* Les cartes du fond s'assombrissent pour que la page courante ressorte. */}
+              <div style={{ position: "absolute", inset: 0, background: "#000", opacity: Math.min(distance, 3) * 0.14, transition: enGeste ? "none" : "opacity 0.4s", pointerEvents: "none" }} />
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ padding: "0 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <button onClick={() => aller(courant - 1)} disabled={courant === 0 || !miniatures} aria-label="Page précédente" style={{ ...flechePetiteStyle, opacity: courant === 0 ? 0.3 : 1 }}>‹</button>
+        <div style={{ textAlign: "center" }}>
+          <p className="font-body" style={{ color: "#fff", fontSize: 13, fontWeight: 700, margin: 0 }}>
+            {miniatures ? `Page ${courant + 1} / ${total}` : " "}
+          </p>
+          <p className="font-body" style={{ color: ttlColors.muted, fontSize: 11, margin: "2px 0 0" }}>Glisse pour feuilleter · touche pour agrandir</p>
+        </div>
+        <button onClick={() => aller(courant + 1)} disabled={courant === total - 1 || !miniatures} aria-label="Page suivante" style={{ ...flechePetiteStyle, opacity: courant === total - 1 ? 0.3 : 1 }}>›</button>
+      </div>
+    </div>
+  );
+}
+
+const flechePetiteStyle: React.CSSProperties = {
+  width: 38, height: 38, borderRadius: "50%", border: `1px solid ${ttlColors.cardBorder}`, background: ttlColors.card, color: "#fff", fontSize: 20, cursor: "pointer", flexShrink: 0,
+};
+
+function LecteurPages({ titre, pages, depart, onClose }: { titre: string; pages: string[]; depart: number; onClose: () => void }) {
   const [page, setPage] = useState(depart);
   const [zoom, setZoom] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -199,17 +373,17 @@ function LecteurPages({ plan, depart, onClose }: { plan: TtlPlanAlimentaire; dep
   function changerPage(delta: number) {
     const el = ref.current;
     const cible = page + delta;
-    if (!el || cible < 0 || cible >= plan.pages.length) return;
+    if (!el || cible < 0 || cible >= pages.length) return;
     setZoom(false);
     el.scrollTo({ left: cible * el.clientWidth, behavior: "smooth" });
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "#000", display: "flex", flexDirection: "column" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "#000", display: "flex", flexDirection: "column", ...protegeStyle }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", paddingTop: "max(14px, env(safe-area-inset-top))" }}>
         <div>
-          <p className="font-body" style={{ color: "#fff", fontSize: 15, fontWeight: 700, margin: 0 }}>Plan {formatKcal(plan.calories)}</p>
-          <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: 0 }}>Page {page + 1} / {plan.pages.length}</p>
+          <p className="font-body" style={{ color: "#fff", fontSize: 15, fontWeight: 700, margin: 0 }}>{titre}</p>
+          <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: 0 }}>Page {page + 1} / {pages.length}</p>
         </div>
         <button onClick={onClose} aria-label="Fermer" style={{ width: 40, height: 40, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: 18, cursor: "pointer" }}>✕</button>
       </div>
@@ -220,16 +394,17 @@ function LecteurPages({ plan, depart, onClose }: { plan: TtlPlanAlimentaire; dep
         className="ttl-alim-slider"
         style={{ flex: 1, display: "flex", overflowX: zoom ? "hidden" : "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", minHeight: 0 }}
       >
-        {plan.pages.map((url, i) => (
+        {pages.map((url, i) => (
           <div key={url} style={{ flex: "0 0 100%", scrollSnapAlign: "center", overflow: zoom && i === page ? "auto" : "hidden", display: "flex", alignItems: zoom && i === page ? "flex-start" : "center", justifyContent: zoom && i === page ? "flex-start" : "center" }}>
             <img
               src={url}
               alt={`Page ${i + 1}`}
               onClick={() => setZoom((z) => !z)}
               loading={Math.abs(i - depart) <= 1 ? "eager" : "lazy"}
+              {...protegeImage}
               style={zoom && i === page
-                ? { width: "240%", maxWidth: "none", height: "auto", cursor: "zoom-out" }
-                : { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", cursor: "zoom-in" }}
+                ? { width: "240%", maxWidth: "none", height: "auto", cursor: "zoom-out", ...protegeStyle }
+                : { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", cursor: "zoom-in", ...protegeStyle }}
             />
           </div>
         ))}
@@ -240,7 +415,7 @@ function LecteurPages({ plan, depart, onClose }: { plan: TtlPlanAlimentaire; dep
         <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: 0, textAlign: "center" }}>
           {zoom ? "Touche la page pour dézoomer" : "Glisse pour tourner · touche pour zoomer"}
         </p>
-        <button onClick={() => changerPage(1)} disabled={page === plan.pages.length - 1} style={{ ...flecheStyle, opacity: page === plan.pages.length - 1 ? 0.3 : 1 }}>›</button>
+        <button onClick={() => changerPage(1)} disabled={page === pages.length - 1} style={{ ...flecheStyle, opacity: page === pages.length - 1 ? 0.3 : 1 }}>›</button>
       </div>
     </div>
   );

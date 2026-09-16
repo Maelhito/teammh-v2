@@ -74,11 +74,18 @@ export interface TtlRecette {
 /** Les apports caloriques proposés, dans l'ordre d'affichage. */
 export const TTL_PLAN_CALORIES = [1400, 1500, 1600, 1700, 1800] as const;
 
+/** Ce que la cliente reçoit à l'ouverture de l'onglet : jamais le PDF, jamais toutes les pages. */
 export interface TtlPlanAlimentaire {
   id: string;
   calories: number;
-  pdf_url: string;
+  numero: number;
+  nb_pages: number;
+}
+
+/** Les pages d'un plan, chargées seulement quand la cliente l'ouvre. */
+export interface TtlPlanPages {
   pages: string[];
+  miniatures: string[];
 }
 
 export interface TtlCapsule {
@@ -192,8 +199,9 @@ export async function getPlansAlimentaires(): Promise<TtlPlanAlimentaire[]> {
   const admin = createSupabaseAdminClient();
   const { data } = await admin
     .from("ttl_plans_alimentaires")
-    .select("id, calories, pdf_url, pages")
-    .order("calories", { ascending: true });
+    .select("id, calories, numero, nb_pages")
+    .order("calories", { ascending: true })
+    .order("numero", { ascending: true });
   return data ?? [];
 }
 

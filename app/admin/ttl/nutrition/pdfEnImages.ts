@@ -2,21 +2,34 @@
 
 /** Largeur des images de page : nette en plein écran sur téléphone, sans être trop lourde. */
 const LARGEUR_PAGE = 1400;
+/** Largeur des miniatures affichées dans l'éventail. */
+const LARGEUR_MINIATURE = 520;
+
+export interface PageImages {
+  grande: Blob;
+  miniature: Blob;
+}
+
+function versJpeg(canvas: HTMLCanvasElement, page: number): Promise<Blob> {
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(`Page ${page} illisible`))), "image/jpeg", 0.85),
+  );
+}
 
 /**
- * Découpe un PDF en une image JPEG par page, dans le navigateur.
+ * Découpe un PDF en images JPEG (une grande et une miniature par page), dans le navigateur.
  * Les clientes n'ont ainsi jamais de PDF à ouvrir : elles feuillettent des images.
  */
 export async function pdfEnImages(
   file: File,
   onProgress: (page: number, total: number) => void,
-): Promise<Blob[]> {
+): Promise<PageImages[]> {
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
   const chargement = pdfjs.getDocument({ data: await file.arrayBuffer() });
   const pdf = await chargement.promise;
-  const images: Blob[] = [];
+  const images: PageImages[] = [];
 
   try {
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -35,9 +48,15 @@ export async function pdfEnImages(
 
       await page.render({ canvas, canvasContext: ctx, viewport }).promise;
 
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
-      if (!blob) throw new Error(`Page ${i} illisible`);
-      images.push(blob);
+      const mini = document.createElement("canvas");
+      mini.width = LARGEUR_MINIATURE;
+      mini.height = Math.round(canvas.height * (LARGEUR_MINIATURE / canvas.width));
+      const miniCtx = mini.getContext("2d");
+      if (!miniCtx) throw new Error("Canvas indisponible");
+      miniCtx.imageSmoothingQuality = "high";
+      miniCtx.drawImage(canvas, 0, 0, mini.width, mini.height);
+
+      images.push({ grande: await versJpeg(canvas, i), miniature: await versJpeg(mini, i) });
       page.cleanup();
     }
   } finally {
