@@ -25,11 +25,14 @@ export default async function CoachPage() {
   const admin = createSupabaseAdminClient();
 
   // Les casquettes du coach : `coach_id` / `nutrition_id` d'une cliente
-  // désignent un `team_members`, jamais un compte auth. Liste vide = admin,
-  // qui voit tout le monde — même règle que la page « Mes clientes ».
+  // désignent un `team_members`, jamais un compte auth. L'admin voit tout
+  // le monde — même règle que la page « Mes clientes ».
   const teamMemberIds: string[] = session?.user?.user_metadata?.team_member_ids ?? [];
   // Un admin voit tout, même s'il porte aussi des casquettes coach / nutrition.
-  const voitTout = isAdminUser(session?.user) || teamMemberIds.length === 0;
+  // Un coach relié à aucune fiche équipe ne voit personne (en dev, sans session,
+  // on garde la vue complète pour pouvoir tester).
+  const voitTout = isAdminUser(session?.user)
+    || (process.env.NODE_ENV === "development" && teamMemberIds.length === 0);
 
   // ── Clientes actives ───────────────────────────────────────────────────────
   const { data: { users } = { users: [] } } = await admin.auth.admin.listUsers({ perPage: 500 });

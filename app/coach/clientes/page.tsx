@@ -31,13 +31,16 @@ export default async function CoachClientesPage({
   let teamMemberIds: string[] = session?.user?.user_metadata?.team_member_ids ?? [];
   // Un admin voit toutes les clientes, même quand il porte aussi des casquettes
   // coach ou nutrition (Julie) : ses team_member_ids ne doivent pas le restreindre.
-  if (isAdminUser(session?.user)) teamMemberIds = [];
+  // Un coach relié à aucune fiche équipe, lui, ne voit personne — et surtout pas
+  // tout le monde, comme c'était le cas quand la liste vide valait « admin ».
+  let voitTout = isAdminUser(session?.user);
   let devCoachIndex = 0;
 
   if (isDev) {
     const idx = parseInt(params.dev_coach ?? "0", 10);
     devCoachIndex = isNaN(idx) ? 0 : Math.min(idx, DEV_COACHES.length - 1);
     teamMemberIds = DEV_COACHES[devCoachIndex].ids;
+    voitTout = teamMemberIds.length === 0;
   }
 
   // Filtrer les clientes
@@ -52,7 +55,7 @@ export default async function CoachClientesPage({
     date_demarrage: string | null;
   }[] = [];
 
-  if (teamMemberIds.length > 0) {
+  if (!voitTout && teamMemberIds.length > 0) {
     const orFilter = teamMemberIds
       .map(id => `coach_id.eq.${id},nutrition_id.eq.${id}`)
       .join(",");
@@ -62,7 +65,7 @@ export default async function CoachClientesPage({
       .or(orFilter)
       .not("role", "in", '("coach","admin","nutrition")');
     profiles = data ?? [];
-  } else {
+  } else if (voitTout) {
     const { data } = await admin
       .from("user_profiles")
       .select("user_id, prenom, nom, statut, acces_app, coach_id, nutrition_id, date_demarrage")
