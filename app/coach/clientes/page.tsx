@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { clientLabel, trierClientesAlpha } from "@/lib/tri-clientes";
 import ClientesGrid from "./ClientesGrid";
+import { isAdminUser } from "@/lib/is-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,9 @@ export default async function CoachClientesPage({
 
   // En dev, on peut choisir le coach via ?dev_coach=INDEX
   let teamMemberIds: string[] = session?.user?.user_metadata?.team_member_ids ?? [];
+  // Un admin voit toutes les clientes, même quand il porte aussi des casquettes
+  // coach ou nutrition (Julie) : ses team_member_ids ne doivent pas le restreindre.
+  if (isAdminUser(session?.user)) teamMemberIds = [];
   let devCoachIndex = 0;
 
   if (isDev) {

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import DashboardCoach from "./DashboardCoach";
 import { FUSEAU_PAR_DEFAUT, aujourdhuiDans, decalerJour, semaineDans } from "@/lib/temps";
 import { getFuseau } from "@/lib/temps-serveur";
+import { isAdminUser } from "@/lib/is-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,8 @@ export default async function CoachPage() {
   // désignent un `team_members`, jamais un compte auth. Liste vide = admin,
   // qui voit tout le monde — même règle que la page « Mes clientes ».
   const teamMemberIds: string[] = session?.user?.user_metadata?.team_member_ids ?? [];
+  // Un admin voit tout, même s'il porte aussi des casquettes coach / nutrition.
+  const voitTout = isAdminUser(session?.user) || teamMemberIds.length === 0;
 
   // ── Clientes actives ───────────────────────────────────────────────────────
   const { data: { users } = { users: [] } } = await admin.auth.admin.listUsers({ perPage: 500 });
@@ -44,7 +47,7 @@ export default async function CoachPage() {
 
   /** La cliente m'est-elle attribuée, et à quel titre ? */
   const estMaCliente = (p: { coach_id?: string | null; nutrition_id?: string | null }) =>
-    teamMemberIds.length === 0
+    voitTout
     || (!!p.coach_id && teamMemberIds.includes(p.coach_id))
     || (!!p.nutrition_id && teamMemberIds.includes(p.nutrition_id));
 
@@ -115,7 +118,7 @@ export default async function CoachPage() {
    */
   const meConcerne = (ev: { user_id: string | null; target_user_id: string | null; event_type: string | null }) => {
     if (ev.user_id === coachUserId) return true;
-    if (teamMemberIds.length === 0) return true; // admin : vue complète
+    if (voitTout) return true; // admin : vue complète
     if (!ev.target_user_id) return false;        // diffusion à toutes
     const p = profilParCliente[ev.target_user_id];
     if (!p) return false;

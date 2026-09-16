@@ -90,6 +90,10 @@ export async function middleware(request: NextRequest) {
       );
       const [profile] = await profileRes.json().catch(() => [null]);
       role = profile?.role ?? user.user_metadata?.role ?? "cliente";
+      // Le rôle vit à deux endroits (profil et compte). Si l'un des deux dit
+      // « admin », c'est un admin : sinon un admin dont le profil était resté
+      // sur « coach » était traité en coach ici et en admin ailleurs.
+      if (user.user_metadata?.role === "admin") role = "admin";
 
       // Statut suspendu
       const statut = profile?.statut ?? "active";

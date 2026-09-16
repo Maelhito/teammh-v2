@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "./supabase-server";
+import { isAdminUser } from "./is-admin";
 
 const DEV_USER = {
   id: "dev-user-id",
@@ -31,7 +32,7 @@ export async function checkCoachAccess() {
  * Seuls les admins (dont mael.ld@hotmail.fr) y touchent.
  */
 export function isCoachOnly(user: { user_metadata?: { role?: string }; email?: string }) {
-  if (user.email === "mael.ld@hotmail.fr") return false;
+  if (isAdminUser(user)) return false;
   const role = user.user_metadata?.role ?? "cliente";
   return role === "coach";
 }
