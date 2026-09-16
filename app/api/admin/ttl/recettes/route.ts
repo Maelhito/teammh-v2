@@ -40,24 +40,26 @@ export async function GET() {
   return NextResponse.json({ recettes: data ?? [] });
 }
 
-/** Ajoute une ou plusieurs fiches photo, toutes rangées au même endroit. */
+/** Ajoute une ou plusieurs fiches photo, chacune avec son propre rangement. */
 export async function POST(request: NextRequest) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
   const body = await request.json();
-  const rang = classement(body);
-  if (typeof rang === "string") return NextResponse.json({ error: rang }, { status: 400 });
+  const fiches: Record<string, unknown>[] = Array.isArray(body.recettes) ? body.recettes.slice(0, 100) : [];
+  if (fiches.length === 0) return NextResponse.json({ error: "Au moins une photo est requise" }, { status: 400 });
 
-  const fiches = Array.isArray(body.recettes) ? body.recettes.slice(0, 100) : [];
-  const lignes = fiches
-    .filter((f: { photo_url?: unknown }) => f?.photo_url)
-    .map((f: { titre?: unknown; photo_url: unknown; miniature_url?: unknown }) => ({
+  const lignes = [];
+  for (const f of fiches) {
+    if (!f?.photo_url) return NextResponse.json({ error: "Photo manquante" }, { status: 400 });
+    const rang = classement(f);
+    if (typeof rang === "string") return NextResponse.json({ error: `${f.titre ?? "Recette"} : ${rang}` }, { status: 400 });
+    lignes.push({
       titre: String(f.titre || "Recette").slice(0, 200),
       photo_url: String(f.photo_url).slice(0, 500),
       miniature_url: f.miniature_url ? String(f.miniature_url).slice(0, 500) : null,
       ...rang,
-    }));
-  if (lignes.length === 0) return NextResponse.json({ error: "Au moins une photo est requise" }, { status: 400 });
+    });
+  }
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.from("ttl_recettes").insert(lignes).select(COLONNES);

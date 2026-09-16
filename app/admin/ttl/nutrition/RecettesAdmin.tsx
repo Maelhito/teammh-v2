@@ -28,18 +28,34 @@ function libelleRangement(r: Pick<TtlRecette, "categorie" | "gout" | "calories">
   ].filter(Boolean).join(" · ");
 }
 
+interface Brouillon {
+  cle: string;
+  fichier: File;
+  apercu: string;
+  titre: string;
+  envoi: "en_cours" | "ok" | "erreur";
+  photo_url?: string;
+  miniature_url?: string;
+  categorie: Categorie | null;
+  gout: Gout | null;
+  calories: number | null;
+}
+
+function estRange(b: Pick<Brouillon, "categorie" | "gout" | "calories">) {
+  return b.categorie !== null && b.calories !== null && (!categorieAvecGout(b.categorie) || b.gout !== null);
+}
+
 export default function RecettesAdmin() {
   const [recettes, setRecettes] = useState<TtlRecette[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [categorie, setCategorie] = useState<Categorie>("repas");
-  const [gout, setGout] = useState<Gout | null>(null);
-  const [calories, setCalories] = useState<number | null>(null);
+  const [brouillons, setBrouillons] = useState<Brouillon[]>([]);
   const [notifier, setNotifier] = useState(false);
-  const [etape, setEtape] = useState<string | null>(null);
+  const [enregistrement, setEnregistrement] = useState(false);
   const [filtre, setFiltre] = useState<Categorie | "toutes">("toutes");
   const [apercu, setApercu] = useState<TtlRecette | null>(null);
+  const [agrandie, setAgrandie] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -53,47 +69,76 @@ export default function RecettesAdmin() {
       .finally(() => setLoading(false));
   }, []);
 
-  function choisirCategorie(c: Categorie) {
-    setCategorie(c);
-    setGout(null);
-    setCalories(null);
+  function modifierBrouillon(cle: string, changement: Partial<Brouillon>) {
+    setBrouillons((prev) => prev.map((b) => (b.cle === cle ? { ...b, ...changement } : b)));
   }
 
-  const rangementComplet = calories !== null && (!categorieAvecGout(categorie) || gout !== null);
-
-  async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+  /** Les photos s'envoient dès qu'elles sont choisies ; le rangement se fait pendant ce temps. */
+  function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (fileRef.current) fileRef.current.value = "";
-    if (files.length === 0 || !rangementComplet) return;
+    if (files.length === 0) return;
     setError(null);
 
-    try {
-      const fiches = [];
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        setEtape(`Envoi ${i + 1}/${files.length}…`);
-        const [photo, mini] = await Promise.all([
-          uploadToTtlBucket("ttl-images", file, `recette-${file.name}`),
-          miniature(file).then((b) => uploadToTtlBucket("ttl-images", b, `recette-mini-${file.name.replace(/\.[^.]+$/, "")}.jpg`)),
-        ]);
-        if ("error" in photo) throw new Error(photo.error);
-        if ("error" in mini) throw new Error(mini.error);
-        fiches.push({ titre: titreDepuisFichier(file.name), photo_url: photo.url, miniature_url: mini.url });
-      }
+    const nouveaux: Brouillon[] = files.map((file) => ({
+      cle: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      fichier: file,
+      apercu: URL.createObjectURL(file),
+      titre: titreDepuisFichier(file.name),
+      envoi: "en_cours",
+      categorie: null,
+      gout: null,
+      calories: null,
+    }));
+    setBrouillons((prev) => [...prev, ...nouveaux]);
 
-      setEtape("Enregistrement…");
+    nouveaux.forEach(async (b) => {
+      try {
+        const [photo, mini] = await Promise.all([
+          uploadToTtlBucket("ttl-images", b.fichier, `recette-${b.fichier.name}`),
+          miniature(b.fichier).then((blob) => uploadToTtlBucket("ttl-images", blob, `recette-mini-${b.fichier.name.replace(/\.[^.]+$/, "")}.jpg`)),
+        ]);
+        if ("error" in photo || "error" in mini) throw new Error();
+        modifierBrouillon(b.cle, { envoi: "ok", photo_url: photo.url, miniature_url: mini.url });
+      } catch {
+        modifierBrouillon(b.cle, { envoi: "erreur" });
+      }
+    });
+  }
+
+  function retirerBrouillon(b: Brouillon) {
+    URL.revokeObjectURL(b.apercu);
+    setBrouillons((prev) => prev.filter((x) => x.cle !== b.cle));
+  }
+
+  const prets = brouillons.filter((b) => b.envoi === "ok" && estRange(b));
+  const toutPret = brouillons.length > 0 && prets.length === brouillons.length;
+
+  async function enregistrer() {
+    if (!toutPret) return;
+    setEnregistrement(true);
+    setError(null);
+    try {
       const res = await fetch("/api/admin/ttl/recettes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recettes: fiches, categorie, gout, calories, notifier }),
+        body: JSON.stringify({
+          notifier,
+          recettes: brouillons.map((b) => ({
+            titre: b.titre, photo_url: b.photo_url, miniature_url: b.miniature_url,
+            categorie: b.categorie, gout: b.gout, calories: b.calories,
+          })),
+        }),
       });
       const d = await res.json();
       if (!res.ok) { setError(d.error ?? "Erreur"); return; }
       setRecettes((prev) => [...d.recettes, ...prev]);
-    } catch (err) {
-      setError(err instanceof Error ? `Échec : ${err.message}` : "Échec de l'envoi");
+      brouillons.forEach((b) => URL.revokeObjectURL(b.apercu));
+      setBrouillons([]);
+    } catch {
+      setError("Erreur réseau");
     } finally {
-      setEtape(null);
+      setEnregistrement(false);
     }
   }
 
@@ -135,45 +180,79 @@ export default function RecettesAdmin() {
     <div>
       <h2 style={{ fontSize: "1.05rem", fontWeight: 800, color: "var(--admin-text)", margin: "0 0 4px", fontFamily: "system-ui" }}>Recettes</h2>
       <p style={{ fontSize: 12, color: "var(--admin-text-muted)", margin: "0 0 12px" }}>
-        Une recette = une fiche photo. Range-la, puis choisis une ou plusieurs images d&apos;un coup : elles seront toutes rangées au même endroit.
+        Une recette = une fiche photo. Ajoute les photos, puis range chacune : catégorie, sucré ou salé, calories.
       </p>
 
-      <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
-        <Ligne titre="1. Catégorie">
-          {CATEGORIES.map((c) => (
-            <Choix key={c} actif={categorie === c} onClick={() => choisirCategorie(c)}>{CATEGORIE_LABELS[c]}</Choix>
-          ))}
-        </Ligne>
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        style={{ ...cardStyle, width: "100%", padding: 22, marginBottom: 14, border: "1px dashed var(--admin-border)", color: "var(--admin-text)", fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+      >
+        🖼 Ajouter des photos de recettes
+        <span style={{ display: "block", fontSize: 12, fontWeight: 400, color: "var(--admin-text-muted)", marginTop: 4 }}>
+          Tu peux en choisir plusieurs d&apos;un coup, puis ranger chacune en la regardant.
+        </span>
+      </button>
+      <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleFiles} />
 
-        {categorieAvecGout(categorie) && (
-          <Ligne titre="2. Sucré ou salé">
-            {GOUTS.map((g) => (
-              <Choix key={g} actif={gout === g} onClick={() => setGout(g)}>{GOUT_LABELS[g]}</Choix>
+      {brouillons.length > 0 && (
+        <div style={{ ...cardStyle, marginBottom: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
+            {brouillons.map((b) => (
+              <div key={b.cle} style={{ border: `1px solid ${estRange(b) ? "var(--admin-border)" : "rgba(178,34,34,0.6)"}`, borderRadius: 12, padding: 10, position: "relative" }}>
+                <button type="button" onClick={() => setAgrandie(b.apercu)} style={{ all: "unset", cursor: "zoom-in", display: "block", width: "100%" }}>
+                  <img src={b.apercu} alt={b.titre} style={{ width: "100%", borderRadius: 8, display: "block" }} />
+                </button>
+                <button type="button" onClick={() => retirerBrouillon(b)} aria-label="Retirer" style={{ position: "absolute", top: 16, right: 16, width: 26, height: 26, borderRadius: "50%", border: "none", backgroundColor: "rgba(0,0,0,0.6)", color: "#fff", cursor: "pointer" }}>✕</button>
+                <p style={{ margin: "6px 0 10px", fontSize: 11, color: b.envoi === "erreur" ? "#F87171" : "var(--admin-text-muted)" }}>
+                  {b.envoi === "en_cours" ? "Envoi de la photo…" : b.envoi === "erreur" ? "Échec de l'envoi : retire-la et réessaie" : "✓ Photo envoyée"}
+                </p>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <Ligne titre="Catégorie">
+                    {CATEGORIES.map((c) => (
+                      <Choix key={c} actif={b.categorie === c} onClick={() => modifierBrouillon(b.cle, { categorie: c, gout: null, calories: null })}>{CATEGORIE_LABELS[c]}</Choix>
+                    ))}
+                  </Ligne>
+                  {categorieAvecGout(b.categorie) && (
+                    <Ligne titre="Sucré ou salé">
+                      {GOUTS.map((g) => (
+                        <Choix key={g} actif={b.gout === g} onClick={() => modifierBrouillon(b.cle, { gout: g })}>{GOUT_LABELS[g]}</Choix>
+                      ))}
+                    </Ligne>
+                  )}
+                  {b.categorie && (
+                    <Ligne titre="Calories">
+                      {TTL_RECETTE_CALORIES[b.categorie].map((k) => (
+                        <Choix key={k} actif={b.calories === k} onClick={() => modifierBrouillon(b.cle, { calories: k })}>{k} kcal</Choix>
+                      ))}
+                    </Ligne>
+                  )}
+                </div>
+              </div>
             ))}
-          </Ligne>
-        )}
+          </div>
 
-        <Ligne titre={`${categorieAvecGout(categorie) ? 3 : 2}. Calories`}>
-          {TTL_RECETTE_CALORIES[categorie].map((k) => (
-            <Choix key={k} actif={calories === k} onClick={() => setCalories(k)}>{k} kcal</Choix>
-          ))}
-        </Ligne>
-
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--admin-text-muted)" }}>
-          <input type="checkbox" checked={notifier} onChange={(e) => setNotifier(e.target.checked)} />
-          Envoyer une notification aux clientes TTL (une seule, même pour plusieurs photos)
-        </label>
-
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={!rangementComplet || !!etape}
-          style={{ ...btnPrimary, opacity: rangementComplet ? 1 : 0.45, cursor: rangementComplet && !etape ? "pointer" : "not-allowed" }}
-        >
-          {etape ?? (rangementComplet ? "🖼 Choisir les photos des recettes" : "Complète le rangement pour ajouter des photos")}
-        </button>
-        <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleFiles} />
-      </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginTop: 16 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--admin-text-muted)" }}>
+              <input type="checkbox" checked={notifier} onChange={(e) => setNotifier(e.target.checked)} />
+              Envoyer une notification aux clientes TTL (une seule pour tout le lot)
+            </label>
+            <button
+              type="button"
+              onClick={enregistrer}
+              disabled={!toutPret || enregistrement}
+              style={{ ...btnPrimary, alignSelf: "auto", opacity: toutPret ? 1 : 0.45, cursor: toutPret && !enregistrement ? "pointer" : "not-allowed" }}
+            >
+              {enregistrement
+                ? "Enregistrement…"
+                : toutPret
+                  ? `Ajouter ${brouillons.length > 1 ? `les ${brouillons.length} recettes` : "la recette"} dans l'app`
+                  : `${prets.length}/${brouillons.length} prête${prets.length > 1 ? "s" : ""} : range chaque photo`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && <p style={{ color: "#F87171", fontSize: 13 }}>{error}</p>}
 
@@ -210,6 +289,12 @@ export default function RecettesAdmin() {
           })}
           {affichees.length === 0 && <p style={{ color: "var(--admin-text-muted)", fontStyle: "italic" }}>Aucune recette ici pour l&apos;instant.</p>}
         </div>
+      )}
+
+      {agrandie && (
+        <Modal onClose={() => setAgrandie(null)} maxWidth={1000}>
+          <img src={agrandie} alt="" onClick={() => setAgrandie(null)} style={{ width: "100%", borderRadius: 10, display: "block", cursor: "zoom-out" }} />
+        </Modal>
       )}
 
       {apercu && (
