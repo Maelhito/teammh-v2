@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ttlColors } from "@/lib/ttl-theme";
-import { categorieAvecGout, TTL_PLAN_CALORIES, TTL_RECETTE_CATEGORIE_LABELS, TTL_RECETTE_GOUT_LABELS } from "@/lib/ttl";
+import { categorieAvecGout, TTL_PLAN_CALORIES, TTL_RECETTE_CALORIES, TTL_RECETTE_CATEGORIE_LABELS, TTL_RECETTE_GOUT_LABELS } from "@/lib/ttl";
 import type { TtlPlanAlimentaire, TtlPlanPages, TtlRecette, TtlRecetteCategorie, TtlRecetteGout } from "@/lib/ttl";
 import { TtlFilterChip } from "@/components/TtlUI";
 
@@ -349,7 +349,7 @@ const flechePetiteStyle: React.CSSProperties = {
   width: 38, height: 38, borderRadius: "50%", border: `1px solid ${ttlColors.cardBorder}`, background: ttlColors.card, color: "#fff", fontSize: 20, cursor: "pointer", flexShrink: 0,
 };
 
-function LecteurPages({ titre, pages, depart, onClose }: { titre: string; pages: string[]; depart: number; onClose: () => void }) {
+function LecteurPages({ titre, libelle = "Page", pages, depart, onClose }: { titre: string; libelle?: string; pages: string[]; depart: number; onClose: () => void }) {
   const [page, setPage] = useState(depart);
   const [zoom, setZoom] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -383,7 +383,7 @@ function LecteurPages({ titre, pages, depart, onClose }: { titre: string; pages:
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", paddingTop: "max(14px, env(safe-area-inset-top))" }}>
         <div>
           <p className="font-body" style={{ color: "#fff", fontSize: 15, fontWeight: 700, margin: 0 }}>{titre}</p>
-          <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: 0 }}>Page {page + 1} / {pages.length}</p>
+          <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: 0 }}>{libelle} {page + 1} / {pages.length}</p>
         </div>
         <button onClick={onClose} aria-label="Fermer" style={{ width: 40, height: 40, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: 18, cursor: "pointer" }}>✕</button>
       </div>
@@ -432,20 +432,24 @@ const flecheStyle: React.CSSProperties = {
 function PanneauRecettes({ recettes }: { recettes: TtlRecette[] }) {
   const [categorie, setCategorie] = useState<TtlRecetteCategorie>("repas");
   const [gout, setGout] = useState<TtlRecetteGout | "tout">("tout");
-  const [openRecette, setOpenRecette] = useState<TtlRecette | null>(null);
+  const [calories, setCalories] = useState<number | "toutes">("toutes");
+  const [ouverte, setOuverte] = useState<number | null>(null);
 
   const avecGout = categorieAvecGout(categorie);
-  const filtrees = recettes.filter((r) => r.categorie === categorie && (!avecGout || gout === "tout" || r.gout === gout));
+  const filtrees = recettes.filter((r) =>
+    r.categorie === categorie
+    && (!avecGout || gout === "tout" || r.gout === gout)
+    && (calories === "toutes" || r.calories === calories));
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: avecGout ? 10 : 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 10 }}>
         {CATEGORIE_ORDER.map((c) => {
           const actif = categorie === c;
           return (
             <button
               key={c}
-              onClick={() => { setCategorie(c); setGout("tout"); }}
+              onClick={() => { setCategorie(c); setGout("tout"); setCalories("toutes"); }}
               className="font-body"
               style={{
                 background: actif ? ttlColors.red : ttlColors.card,
@@ -461,7 +465,7 @@ function PanneauRecettes({ recettes }: { recettes: TtlRecette[] }) {
       </div>
 
       {avecGout && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
           <TtlFilterChip active={gout === "tout"} onClick={() => setGout("tout")}>Tout</TtlFilterChip>
           {(Object.keys(TTL_RECETTE_GOUT_LABELS) as TtlRecetteGout[]).map((g) => (
             <TtlFilterChip key={g} active={gout === g} onClick={() => setGout(g)}>{TTL_RECETTE_GOUT_LABELS[g]}</TtlFilterChip>
@@ -469,36 +473,28 @@ function PanneauRecettes({ recettes }: { recettes: TtlRecette[] }) {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        {filtrees.map((r) => (
+      <div className="ttl-alim-slider" style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", scrollbarWidth: "none" }}>
+        <TtlFilterChip active={calories === "toutes"} onClick={() => setCalories("toutes")}>Toutes</TtlFilterChip>
+        {TTL_RECETTE_CALORIES[categorie].map((k) => (
+          <TtlFilterChip key={k} active={calories === k} onClick={() => setCalories(k)}>{k} kcal</TtlFilterChip>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, ...protegeStyle }}>
+        {filtrees.map((r, i) => (
           <button
             key={r.id}
-            onClick={() => setOpenRecette(r)}
-            style={{ display: "block", width: "100%", textAlign: "left", padding: 0, background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 14, overflow: "hidden", cursor: "pointer" }}
+            onClick={() => setOuverte(i)}
+            aria-label={r.titre}
+            style={{ display: "block", width: "100%", padding: 0, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 14, overflow: "hidden", background: ttlColors.card, cursor: "zoom-in", aspectRatio: "1500 / 1054" }}
           >
-            <div style={{
-              aspectRatio: "4 / 3", position: "relative", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30,
-              background: r.photo_url ? undefined : "linear-gradient(135deg,#3a3a1f,#1f1f12)",
-              backgroundImage: r.photo_url ? `url(${r.photo_url})` : undefined, backgroundSize: "cover", backgroundPosition: "center",
-            }}>
-              {!r.photo_url && "🥗"}
-              {r.duree_minutes && (
-                <span className="font-body" style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, padding: "3px 7px", borderRadius: 10 }}>
-                  {r.duree_minutes} min
-                </span>
-              )}
-            </div>
-            <div style={{ padding: "9px 10px 11px" }}>
-              {r.gout && (
-                <p className="font-body" style={{ color: ttlColors.redBright, fontSize: 9, fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", margin: 0 }}>
-                  {TTL_RECETTE_GOUT_LABELS[r.gout]}
-                </p>
-              )}
-              <p className="font-body" style={{ color: "#fff", fontSize: 13, fontWeight: 600, margin: "2px 0 0", lineHeight: 1.3 }}>{r.titre}</p>
-              {r.macros?.calories && (
-                <p className="font-body" style={{ color: ttlColors.muted, fontSize: 11, margin: "3px 0 0" }}>{r.macros.calories} kcal</p>
-              )}
-            </div>
+            <img
+              src={r.miniature_url ?? r.photo_url}
+              alt={r.titre}
+              loading={i < 2 ? "eager" : "lazy"}
+              {...protegeImage}
+              style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", ...protegeStyle }}
+            />
           </button>
         ))}
       </div>
@@ -507,72 +503,15 @@ function PanneauRecettes({ recettes }: { recettes: TtlRecette[] }) {
         <p className="font-body" style={{ color: ttlColors.muted, fontSize: 13 }}>Aucune recette ici pour l&apos;instant.</p>
       )}
 
-      {openRecette && <FicheRecette recette={openRecette} onClose={() => setOpenRecette(null)} />}
-    </div>
-  );
-}
-
-function FicheRecette({ recette, onClose }: { recette: TtlRecette; onClose: () => void }) {
-  const surtitre = [
-    recette.categorie ? TTL_RECETTE_CATEGORIE_LABELS[recette.categorie] : null,
-    recette.gout ? TTL_RECETTE_GOUT_LABELS[recette.gout] : null,
-    recette.duree_minutes ? `${recette.duree_minutes} min` : null,
-  ].filter(Boolean).join(" · ");
-
-  return (
-    <div
-      onClick={onClose}
-      style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: 16 }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{ background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, maxWidth: 480, width: "100%", maxHeight: "90vh", overflowY: "auto" }}
-      >
-        {recette.photo_url && (
-          <div style={{ width: "100%", height: 180, backgroundImage: `url(${recette.photo_url})`, backgroundSize: "cover", backgroundPosition: "center" }} />
-        )}
-        <div style={{ padding: 18 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
-            <div>
-              {surtitre && (
-                <p className="font-body" style={{ color: ttlColors.redBright, fontSize: 10, fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", margin: "0 0 4px" }}>
-                  {surtitre}
-                </p>
-              )}
-              <p className="font-body" style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#fff" }}>{recette.titre}</p>
-            </div>
-            <button onClick={onClose} style={{ background: "none", border: "none", color: ttlColors.muted, fontSize: 20, cursor: "pointer", flexShrink: 0 }}>✕</button>
-          </div>
-
-          {recette.macros && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-              {Object.entries(recette.macros).map(([key, value]) => (
-                <span key={key} className="font-body" style={{ fontSize: "0.7rem", color: "#F5F5F0", backgroundColor: ttlColors.bg, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 20, padding: "4px 10px" }}>
-                  {value}{key === "calories" ? " kcal" : key === "proteines" ? " g prot." : key === "glucides" ? " g gluc." : key === "lipides" ? " g lip." : ` ${key}`}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {recette.ingredients && (
-            <>
-              <p className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: ttlColors.redBright, letterSpacing: "0.06em", margin: "0 0 6px" }}>INGRÉDIENTS</p>
-              <p className="font-body" style={{ fontSize: "0.82rem", color: "rgba(245,245,240,0.8)", lineHeight: 1.6, whiteSpace: "pre-line", margin: "0 0 14px" }}>
-                {recette.ingredients}
-              </p>
-            </>
-          )}
-
-          {recette.texte && (
-            <>
-              <p className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: ttlColors.redBright, letterSpacing: "0.06em", margin: "0 0 6px" }}>PRÉPARATION</p>
-              <p className="font-body" style={{ fontSize: "0.82rem", color: "rgba(245,245,240,0.8)", lineHeight: 1.6, whiteSpace: "pre-line", margin: 0 }}>
-                {recette.texte}
-              </p>
-            </>
-          )}
-        </div>
-      </div>
+      {ouverte !== null && filtrees.length > 0 && (
+        <LecteurPages
+          titre={[TTL_RECETTE_CATEGORIE_LABELS[categorie], avecGout && gout !== "tout" ? TTL_RECETTE_GOUT_LABELS[gout] : null, calories !== "toutes" ? `${calories} kcal` : null].filter(Boolean).join(" · ")}
+          libelle="Recette"
+          pages={filtrees.map((r) => r.photo_url)}
+          depart={Math.min(ouverte, filtrees.length - 1)}
+          onClose={() => setOuverte(null)}
+        />
+      )}
     </div>
   );
 }

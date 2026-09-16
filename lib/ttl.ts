@@ -59,16 +59,22 @@ export function categorieAvecGout(categorie: TtlRecetteCategorie | null): boolea
   return categorie === "petit_dej" || categorie === "collation";
 }
 
+/** Tranches de calories proposées pour chaque catégorie de recette. */
+export const TTL_RECETTE_CALORIES: Record<TtlRecetteCategorie, number[]> = {
+  repas: [400, 450, 500],
+  petit_dej: [400, 450, 500],
+  collation: [250, 300],
+};
+
+/** Une recette = une fiche photo (titre, ingrédients et macros sont sur l'image). */
 export interface TtlRecette {
   id: string;
   titre: string;
-  photo_url: string | null;
-  texte: string | null;
-  ingredients: string | null;
-  macros: { calories?: number; proteines?: number; glucides?: number; lipides?: number } | null;
+  photo_url: string;
+  miniature_url: string | null;
   categorie: TtlRecetteCategorie | null;
   gout: TtlRecetteGout | null;
-  duree_minutes: number | null;
+  calories: number | null;
 }
 
 /** Les apports caloriques proposés, dans l'ordre d'affichage. */
@@ -190,7 +196,8 @@ export async function getRecettes(): Promise<TtlRecette[]> {
   const admin = createSupabaseAdminClient();
   const { data } = await admin
     .from("ttl_recettes")
-    .select("*")
+    .select("id, titre, photo_url, miniature_url, categorie, gout, calories")
+    .not("photo_url", "is", null)
     .order("created_at", { ascending: false });
   return data ?? [];
 }

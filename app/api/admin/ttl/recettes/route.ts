@@ -3,16 +3,28 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { sendPushToAllTtl } from "@/lib/push";
-import { categorieAvecGout, TTL_RECETTE_CATEGORIE_LABELS, TTL_RECETTE_GOUT_LABELS } from "@/lib/ttl";
-import type { TtlRecetteCategorie } from "@/lib/ttl";
+import { categorieAvecGout, TTL_RECETTE_CALORIES, TTL_RECETTE_GOUT_LABELS } from "@/lib/ttl";
+import type { TtlRecetteCategorie, TtlRecetteGout } from "@/lib/ttl";
 
-const CATEGORIES = Object.keys(TTL_RECETTE_CATEGORIE_LABELS);
-const GOUTS = Object.keys(TTL_RECETTE_GOUT_LABELS);
+const COLONNES = "id, titre, photo_url, miniature_url, categorie, gout, calories, created_at";
 
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   return isAdminUser(user) ? user : null;
+}
+
+/** Vérifie la combinaison catégorie / goût / calories, ou renvoie un message d'erreur. */
+function classement(body: { categorie?: unknown; gout?: unknown; calories?: unknown }):
+  { categorie: TtlRecetteCategorie; gout: TtlRecetteGout | null; calories: number } | string {
+  const categorie = body.categorie as TtlRecetteCategorie;
+  if (!(categorie in TTL_RECETTE_CALORIES)) return "Catégorie invalide";
+  const calories = Number(body.calories);
+  if (!TTL_RECETTE_CALORIES[categorie].includes(calories)) return "Tranche de calories invalide pour cette catégorie";
+  if (!categorieAvecGout(categorie)) return { categorie, gout: null, calories };
+  const gout = body.gout as TtlRecetteGout;
+  if (!(gout in TTL_RECETTE_GOUT_LABELS)) return "Précise sucré ou salé";
+  return { categorie, gout, calories };
 }
 
 export async function GET() {
@@ -21,46 +33,60 @@ export async function GET() {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("ttl_recettes")
-    .select("*")
+    .select(COLONNES)
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ recettes: data ?? [] });
 }
 
+/** Ajoute une ou plusieurs fiches photo, toutes rangées au même endroit. */
 export async function POST(request: NextRequest) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
 
-  const { titre, photo_url, texte, ingredients, macros, categorie, gout, duree_minutes, notifier } = await request.json();
-  if (!titre) return NextResponse.json({ error: "Titre requis" }, { status: 400 });
+  const body = await request.json();
+  const rang = classement(body);
+  if (typeof rang === "string") return NextResponse.json({ error: rang }, { status: 400 });
 
-  const categorieValide: TtlRecetteCategorie | null = CATEGORIES.includes(categorie) ? categorie : null;
-  const goutValide = categorieAvecGout(categorieValide) && GOUTS.includes(gout) ? gout : null;
+  const fiches = Array.isArray(body.recettes) ? body.recettes.slice(0, 100) : [];
+  const lignes = fiches
+    .filter((f: { photo_url?: unknown }) => f?.photo_url)
+    .map((f: { titre?: unknown; photo_url: unknown; miniature_url?: unknown }) => ({
+      titre: String(f.titre || "Recette").slice(0, 200),
+      photo_url: String(f.photo_url).slice(0, 500),
+      miniature_url: f.miniature_url ? String(f.miniature_url).slice(0, 500) : null,
+      ...rang,
+    }));
+  if (lignes.length === 0) return NextResponse.json({ error: "Au moins une photo est requise" }, { status: 400 });
 
   const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("ttl_recettes")
-    .insert({
-      titre: String(titre).slice(0, 200),
-      photo_url: photo_url ? String(photo_url).slice(0, 500) : null,
-      texte: texte ? String(texte).slice(0, 5000) : null,
-      ingredients: ingredients ? String(ingredients).slice(0, 3000) : null,
-      macros: macros ?? null,
-      categorie: categorieValide,
-      gout: goutValide,
-      duree_minutes: duree_minutes ? Number(duree_minutes) : null,
-    })
-    .select()
-    .single();
+  const { data, error } = await admin.from("ttl_recettes").insert(lignes).select(COLONNES);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  if (notifier) {
+  if (body.notifier) {
+    const nb = data.length;
     after(() => sendPushToAllTtl({
-      title: "🥗 Nouvelle recette disponible !",
-      body: `${data.titre} vient d'être ajoutée à ta bibliothèque.`,
+      title: nb > 1 ? `🥗 ${nb} nouvelles recettes !` : "🥗 Nouvelle recette disponible !",
+      body: nb > 1 ? "De nouvelles recettes t'attendent dans ton onglet Alimentation." : `${data[0].titre} vient d'être ajoutée à ton onglet Alimentation.`,
       url: "/ttl/alimentation",
     }));
   }
+
+  return NextResponse.json({ recettes: data });
+}
+
+/** Change le rangement d'une fiche (catégorie, sucré / salé, calories). */
+export async function PATCH(request: NextRequest) {
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
+
+  const body = await request.json();
+  if (!body.id) return NextResponse.json({ error: "id requis" }, { status: 400 });
+  const rang = classement(body);
+  if (typeof rang === "string") return NextResponse.json({ error: rang }, { status: 400 });
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.from("ttl_recettes").update(rang).eq("id", body.id).select(COLONNES).single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ recette: data });
 }
