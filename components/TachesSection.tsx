@@ -27,11 +27,12 @@ export default function TachesSection() {
     // Optimistic update
     setTaches((prev) => prev.map((t) => t.id === id ? { ...t, done: !currentDone } : t));
     try {
-      await fetch("/api/taches", {
+      const res = await fetch("/api/taches", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ taskId: id, done: !currentDone }),
       });
+      if (!res.ok) throw new Error();
     } catch {
       // Revert on error
       setTaches((prev) => prev.map((t) => t.id === id ? { ...t, done: currentDone } : t));
@@ -50,24 +51,7 @@ export default function TachesSection() {
     return (
       <div style={{ padding: "0 16px 4px" }}>
         <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span className="font-body" style={{ fontSize: "0.75rem", color: "#333" }}>Aucune tâche cette semaine</span>
-        </div>
-      </div>
-    );
-  }
-
-  // Toutes validées → encart compact
-  if (count > 0 && doneCount === count) {
-    return (
-      <div style={{ padding: "0 16px 4px" }}>
-        <div style={{ backgroundColor: "#111111", border: "1px solid rgba(74,222,128,0.15)", borderRadius: 14, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: "0.9rem" }}>✅</span>
-          <span className="font-body" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#4ADE80", letterSpacing: "0.04em" }}>
-            Tout fait cette semaine !
-          </span>
-          <span className="font-body" style={{ marginLeft: "auto", fontSize: "0.65rem", color: "#4ADE80", opacity: 0.6 }}>
-            {count}/{count}
-          </span>
+          <span className="font-body" style={{ fontSize: "0.75rem", color: "#333" }}>Aucune tâche en cours</span>
         </div>
       </div>
     );
@@ -83,8 +67,8 @@ export default function TachesSection() {
             style={{
               fontSize: "0.68rem",
               fontWeight: 700,
-              color: doneCount === count ? "#FB923C" : "#B22222",
-              backgroundColor: doneCount === count ? "rgba(251,146,60,0.1)" : "rgba(178,34,34,0.1)",
+              color: doneCount === count ? "#4ADE80" : "#B22222",
+              backgroundColor: doneCount === count ? "rgba(74,222,128,0.1)" : "rgba(178,34,34,0.1)",
               padding: "2px 8px",
               borderRadius: 6,
             }}

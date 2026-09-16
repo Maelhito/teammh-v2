@@ -31,6 +31,8 @@ interface CalendarEvent {
   created_by: "admin" | "cliente";
   event_type: "coach" | "nutrition" | "coaching_groupe" | "seance" | "tache" | null;
   target_user_id: string | null;
+  /** Tâches : moment où la cliente l'a validée, null tant qu'elle ne l'a pas fait. */
+  fait_le?: string | null;
 }
 interface Assignment {
   id: string; user_id: string; programme_id: string; date_debut: string;
@@ -1404,6 +1406,11 @@ function EventEditModal({ ev, clienteId, onClose, onUpdated }: {
           <div>
             <p style={{ fontSize: 9, fontWeight: 700, color: typeColor, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 3px", fontFamily: "system-ui" }}>{typeLabel}</p>
             <h3 style={{ fontSize: "1rem", fontWeight: 800, margin: 0, color: "#F5F5F0", fontFamily: "system-ui" }}>Modifier l'événement</h3>
+            {isTache && (
+              <p style={{ fontSize: 11, fontWeight: 700, margin: "4px 0 0", color: ev.fait_le ? "#4ADE80" : "#666", fontFamily: "system-ui" }}>
+                {ev.fait_le ? "✓ Validée par la cliente" : "Pas encore validée"}
+              </p>
+            )}
           </div>
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 7, color: "#666", fontSize: 18, cursor: "pointer", padding: "5px 11px", fontFamily: "system-ui" }}>✕</button>
         </div>
