@@ -9,6 +9,7 @@ import {
   computeCurrentNumeroMois,
   computeCurrentSemaine,
   getRecettes,
+  recetteDuJour as tirerRecetteDuJour,
   getObjectif,
   getSeancesProgress,
 } from "@/lib/ttl";
@@ -17,6 +18,9 @@ import { ttlObjectifLabel, ttlObjectifEmoji, ttlObjectifTagline } from "@/lib/tt
 import { computeTtlBadges } from "@/lib/ttl-badges";
 import { getStreak } from "@/lib/streak";
 import { ttlColors } from "@/lib/ttl-theme";
+import { aujourdhuiDans, FUSEAU_PAR_DEFAUT } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
+import { TTL_RECETTE_CATEGORIE_LABELS } from "@/lib/ttl";
 import TtlHeader from "@/components/TtlHeader";
 import TtlBottomNav from "@/components/TtlBottomNav";
 import TtlParcoursTimeline from "@/components/TtlParcoursTimeline";
@@ -29,7 +33,6 @@ export const dynamic = "force-dynamic";
 
 const QUEST_STYLES: Record<string, { bg: string; emoji: string; label: string; href: string }> = {
   seance: { bg: "#3a1414", emoji: "🏋️", label: "Séance du mois", href: "/ttl/sport" },
-  recette: { bg: "#1f2a14", emoji: "🥗", label: "Recette du jour", href: "/ttl/alimentation" },
 };
 
 interface PageProps {
@@ -45,7 +48,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
 
   const offre = await requireTtlAccess(userId, isPreview);
 
-  const [modules, watchedIds, programmes, recettes, streakInfo, objectif, seancesProgress] = await Promise.all([
+  const [modules, watchedIds, programmes, recettes, streakInfo, objectif, seancesProgress, fuseau] = await Promise.all([
     getOnboardingModules(),
     userId ? getWatchedVideoIds(userId) : Promise.resolve(new Set<string>()),
     getProgrammes(),
@@ -53,6 +56,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
     userId ? getStreak(userId) : Promise.resolve({ streak_current: 0, streak_last_activity: null, streak_freezes: 0 }),
     userId ? getObjectif(userId) : Promise.resolve(null),
     userId ? getSeancesProgress(userId) : Promise.resolve([]),
+    userId ? getFuseau(userId) : Promise.resolve(undefined),
   ]);
 
   const totalModules = modules.length;
@@ -67,7 +71,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
   const sortedProgrammes = [...programmes].sort((a, b) => a.numero_mois - b.numero_mois);
   const currentProgramme = sortedProgrammes.filter((p) => p.numero_mois <= currentNumeroMois).pop() ?? null;
 
-  const recetteDuJour = recettes[0] ?? null;
+  const recetteDuJour = tirerRecetteDuJour(recettes, aujourdhuiDans(fuseau ?? FUSEAU_PAR_DEFAUT));
   const seancesValidees = seancesProgress.length;
 
   // Mission du jour : onboarding en priorité, sinon la séance de la semaine en cours
@@ -93,7 +97,6 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
 
   const quests = [
     currentProgramme && currentProgramme.videos.length > 0 ? "seance" : null,
-    recetteDuJour ? "recette" : null,
   ].filter(Boolean) as (keyof typeof QUEST_STYLES)[];
 
   const joursDepuisDebut = offre?.date_debut ? Math.floor((Date.now() - new Date(offre.date_debut).getTime()) / 86400000) : 0;
@@ -151,6 +154,28 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
             <p className="font-body" style={{ color: ttlColors.muted, fontSize: 13 }}>
               Aucun contenu pour l&apos;instant — reviens bientôt.
             </p>
+          )}
+
+          {recetteDuJour && (
+            <>
+              <p className="font-body" style={{ color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: "0.03em", margin: "22px 0 10px" }}>
+                🥗 Recette du jour
+              </p>
+              <Link href={`/ttl/alimentation?recette=${recetteDuJour.id}`} style={{ display: "block", textDecoration: "none", borderRadius: 16, overflow: "hidden", border: `1px solid ${ttlColors.cardBorder}`, background: ttlColors.card }}>
+                <img
+                  src={recetteDuJour.miniature_url ?? recetteDuJour.photo_url}
+                  alt={recetteDuJour.titre}
+                  draggable={false}
+                  style={{ display: "block", width: "100%", aspectRatio: "1500 / 1054", objectFit: "cover", WebkitTouchCallout: "none", userSelect: "none" }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px" }}>
+                  <span className="font-body" style={{ color: ttlColors.muted, fontSize: 12 }}>
+                    {[recetteDuJour.categorie ? TTL_RECETTE_CATEGORIE_LABELS[recetteDuJour.categorie] : null, recetteDuJour.calories ? `${recetteDuJour.calories} kcal` : null].filter(Boolean).join(" · ")}
+                  </span>
+                  <span className="font-body" style={{ color: ttlColors.redBright, fontSize: 12, fontWeight: 700 }}>Voir en grand ›</span>
+                </div>
+              </Link>
+            </>
           )}
 
           {quests.length > 0 && (

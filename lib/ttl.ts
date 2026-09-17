@@ -202,6 +202,19 @@ export async function getRecettes(): Promise<TtlRecette[]> {
   return data ?? [];
 }
 
+/**
+ * La recette du jour : tirée au hasard parmi les recettes disponibles, la même toute
+ * la journée (le jour de la cliente, au format AAAA-MM-JJ), une autre le lendemain.
+ */
+export function recetteDuJour(recettes: TtlRecette[], jour: string): TtlRecette | null {
+  if (recettes.length === 0) return null;
+  // Tri par id : l'ordre ne dépend pas de la date d'ajout, le tirage reste stable dans la journée.
+  const triees = [...recettes].sort((a, b) => a.id.localeCompare(b.id));
+  let hash = 2166136261;
+  for (const c of jour) hash = Math.imul(hash ^ c.charCodeAt(0), 16777619);
+  return triees[(hash >>> 0) % triees.length];
+}
+
 export async function getPlansAlimentaires(): Promise<TtlPlanAlimentaire[]> {
   const admin = createSupabaseAdminClient();
   const { data } = await admin

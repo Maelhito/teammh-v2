@@ -95,7 +95,8 @@ export default function RecettesAdmin() {
     nouveaux.forEach(async (b) => {
       try {
         const [photo, mini] = await Promise.all([
-          uploadToTtlBucket("ttl-images", b.fichier, `recette-${b.fichier.name}`),
+          // La photo d'origine (souvent une capture de 2 à 3 Mo) est réduite à environ 300-500 Ko.
+          miniature(b.fichier, 2000).then((blob) => uploadToTtlBucket("ttl-images", blob, `recette-${b.fichier.name.replace(/\.[^.]+$/, "")}.jpg`)),
           miniature(b.fichier).then((blob) => uploadToTtlBucket("ttl-images", blob, `recette-mini-${b.fichier.name.replace(/\.[^.]+$/, "")}.jpg`)),
         ]);
         if ("error" in photo || "error" in mini) throw new Error();

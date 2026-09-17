@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { sendPushToAllTtl } from "@/lib/push";
 import { TTL_PLAN_CALORIES } from "@/lib/ttl";
+import { supprimerFichiers } from "@/lib/ttl-stockage";
 
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient();
@@ -55,8 +56,11 @@ export async function PUT(request: NextRequest) {
   const admin = createSupabaseAdminClient();
 
   if (id) {
+    const { data: ancien } = await admin.from("ttl_plans_alimentaires").select("pdf_url, pages, miniatures").eq("id", id).maybeSingle();
     const { data, error } = await admin.from("ttl_plans_alimentaires").update(contenu).eq("id", id).select(COLONNES).single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    // Les fichiers de l'ancien PDF ne servent plus à rien.
+    if (ancien) after(() => supprimerFichiers([ancien.pdf_url, ...(ancien.pages as string[]), ...(ancien.miniatures as string[])]));
     const { miniatures: m, ...plan } = data;
     return NextResponse.json({ plan: { ...plan, couverture: (m as string[])[0] ?? null } });
   }
@@ -98,8 +102,9 @@ export async function DELETE(request: NextRequest) {
   if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
 
   const admin = createSupabaseAdminClient();
-  const { error } = await admin.from("ttl_plans_alimentaires").delete().eq("id", id);
+  const { data: plan, error } = await admin.from("ttl_plans_alimentaires").delete().eq("id", id).select("pdf_url, pages, miniatures").maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (plan) after(() => supprimerFichiers([plan.pdf_url, ...(plan.pages as string[]), ...(plan.miniatures as string[])]));
 
   return NextResponse.json({ success: true });
 }

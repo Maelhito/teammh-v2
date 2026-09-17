@@ -1,5 +1,6 @@
 import webpush from "web-push";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { accesTtlAccorde } from "@/lib/ttl-access";
 
 function getWebPush() {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -62,9 +63,20 @@ export async function sendPushToAllTtl(payload: PushPayload) {
   const admin = createSupabaseAdminClient();
   const { data: offres } = await admin
     .from("offres_clientes")
-    .select("user_id")
+    .select("*")
     .eq("offre", "TTL");
-  const ttlUserIds = (offres ?? []).map((o) => o.user_id);
+  if (!offres?.length) return;
+
+  // Même règle d'accès que l'app : une cliente dont l'accès TTL est fermé
+  // (abonnement résilié, paiement jamais activé) ne reçoit plus rien.
+  const { data: abonnements } = await admin
+    .from("ttl_subscriptions")
+    .select("*")
+    .in("user_id", offres.map((o) => o.user_id));
+  const abonnementDe = new Map((abonnements ?? []).map((a) => [a.user_id, a]));
+  const ttlUserIds = offres
+    .filter((o) => accesTtlAccorde(o, abonnementDe.get(o.user_id) ?? null))
+    .map((o) => o.user_id);
   if (!ttlUserIds.length) return;
 
   const { data: subs } = await admin

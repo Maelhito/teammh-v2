@@ -10,6 +10,9 @@ export async function miniature(file: File, largeur = 800): Promise<Blob> {
     canvas.height = Math.round(bitmap.height * echelle);
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas indisponible");
+    // Fond blanc : une image PNG transparente deviendrait noire en JPEG.
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     return await new Promise((resolve, reject) =>

@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { sendPushToAllTtl } from "@/lib/push";
 import { categorieAvecGout, TTL_RECETTE_CALORIES, TTL_RECETTE_GOUT_LABELS } from "@/lib/ttl";
 import type { TtlRecetteCategorie, TtlRecetteGout } from "@/lib/ttl";
+import { supprimerFichiers } from "@/lib/ttl-stockage";
 
 const COLONNES = "id, titre, photo_url, miniature_url, categorie, gout, calories, created_at";
 
@@ -100,8 +101,9 @@ export async function DELETE(request: NextRequest) {
   if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
 
   const admin = createSupabaseAdminClient();
-  const { error } = await admin.from("ttl_recettes").delete().eq("id", id);
+  const { data: recette, error } = await admin.from("ttl_recettes").delete().eq("id", id).select("photo_url, miniature_url").maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (recette) after(() => supprimerFichiers([recette.photo_url, recette.miniature_url]));
 
   return NextResponse.json({ success: true });
 }

@@ -9,6 +9,8 @@ import { TtlFilterChip } from "@/components/TtlUI";
 interface Props {
   plans: TtlPlanAlimentaire[];
   recettes: TtlRecette[];
+  /** Recette à ouvrir d'emblée (lien « Recette du jour » de l'accueil). */
+  recetteInitiale?: string;
 }
 
 const ONGLETS = ["Plans alimentaires", "Recettes"] as const;
@@ -18,8 +20,9 @@ function formatKcal(calories: number) {
   return `${calories.toLocaleString("fr-FR")} kcal`;
 }
 
-export default function TtlAlimentation({ plans, recettes }: Props) {
-  const [onglet, setOnglet] = useState(0);
+export default function TtlAlimentation({ plans, recettes, recetteInitiale }: Props) {
+  const aOuvrir = recettes.find((r) => r.id === recetteInitiale && r.categorie) ?? null;
+  const [onglet, setOnglet] = useState(aOuvrir ? 1 : 0);
   const [hauteur, setHauteur] = useState<number | undefined>(undefined);
   const sliderRef = useRef<HTMLDivElement>(null);
   const panneauxRef = useRef<(HTMLDivElement | null)[]>([]);
@@ -32,6 +35,11 @@ export default function TtlAlimentation({ plans, recettes }: Props) {
     observer.observe(panneau);
     return () => observer.disconnect();
   }, [onglet]);
+
+  useLayoutEffect(() => {
+    if (aOuvrir && sliderRef.current) sliderRef.current.scrollLeft = sliderRef.current.clientWidth;
+    // Uniquement à l'arrivée sur la page.
+  }, []);
 
   function allerA(index: number) {
     const slider = sliderRef.current;
@@ -78,7 +86,7 @@ export default function TtlAlimentation({ plans, recettes }: Props) {
           <PanneauPlans plans={plans} />
         </div>
         <div ref={(el) => { panneauxRef.current[1] = el; }} style={panneauStyle}>
-          <PanneauRecettes recettes={recettes} />
+          <PanneauRecettes recettes={recettes} recetteInitiale={aOuvrir} />
         </div>
       </div>
       <style>{`.ttl-alim-slider::-webkit-scrollbar { display: none; }`}</style>
@@ -429,11 +437,15 @@ const flecheStyle: React.CSSProperties = {
 /* Recettes                                                            */
 /* ------------------------------------------------------------------ */
 
-function PanneauRecettes({ recettes }: { recettes: TtlRecette[] }) {
-  const [categorie, setCategorie] = useState<TtlRecetteCategorie>("repas");
+function PanneauRecettes({ recettes, recetteInitiale }: { recettes: TtlRecette[]; recetteInitiale: TtlRecette | null }) {
+  const [categorie, setCategorie] = useState<TtlRecetteCategorie>(recetteInitiale?.categorie ?? "repas");
   const [gout, setGout] = useState<TtlRecetteGout | "tout">("tout");
   const [calories, setCalories] = useState<number | "toutes">("toutes");
-  const [ouverte, setOuverte] = useState<number | null>(null);
+  const [ouverte, setOuverte] = useState<number | null>(() => {
+    if (!recetteInitiale) return null;
+    const index = recettes.filter((r) => r.categorie === recetteInitiale.categorie).findIndex((r) => r.id === recetteInitiale.id);
+    return index >= 0 ? index : null;
+  });
 
   const avecGout = categorieAvecGout(categorie);
   const filtrees = recettes.filter((r) =>

@@ -9,7 +9,8 @@ import TtlAlimentation from "./TtlAlimentation";
 
 export const dynamic = "force-dynamic";
 
-export default async function TtlAlimentationPage() {
+export default async function TtlAlimentationPage({ searchParams }: { searchParams: Promise<{ recette?: string }> }) {
+  const { recette } = await searchParams;
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
   const { userId, firstName, isPreview } = await getEffectiveUser(session);
@@ -25,7 +26,7 @@ export default async function TtlAlimentationPage() {
       <div className="mx-auto" style={{ maxWidth: 480 }}>
         <TtlHeader variant="page" title="Alimentation" subtitle="Tes plans alimentaires et tes recettes" />
 
-        <TtlAlimentation plans={plans} recettes={recettes} />
+        <TtlAlimentation plans={plans} recettes={recettes} recetteInitiale={recette} />
       </div>
 
       <TtlBottomNav />
