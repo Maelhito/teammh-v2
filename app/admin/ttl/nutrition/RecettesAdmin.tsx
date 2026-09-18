@@ -72,7 +72,8 @@ export default function RecettesAdmin() {
   const [brouillons, setBrouillons] = useState<Brouillon[]>([]);
   const [notifier, setNotifier] = useState(false);
   const [enregistrement, setEnregistrement] = useState(false);
-  const [filtre, setFiltre] = useState<Categorie | "toutes">("toutes");
+  // Rien n'est déplié au départ : les photos ne se chargent qu'à l'ouverture d'une catégorie.
+  const [ouverte, setOuverte] = useState<Categorie | null>(null);
   const [apercu, setApercu] = useState<TtlRecette | null>(null);
   const [agrandie, setAgrandie] = useState<string | null>(null);
   const [lecturePdf, setLecturePdf] = useState<string | null>(null);
@@ -267,7 +268,7 @@ export default function RecettesAdmin() {
     }
   }
 
-  const affichees = filtre === "toutes" ? recettes : recettes.filter((r) => r.categorie === filtre);
+  const affichees = ouverte ? recettes.filter((r) => r.categorie === ouverte) : [];
 
   return (
     <div>
@@ -412,18 +413,29 @@ export default function RecettesAdmin() {
 
       {error && <p style={{ color: "#F87171", fontSize: 13 }}>{error}</p>}
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-        <Choix actif={filtre === "toutes"} onClick={() => setFiltre("toutes")}>Toutes ({recettes.length})</Choix>
-        {CATEGORIES.map((c) => (
-          <Choix key={c} actif={filtre === c} onClick={() => setFiltre(c)}>
-            {CATEGORIE_LABELS[c]} ({recettes.filter((r) => r.categorie === c).length})
-          </Choix>
-        ))}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
+        {CATEGORIES.map((c) => {
+          const nb = recettes.filter((r) => r.categorie === c).length;
+          return (
+            <Choix key={c} actif={ouverte === c} onClick={() => setOuverte(ouverte === c ? null : c)}>
+              {ouverte === c ? "▾" : "▸"} {CATEGORIE_LABELS[c]} ({nb})
+            </Choix>
+          );
+        })}
+        {(() => {
+          const sansCategorie = recettes.filter((r) => !r.categorie || !r.calories || !r.photo_url).length;
+          return sansCategorie > 0 ? (
+            <span style={{ fontSize: 12, color: "#F87171", fontWeight: 700 }}>{sansCategorie} à ranger</span>
+          ) : null;
+        })()}
+        <span style={{ fontSize: 12, color: "var(--admin-text-muted)" }}>
+          {ouverte ? "Touche à nouveau pour replier." : `${recettes.length} recettes en ligne — ouvre une catégorie pour les voir.`}
+        </span>
       </div>
 
       {loading ? (
         <p style={{ color: "var(--admin-text-muted)" }}>Chargement...</p>
-      ) : (
+      ) : ouverte === null ? null : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 12 }}>
           {affichees.map((r) => {
             const incomplet = !r.photo_url || !r.calories || !r.categorie;
@@ -431,7 +443,7 @@ export default function RecettesAdmin() {
               <div key={r.id} style={{ ...cardStyle, padding: 10, borderColor: incomplet ? "#F87171" : undefined }}>
                 <button type="button" onClick={() => setApercu(r)} style={{ all: "unset", cursor: "pointer", display: "block", width: "100%" }}>
                   {r.miniature_url || r.photo_url ? (
-                    <img src={r.miniature_url ?? r.photo_url} alt={r.titre} style={{ width: "100%", aspectRatio: "1500 / 1054", objectFit: "cover", borderRadius: 8 }} />
+                    <img src={r.miniature_url ?? r.photo_url} alt={r.titre} loading="lazy" decoding="async" style={{ width: "100%", aspectRatio: "1500 / 1054", objectFit: "cover", borderRadius: 8 }} />
                   ) : (
                     <div style={{ width: "100%", aspectRatio: "1500 / 1054", borderRadius: 8, backgroundColor: "var(--admin-card)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#F87171" }}>
                       Pas de photo : invisible dans l&apos;app
@@ -443,7 +455,7 @@ export default function RecettesAdmin() {
               </div>
             );
           })}
-          {affichees.length === 0 && <p style={{ color: "var(--admin-text-muted)", fontStyle: "italic" }}>Aucune recette ici pour l&apos;instant.</p>}
+          {affichees.length === 0 && <p style={{ color: "var(--admin-text-muted)", fontStyle: "italic" }}>Aucune recette dans cette catégorie pour l&apos;instant.</p>}
         </div>
       )}
 
