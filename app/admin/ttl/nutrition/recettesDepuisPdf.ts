@@ -80,11 +80,11 @@ function trancheLaPlusProche(categorie: TtlRecetteCategorie | null, kcal: number
  *   la catégorie venant des pages « Jour X » qui disent le repas de chaque plat.
  */
 export async function recettesDepuisPdf(
-  file: File,
+  fichier: Blob,
   onProgress: (page: number, total: number) => void,
 ): Promise<FicheRecette[]> {
   const pdfjs = await chargerPdfjs();
-  const chargement = pdfjs.getDocument({ data: await file.arrayBuffer() });
+  const chargement = pdfjs.getDocument({ data: new Uint8Array(await fichier.arrayBuffer()) });
   const pdf = await chargement.promise;
 
   try {

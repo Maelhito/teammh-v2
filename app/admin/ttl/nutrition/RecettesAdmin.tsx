@@ -10,6 +10,13 @@ import {
   TTL_RECETTE_GOUT_LABELS as GOUT_LABELS,
 } from "@/lib/ttl";
 import type { TtlRecette, TtlRecetteCategorie as Categorie, TtlRecetteGout as Gout } from "@/lib/ttl";
+
+interface PlanEnLigne {
+  id: string;
+  calories: number;
+  numero: number;
+  pdf_url: string;
+}
 import { miniature } from "./miniature";
 import { recettesDepuisPdf } from "./recettesDepuisPdf";
 
@@ -69,8 +76,10 @@ export default function RecettesAdmin() {
   const [apercu, setApercu] = useState<TtlRecette | null>(null);
   const [agrandie, setAgrandie] = useState<string | null>(null);
   const [lecturePdf, setLecturePdf] = useState<string | null>(null);
+  const [plans, setPlans] = useState<PlanEnLigne[]>([]);
+  const [planCalories, setPlanCalories] = useState<number | null>(null);
+  const [planId, setPlanId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const pdfRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/admin/ttl/recettes")
@@ -81,6 +90,20 @@ export default function RecettesAdmin() {
       })
       .catch(() => setError("Erreur de chargement"))
       .finally(() => setLoading(false));
+  }, []);
+
+  // Les plans déjà en ligne : leur PDF sert à en sortir les recettes, sans le redéposer.
+  useEffect(() => {
+    fetch("/api/admin/ttl/plans-alimentaires")
+      .then((r) => r.json())
+      .then((d) => {
+        const liste: PlanEnLigne[] = d.plans ?? [];
+        setPlans(liste);
+        const premier = liste[0] ?? null;
+        setPlanCalories(premier?.calories ?? null);
+        setPlanId(premier?.id ?? null);
+      })
+      .catch(() => {});
   }, []);
 
   function modifierBrouillon(cle: string, changement: Partial<Brouillon>) {
@@ -125,17 +148,19 @@ export default function RecettesAdmin() {
     }
   }
 
-  /** PDF d'un plan : l'app en sort les pages de recettes, sans les doublons. */
-  async function handlePdf(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (pdfRef.current) pdfRef.current.value = "";
-    if (!file) return;
+  /** Les recettes d'un plan déjà en ligne, sorties de son PDF, sans les doublons. */
+  async function convertirPlan() {
+    const plan = plans.find((p) => p.id === planId);
+    if (!plan) return;
     setError(null);
-    setLecturePdf("Lecture du PDF…");
+    setLecturePdf("Ouverture du plan…");
     try {
-      const fiches = await recettesDepuisPdf(file, (page, total) => setLecturePdf(`Lecture de la page ${page}/${total}…`));
+      const reponse = await fetch(plan.pdf_url);
+      if (!reponse.ok) throw new Error("PDF du plan introuvable");
+      const fichier = await reponse.blob();
+      const fiches = await recettesDepuisPdf(fichier, (page, total) => setLecturePdf(`Lecture de la page ${page}/${total}…`));
       if (fiches.length === 0) {
-        setError("Aucune recette trouvée dans ce PDF : les pages de recettes doivent porter « Pour 1 part : … kcal »");
+        setError("Aucune recette trouvée dans ce plan : les pages de recettes doivent porter « Pour 1 part »");
         return;
       }
       ajouterBrouillons(fiches.map((f) => ({
@@ -252,17 +277,44 @@ export default function RecettesAdmin() {
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, marginBottom: 14 }}>
-        <button
-          type="button"
-          onClick={() => pdfRef.current?.click()}
-          disabled={!!lecturePdf}
-          style={{ ...cardStyle, padding: 22, border: "1px dashed #B22222", color: "var(--admin-text)", fontSize: 14, fontWeight: 700, cursor: lecturePdf ? "not-allowed" : "pointer", textAlign: "left" }}
-        >
-          {lecturePdf ?? "📄 Prendre les recettes d'un PDF de plan"}
-          <span style={{ display: "block", fontSize: 12, fontWeight: 400, color: "var(--admin-text-muted)", marginTop: 4 }}>
-            L&apos;app garde les pages de recettes, retire les doublons et devine le nom, les calories et souvent la catégorie.
-          </span>
-        </button>
+        <div style={{ ...cardStyle, padding: 18, border: "1px dashed #B22222", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--admin-text)" }}>📄 Prendre les recettes d&apos;un plan</p>
+            <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--admin-text-muted)" }}>
+              Choisis un plan déjà en ligne : l&apos;app garde ses pages de recettes, retire les doublons et devine le nom, les calories et la catégorie.
+            </p>
+          </div>
+
+          {plans.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 12, color: "var(--admin-text-muted)" }}>Aucun plan en ligne pour l&apos;instant : ajoute d&apos;abord un plan plus haut.</p>
+          ) : (
+            <>
+              <Ligne titre="Apport calorique">
+                {[...new Set(plans.map((p) => p.calories))].sort((a, b) => a - b).map((c) => (
+                  <Choix key={c} actif={planCalories === c} onClick={() => {
+                    setPlanCalories(c);
+                    setPlanId(plans.find((p) => p.calories === c)?.id ?? null);
+                  }}>{c} kcal</Choix>
+                ))}
+              </Ligne>
+
+              <Ligne titre="Plan">
+                {plans.filter((p) => p.calories === planCalories).sort((a, b) => a.numero - b.numero).map((p) => (
+                  <Choix key={p.id} actif={planId === p.id} onClick={() => setPlanId(p.id)}>Plan N°{p.numero}</Choix>
+                ))}
+              </Ligne>
+
+              <button
+                type="button"
+                onClick={convertirPlan}
+                disabled={!!lecturePdf || !planId}
+                style={{ ...btnPrimary, alignSelf: "flex-start", cursor: lecturePdf || !planId ? "not-allowed" : "pointer", opacity: lecturePdf || !planId ? 0.6 : 1 }}
+              >
+                {lecturePdf ?? "Convertir les recettes de ce plan"}
+              </button>
+            </>
+          )}
+        </div>
 
         <button
           type="button"
@@ -277,7 +329,6 @@ export default function RecettesAdmin() {
         </button>
       </div>
       <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleFiles} />
-      <input ref={pdfRef} type="file" accept="application/pdf,.pdf" style={{ display: "none" }} onChange={handlePdf} />
 
       {brouillons.length > 0 && (
         <div style={{ ...cardStyle, marginBottom: 24 }}>
