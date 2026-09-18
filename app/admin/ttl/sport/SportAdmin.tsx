@@ -175,7 +175,7 @@ export default function SportAdmin() {
 
   return (
     <div>
-      <PageHeader title="Sport Time To Last" subtitle="Un programme, exactement 3 séances vidéo" />
+      <PageHeader title="Sport Time To Live" subtitle="Un programme, exactement 3 séances vidéo" />
 
       {error && <p style={{ color: "#F87171", fontSize: 13 }}>{error}</p>}
 

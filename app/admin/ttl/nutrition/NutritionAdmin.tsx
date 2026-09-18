@@ -8,7 +8,7 @@ import StockageAdmin from "./StockageAdmin";
 export default function NutritionAdmin() {
   return (
     <div>
-      <PageHeader title="Nutrition Time To Last" subtitle="Plans alimentaires et recettes de l'onglet Alimentation" />
+      <PageHeader title="Nutrition Time To Live" subtitle="Plans alimentaires et recettes de l'onglet Alimentation" />
       <PlansAdmin />
       <RecettesAdmin />
       <StockageAdmin />

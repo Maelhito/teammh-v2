@@ -94,7 +94,7 @@ export default function InscriptionTtlPage() {
               COMPTE CRÉÉ !
             </h2>
             <p className="font-body" style={{ color: ttlColors.muted, fontSize: 14, lineHeight: 1.6, margin: "0 0 24px" }}>
-              Ton compte Time To Last est prêt. Connecte-toi dès maintenant avec ton email et ton mot de passe.
+              Ton compte Time To Live est prêt. Connecte-toi dès maintenant avec ton email et ton mot de passe.
             </p>
             <Link href="/login" className="font-body" style={{ display: "block", backgroundColor: ttlColors.red, color: "#FFFFFF", borderRadius: 12, padding: "14px", fontSize: 14, fontWeight: 700, letterSpacing: "0.05em", textDecoration: "none" }}>
               SE CONNECTER →

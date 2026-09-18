@@ -139,7 +139,7 @@ export default function OnboardingAdmin() {
 
   return (
     <div>
-      <PageHeader title="Onboarding Time To Last" subtitle="Blocs (Démarrage, Sport, Nutrition, Mindset...) parcourus dans l'ordre, vidéos YouTube cochées une fois vues" />
+      <PageHeader title="Onboarding Time To Live" subtitle="Blocs (Démarrage, Sport, Nutrition, Mindset...) parcourus dans l'ordre, vidéos YouTube cochées une fois vues" />
 
       {error && <p style={{ color: "#F87171", fontSize: 13 }}>{error}</p>}
 

@@ -43,7 +43,7 @@ export default async function TtlPaiementPage({ searchParams }: PageProps) {
       {isPreview && <PreviewBanner name={firstName} />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>
-        <TtlHeader variant="page" title="Débloquer Time To Last" subtitle="Un dernier pas avant de commencer" />
+        <TtlHeader variant="page" title="Débloquer Time To Live" subtitle="Un dernier pas avant de commencer" />
 
         <div style={{ padding: "20px 20px 100px" }}>
           {checkout === "canceled" && (

@@ -1,12 +1,12 @@
 export type Offre = "TTM" | "TTL";
 
-// Ordre normal du parcours : l'accompagnement d'abord, puis Time To Last.
+// Ordre normal du parcours : l'accompagnement d'abord, puis Time To Live.
 // Toute transition qui ne suit pas cet ordre est signalée à l'admin.
 export const OFFRE_ORDER: Offre[] = ["TTM", "TTL"];
 
 export const OFFRE_LABEL: Record<Offre, string> = {
   TTM: "Time To Move",
-  TTL: "Time To Last",
+  TTL: "Time To Live",
 };
 
 export const OFFRE_COLOR: Record<Offre, string> = {

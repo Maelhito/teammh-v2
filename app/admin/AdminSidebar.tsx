@@ -227,7 +227,7 @@ export default function AdminSidebar() {
                 TTL
               </p>
               <p style={{ margin: 0, fontSize: 10, color: ttlOpen ? "rgba(255,255,255,0.4)" : "#2a5a3a", fontFamily: "system-ui" }}>
-                Time To Last
+                Time To Live
               </p>
             </div>
           </div>
