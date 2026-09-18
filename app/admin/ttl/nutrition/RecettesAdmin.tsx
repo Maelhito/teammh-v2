@@ -79,7 +79,6 @@ export default function RecettesAdmin() {
   const [plans, setPlans] = useState<PlanEnLigne[]>([]);
   const [planCalories, setPlanCalories] = useState<number | null>(null);
   const [planId, setPlanId] = useState<string | null>(null);
-  const [navigateur, setNavigateur] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -91,12 +90,6 @@ export default function RecettesAdmin() {
       })
       .catch(() => setError("Erreur de chargement"))
       .finally(() => setLoading(false));
-  }, []);
-
-  // Safari sur Mac et iPhone n'arrive pas toujours à découper un PDF : on le dit avant l'échec.
-  useEffect(() => {
-    const ua = navigator.userAgent;
-    if (/Safari/.test(ua) && !/Chrome|Chromium|Edg|OPR/.test(ua)) setNavigateur("safari");
   }, []);
 
   // Les plans déjà en ligne : leur PDF sert à en sortir les recettes, sans le redéposer.
@@ -291,12 +284,6 @@ export default function RecettesAdmin() {
               Choisis un plan déjà en ligne : l&apos;app garde ses pages de recettes, retire les doublons et devine le nom, les calories et la catégorie.
             </p>
           </div>
-
-          {navigateur === "safari" && (
-            <p style={{ margin: 0, fontSize: 12, color: "#F59E0B", fontWeight: 700 }}>
-              ⚠️ Safari a du mal à lire les PDF ici. Si la conversion échoue, ouvre cette page dans Chrome.
-            </p>
-          )}
 
           {plans.length === 0 ? (
             <p style={{ margin: 0, fontSize: 12, color: "var(--admin-text-muted)" }}>Aucun plan en ligne pour l&apos;instant : ajoute d&apos;abord un plan plus haut.</p>

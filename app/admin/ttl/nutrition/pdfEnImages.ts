@@ -18,8 +18,31 @@ function versJpeg(canvas: HTMLCanvasElement, page: number): Promise<Blob> {
   );
 }
 
+/**
+ * Safari ne sait pas parcourir un flux avec « for await … of » : il lui manque
+ * ReadableStream[Symbol.asyncIterator], sur lequel pdf.js s'appuie pour lire le texte
+ * des pages. On le lui ajoute, sinon la lecture casse dès la page 1.
+ */
+function comblerSafari() {
+  if (typeof ReadableStream === "undefined") return;
+  const proto = ReadableStream.prototype as ReadableStream & { [Symbol.asyncIterator]?: unknown };
+  if (proto[Symbol.asyncIterator]) return;
+  proto[Symbol.asyncIterator] = function (this: ReadableStream) {
+    const lecteur = this.getReader();
+    return {
+      next: () => lecteur.read(),
+      return: async (valeur?: unknown) => {
+        await lecteur.cancel(valeur);
+        return { done: true, value: valeur };
+      },
+      [Symbol.asyncIterator]() { return this; },
+    };
+  };
+}
+
 /** Charge pdf.js et son worker. */
 export async function chargerPdfjs() {
+  comblerSafari();
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
   return pdfjs;
