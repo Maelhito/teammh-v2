@@ -5,7 +5,7 @@ import BottomNav from "@/components/BottomNav";
 import CalendrierClient from "./CalendrierClient";
 import PreviewBanner from "@/components/PreviewBanner";
 import { getEffectiveUser } from "@/lib/preview";
-import { decodeAssignments } from "@/lib/programme-planning";
+import { decodeAssignments, gridKeyToDate, parseLocalDate, semaineDeCle } from "@/lib/programme-planning";
 import { FUSEAU_PAR_DEFAUT, aujourdhuiDans } from "@/lib/temps";
 import { getFuseau } from "@/lib/temps-serveur";
 
@@ -57,15 +57,22 @@ export default async function CalendrierPage() {
       if (!assignment.date_debut) continue;
 
       const grid = assignment.grid as Record<string, CellItem[]>;
-      const startDate = new Date(assignment.date_debut + "T00:00:00");
+      const startDate = parseLocalDate(assignment.date_debut);
 
       for (const [key, items] of Object.entries(grid)) {
-        const match = key.match(/^S(\d+)_J(\d+)$/);
-        if (!match) continue;
-        const semaine = parseInt(match[1]);
-        const jour = parseInt(match[2]);
+        const semaine = semaineDeCle(key);
+        if (!semaine) continue;
         // Durée raccourcie pour cette cliente → les semaines au-delà sont masquées
         if (semaine > assignment.duree_semaines) continue;
+
+        // La date de la case vient de `gridKeyToDate`, comme partout ailleurs
+        // (accueil, écran Séances, flamme, vue coach). Ce fichier calculait
+        // autrefois « date de début + (jour - 1) », c'est-à-dire J1 = premier
+        // jour du programme au lieu de J1 = lundi : juste pour un programme
+        // démarré un lundi, décalé d'un à deux jours sinon. Le calendrier
+        // annonçait alors une séance un jour où l'accueil affichait « repos ».
+        const dateCase = gridKeyToDate(key, startDate);
+        if (!dateCase) continue;
 
         items.forEach((item, itemIndex) => {
           // Une vidéo posée dans la grille se planifie et se déplace exactement
@@ -74,15 +81,12 @@ export default async function CalendrierPage() {
           if (item.type !== "seance" && item.type !== "seance_locale" && !estVideo) return;
           const nom = item.seanceName ?? item.nom ?? item.titre ?? (estVideo ? "Vidéo" : "Séance");
 
-          const d = new Date(startDate);
-          d.setDate(d.getDate() + (semaine - 1) * 7 + (jour - 1));
-
           seanceEvents.push({
             // Plusieurs items peuvent partager une case : l'identifiant porte
             // aussi le nom, sinon deux blocs du même jour s'écrasent dans React.
             id: `grid-${assignment.id}-${key}-${nom}`,
             titre: nom,
-            date: toLocalDateStr(d),
+            date: toLocalDateStr(dateCase),
             heure: null,
             // Une séance est un « jour local », pas un instant : elle tombe le
             // jour dit chez la cliente, où qu'elle soit. Rien à convertir.

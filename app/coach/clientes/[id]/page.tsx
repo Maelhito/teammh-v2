@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { decodeProgData, type Grid, type CellItem } from "../../programmes/ProgrammeBuilder";
 import SeanceBuildComp, { type SeanceData } from "../../seances/SeanceBuilder";
 import QuestionnaireCliente from "./QuestionnaireCliente";
-import { adapterCles, adapterGrille, joursDeLaGrille, type MappingJours } from "@/lib/programme-planning";
+import { adapterCles, adapterGrille, dateToGridKey, joursDeLaGrille, parseLocalDate, type MappingJours } from "@/lib/programme-planning";
 import MesuresCliente from "./MesuresCliente";
 import {
   COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, COULEUR_SEANCE_VALIDEE, COULEUR_VIDEO, ORDRE_LEGENDE,
@@ -54,22 +54,11 @@ function decodeGrid(description: string | null): Grid {
   try { return JSON.parse(description).grid ?? {}; } catch { return {}; }
 }
 
-// Parse une date "YYYY-MM-DD" en heure locale (évite le décalage UTC)
-function parseLocalDate(s: string): Date {
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-function dateToGridKey(date: Date, dateDebut: Date, dureeSemaines: number): string | null {
-  // Comparer en jours entiers locaux pour éviter les décalages DST
-  const d1 = new Date(dateDebut.getFullYear(), dateDebut.getMonth(), dateDebut.getDate());
-  const d2 = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diffDays = Math.round((d2.getTime() - d1.getTime()) / 86400000);
-  if (diffDays < 0) return null;
-  const semaine = Math.floor(diffDays / 7) + 1;
-  if (semaine > dureeSemaines) return null;
-  const dow = date.getDay();
-  return `S${semaine}_J${dow === 0 ? 7 : dow}`;
-}
+// `parseLocalDate` et `dateToGridKey` viennent de lib/programme-planning : ce
+// fichier en gardait sa propre copie. Elles disaient la même chose, mais deux
+// copies d'une règle finissent toujours par diverger — c'est précisément ce
+// qui est arrivé au calendrier de la cliente, qui datait les séances autrement
+// et lui annonçait une séance un jour où l'accueil affichait « repos ».
 function getSeancesForKey(grid: Grid, key: string | null): CellItem[] {
   if (!key) return [];
   return grid[key] ?? [];
