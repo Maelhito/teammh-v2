@@ -22,6 +22,50 @@ const REPAS: [RegExp, TtlRecetteCategorie][] = [
   [/d[iî]ner|souper/i, "repas"],
 ];
 
+interface MorceauTexte {
+  str: string;
+  height: number;
+  transform: number[];
+}
+
+interface PageLue {
+  lignes: string[];
+  titre: string;
+  texte: string;
+}
+
+/**
+ * Le texte d'un PDF n'est pas rangé dans l'ordre de lecture : il faut le remettre en place
+ * d'après la position de chaque morceau sur la page. Le titre de la recette est le texte
+ * écrit le plus gros.
+ */
+function lirePage(morceaux: MorceauTexte[]): PageLue {
+  const utiles = morceaux.filter((m) => typeof m.str === "string" && m.str.trim());
+  const parLigne = new Map<number, MorceauTexte[]>();
+  let hauteurMax = 0;
+  for (const m of utiles) {
+    const y = Math.round(m.transform[5] / 4);
+    parLigne.set(y, [...(parLigne.get(y) ?? []), m]);
+    hauteurMax = Math.max(hauteurMax, m.height);
+  }
+
+  const lignes = [...parLigne.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .map(([, ms]) =>
+      ms.sort((a, b) => a.transform[4] - b.transform[4]).map((m) => m.str).join(" ").replace(/\s+/g, " ").trim(),
+    );
+
+  const titre = utiles
+    .filter((m) => m.height >= hauteurMax - 0.5)
+    .sort((a, b) => (Math.abs(b.transform[5] - a.transform[5]) > 2 ? b.transform[5] - a.transform[5] : a.transform[4] - b.transform[4]))
+    .map((m) => m.str)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return { lignes, titre, texte: lignes.join(" ") };
+}
+
 /** La tranche de calories la plus proche de la valeur écrite sur la fiche. */
 function trancheLaPlusProche(categorie: TtlRecetteCategorie | null, kcal: number | null): number | null {
   if (!categorie || kcal === null) return null;
@@ -30,9 +74,10 @@ function trancheLaPlusProche(categorie: TtlRecetteCategorie | null, kcal: number
 
 /**
  * Lit le PDF d'un plan et en sort les fiches recettes :
- * - seules les pages de recette sont gardées (celles qui portent « Pour 1 part : … kcal ») ;
+ * - seules les pages de recette sont gardées (celles qui portent « Pour 1 part ») ;
  * - les doublons sont retirés (le même plat revient à chaque jour du plan) ;
- * - le nom, les calories et souvent la catégorie sont devinés depuis le texte du PDF.
+ * - le nom, les calories et la catégorie sont devinés depuis le texte du PDF,
+ *   la catégorie venant des pages « Jour X » qui disent le repas de chaque plat.
  */
 export async function recettesDepuisPdf(
   file: File,
@@ -44,31 +89,19 @@ export async function recettesDepuisPdf(
 
   try {
     // 1er passage : le texte de chaque page, pour repérer les recettes et lire les menus du jour.
-    const lignesParPage: string[][] = [];
+    const pages: PageLue[] = [];
     for (let i = 1; i <= pdf.numPages; i++) {
       onProgress(i, pdf.numPages);
       const page = await pdf.getPage(i);
       const contenu = await page.getTextContent();
-      const lignes: string[] = [];
-      let ligne = "";
-      let y: number | null = null;
-      for (const item of contenu.items) {
-        if (!("str" in item)) continue;
-        const yItem = Math.round(item.transform[5]);
-        if (y !== null && Math.abs(yItem - y) > 3) { lignes.push(ligne.trim()); ligne = ""; }
-        y = yItem;
-        ligne += item.str;
-        if (item.hasEOL) { lignes.push(ligne.trim()); ligne = ""; y = null; }
-      }
-      if (ligne.trim()) lignes.push(ligne.trim());
-      lignesParPage.push(lignes.filter(Boolean));
+      pages.push(lirePage(contenu.items as MorceauTexte[]));
       page.cleanup();
     }
 
-    // Les pages « Jour X » disent à quel repas appartient chaque plat : « Déjeuner: Wrap Thon-Mayo ».
+    // « Déjeuner: Wrap Thon-Mayo » sur les pages « Jour X » : le plat appartient aux repas.
     const categorieParPlat = new Map<string, TtlRecetteCategorie>();
-    for (const lignes of lignesParPage) {
-      for (const ligne of lignes) {
+    for (const p of pages) {
+      for (const ligne of p.lignes) {
         // Certaines pages collent plusieurs libellés : on retient le dernier avant le nom du plat.
         const m = ligne.match(/([^:]+):\s*([^:]{3,})$/);
         if (!m) continue;
@@ -82,19 +115,9 @@ export async function recettesDepuisPdf(
     const fiches: FicheRecette[] = [];
     const vues = new Set<string>();
     for (let i = 1; i <= pdf.numPages; i++) {
-      const lignes = lignesParPage[i - 1];
-      const texte = lignes.join(" | ");
-      const part = texte.match(/pour\s*1\s*part\s*:?\s*(\d+)\s*kcal/i);
-      if (!part) continue;
-
-      // Le titre est la première ligne un peu longue qui n'est ni un ingrédient ni un temps de
-      // préparation ; un titre long tient sur deux lignes, jusqu'au premier ingrédient.
-      const debut = lignes.findIndex((l) => l.length > 3 && !/^[-•]/.test(l) && !/^(pr[ée]p|cuisson|parts?|\d)/i.test(l));
-      if (debut < 0) continue;
-      const suite = lignes.slice(debut).findIndex((l) => /^[-•]/.test(l));
-      const titre = lignes.slice(debut, suite > 0 ? debut + suite : debut + 1).join(" ").replace(/\s+/g, " ").trim();
-      if (!titre) continue;
-      const cle = cleRecette(titre);
+      const p = pages[i - 1];
+      if (!/pour\s*1\s*part/i.test(p.texte) || !p.titre) continue;
+      const cle = cleRecette(p.titre);
       if (vues.has(cle)) continue;
       vues.add(cle);
 
@@ -104,11 +127,12 @@ export async function recettesDepuisPdf(
       page.cleanup();
 
       const categorie = categorieParPlat.get(cle) ?? null;
+      const kcal = p.texte.match(/(\d{2,4})\s*kcal/i);
       fiches.push({
         page: i,
-        titre,
+        titre: p.titre,
         categorie,
-        calories: trancheLaPlusProche(categorie, Number(part[1])),
+        calories: trancheLaPlusProche(categorie, kcal ? Number(kcal[1]) : null),
         images,
       });
     }
