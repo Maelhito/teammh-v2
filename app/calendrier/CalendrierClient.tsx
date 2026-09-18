@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, couleurEvenement,
   teinteEvenement, estRendezVous,
@@ -25,6 +26,7 @@ interface CalendarEvent {
   target_user_id: string | null;
   team_member_id: string | null;
   grid_key?: string | null;
+  item_index?: number | null;
   assignment_id?: string | null;
 }
 
@@ -413,7 +415,24 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
                 {evt.message && (
                   <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.78rem", margin: "4px 0 0" }}>{evt.message}</p>
                 )}
-                {evt.lien && (
+                {/* Une vidéo du programme s'ouvre DANS l'app, pas sur YouTube :
+                    c'est la seule façon qu'elle se valide et compte dans la
+                    semaine et dans la flamme. Le lien externe ne reste que
+                    pour une vidéo hors programme. */}
+                {evt.event_type === "video" && evt.assignment_id && evt.grid_key ? (
+                  <Link
+                    href={`/entrainement/seance?assignmentId=${evt.assignment_id}&gridKey=${evt.grid_key}&itemIndex=${evt.item_index ?? 0}`}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      marginTop: 8, padding: "7px 14px", borderRadius: 8,
+                      backgroundColor: "#B22222",
+                      color: "#fff",
+                      fontSize: "0.82rem", fontWeight: 700, textDecoration: "none",
+                    }}
+                  >
+                    ▶ Regarder la séance
+                  </Link>
+                ) : evt.lien ? (
                   <a
                     href={evt.lien}
                     target="_blank"
@@ -428,7 +447,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
                   >
                     {evt.event_type === "video" ? "▶ Voir la vidéo" : "📹 Rejoindre le Zoom"}
                   </a>
-                )}
+                ) : null}
                 {evt.team_member_id && (() => {
                   const member = teamMembers.find((m) => m.id === evt.team_member_id);
                   if (!member) return null;

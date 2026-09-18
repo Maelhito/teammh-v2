@@ -67,11 +67,11 @@ export default async function CalendrierPage() {
         // Durée raccourcie pour cette cliente → les semaines au-delà sont masquées
         if (semaine > assignment.duree_semaines) continue;
 
-        for (const item of items) {
+        items.forEach((item, itemIndex) => {
           // Une vidéo posée dans la grille se planifie et se déplace exactement
           // comme une séance : elle a droit à la même place dans le calendrier.
           const estVideo = item.type === "video";
-          if (item.type !== "seance" && item.type !== "seance_locale" && !estVideo) continue;
+          if (item.type !== "seance" && item.type !== "seance_locale" && !estVideo) return;
           const nom = item.seanceName ?? item.nom ?? item.titre ?? (estVideo ? "Vidéo" : "Séance");
 
           const d = new Date(startDate);
@@ -96,9 +96,12 @@ export default async function CalendrierPage() {
             target_user_id: userId,
             team_member_id: null,
             grid_key: key,
+            // L'index de l'item dans sa case : c'est ce qui permet d'ouvrir
+            // LA bonne séance quand plusieurs partagent le même jour.
+            item_index: itemIndex,
             assignment_id: assignment.id,
           });
-        }
+        });
       }
     }
 

@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { redirect } from "next/navigation";
 import { decodeSeance } from "@/lib/seance-format";
 import SeanceViewer from "./SeanceViewer";
+import VideoViewer from "./VideoViewer";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,9 @@ export default async function SeancePage({ searchParams }: { searchParams: Promi
   let seanceName = "";
   let seanceType: "locale" | "ref" = "locale";
   let seanceRefId: string | null = null;
+  // Une case « vidéo » est une séance comme une autre : elle se lance ici et
+  // se valide de la même façon. Elle a juste son propre lecteur.
+  let video: { titre: string; url: string } | null = null;
 
   try {
     const parsed = JSON.parse(assignment.grid_data ?? "{}");
@@ -41,7 +45,9 @@ export default async function SeancePage({ searchParams }: { searchParams: Promi
 
     if (!item) redirect("/entrainement");
 
-    if (item.type === "seance_locale") {
+    if (item.type === "video") {
+      video = { titre: item.titre ?? item.nom ?? "Vidéo", url: item.url ?? "" };
+    } else if (item.type === "seance_locale") {
       seanceData = item.seanceData;
       seanceName = item.nom;
       seanceType = "locale";
@@ -72,6 +78,21 @@ export default async function SeancePage({ searchParams }: { searchParams: Promi
     redirect("/entrainement");
   }
 
+  const nomProgramme = (assignment.programme as unknown as { nom: string } | null)?.nom ?? "";
+
+  if (video) {
+    if (!video.url) redirect("/entrainement");
+    return (
+      <VideoViewer
+        assignmentId={assignmentId}
+        gridKey={gridKey}
+        titre={video.titre}
+        url={video.url}
+        nomProgramme={nomProgramme}
+      />
+    );
+  }
+
   if (!seanceData) redirect("/entrainement");
 
   return (
@@ -80,7 +101,7 @@ export default async function SeancePage({ searchParams }: { searchParams: Promi
       gridKey={gridKey}
       seanceData={seanceData}
       seanceName={seanceName}
-      nomProgramme={(assignment.programme as unknown as { nom: string } | null)?.nom ?? ""}
+      nomProgramme={nomProgramme}
     />
   );
 }

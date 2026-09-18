@@ -147,7 +147,9 @@ export default function EntrainementClient({
   }
 
   const todayItems = getDayItems(today);
-  const todayGroups = groupByProgramme(todayItems.filter((e) => e.item.type !== "video"));
+  // Une vidéo est une séance : la retirer d'ici affichait « REPOS » à la place
+  // de la séance du jour, et la cliente n'avait plus rien à lancer.
+  const todayGroups = groupByProgramme(todayItems);
   /** Programmes dont la fenêtre couvre aujourd'hui (même s'ils n'ont pas de séance). */
   const programmesDuJour = programmes.filter((p) => gridKeyFor(p, today) !== null);
   const isJourDeSeance = todayGroups.length > 0;
@@ -297,7 +299,7 @@ export default function EntrainementClient({
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {groupItems.map(({ item, itemIndex }) => (
                     <div key={itemIndex} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: "1rem" }}>💪</span>
+                      <span style={{ fontSize: "1rem" }}>{item.type === "video" ? "▶" : "💪"}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#FFF", margin: 0 }}>{itemNom(item)}</p>
                         {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.55)", margin: "1px 0 0" }}>{itemDuree(item)} min</p>}
@@ -306,7 +308,7 @@ export default function EntrainementClient({
                         href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${todayKey}&itemIndex=${itemIndex}`}
                         style={{ padding: "8px 14px", backgroundColor: "rgba(0,0,0,0.3)", borderRadius: 9, color: "#FFF", fontSize: "0.75rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
                       >
-                        ▶ Démarrer
+                        {item.type === "video" ? "▶ Regarder" : "▶ Démarrer"}
                       </Link>
                     </div>
                   ))}
@@ -497,14 +499,12 @@ export default function EntrainementClient({
                         <p className="font-body" style={{ fontWeight: 700, fontSize: "0.86rem", color: "#F5F5F0", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{itemNom(item)}</p>
                         {itemDuree(item) && <p className="font-body" style={{ fontSize: "0.7rem", color: "#555", margin: "2px 0 0" }}>{itemDuree(item)} min</p>}
                       </div>
-                      {item.type !== "video" && (
-                        <Link
-                          href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${gridKey}&itemIndex=${itemIndex}`}
-                          style={{ padding: "7px 12px", backgroundColor: isTerm ? "rgba(37,99,235,0.15)" : "#B22222", border: isTerm ? "1px solid rgba(37,99,235,0.4)" : "none", borderRadius: 8, color: isTerm ? COULEURS_EVENEMENT.seance.base : "#FFF", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
-                        >
-                          {isTerm ? "↺" : "▶"}
-                        </Link>
-                      )}
+                      <Link
+                        href={`/entrainement/seance?assignmentId=${programme.id}&gridKey=${gridKey}&itemIndex=${itemIndex}`}
+                        style={{ padding: "7px 12px", backgroundColor: isTerm ? "rgba(37,99,235,0.15)" : "#B22222", border: isTerm ? "1px solid rgba(37,99,235,0.4)" : "none", borderRadius: 8, color: isTerm ? COULEURS_EVENEMENT.seance.base : "#FFF", fontSize: "0.72rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
+                      >
+                        {isTerm ? "↺" : "▶"}
+                      </Link>
                     </div>
                   ))}
                 </div>

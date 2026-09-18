@@ -22,6 +22,17 @@ import {
 import { estSeanceValidee, type SeanceValidee } from "./seances-validees";
 
 /**
+ * Jour où les séances en vidéo sont devenues validables dans l'app.
+ *
+ * Avant cette date, une case « vidéo » n'était lançable nulle part : l'accueil
+ * et l'écran Séances affichaient « repos », et le calendrier ne proposait qu'un
+ * lien vers YouTube, hors de l'app. Les compter comme ratées ferait retomber à
+ * zéro la flamme de clientes qui n'avaient objectivement aucun moyen de les
+ * valider. Elles sont donc neutres : ni créditées, ni pénalisantes.
+ */
+const VIDEOS_VALIDABLES_DEPUIS = "2026-09-18";
+
+/**
  * Une ligne de `seances_log`. L'`id` sert uniquement au dédoublonnage : refaire
  * une séance (bouton « Redémarrer ») ré-enregistre une ligne, et ces doublons
  * ne doivent pas gonfler le compteur de séances.
@@ -102,15 +113,21 @@ function seancesPrevues(programmes: DecodedProgramme[]): Prevue[] {
       // retenue ne sont plus prévues, elles ne doivent pas casser la série.
       if (!semaine || semaine > p.duree_semaines) continue;
 
-      const aUneSeance = (items ?? []).some(
-        (it) => (it as { type?: string })?.type !== "video"
-      );
-      if (!aUneSeance) continue;
+      // Une case vide n'est pas une séance ; une case qui ne contient qu'une
+      // vidéo en est une. La cliente doit la faire, elle la valide, elle
+      // compte dans la flamme comme les autres.
+      if ((items ?? []).length === 0) continue;
 
       const date = gridKeyToDate(gridKey, debut);
       if (!date) continue;
+      const jour = toLocalDateStr(date);
 
-      out.push({ date: toLocalDateStr(date), assignmentId: p.id, gridKey });
+      const queDesVideos = (items ?? []).every(
+        (it) => (it as { type?: string })?.type === "video"
+      );
+      if (queDesVideos && jour < VIDEOS_VALIDABLES_DEPUIS) continue;
+
+      out.push({ date: jour, assignmentId: p.id, gridKey });
     }
   }
 

@@ -17,6 +17,8 @@ interface CalEvent {
 interface DaySeance {
   nom: string;
   duree: number | null;
+  /** Séance à suivre en vidéo : même statut, autre pictogramme et autre verbe. */
+  video: boolean;
   gridKey: string;
   assignmentId: string;
   itemIndex: number;
@@ -163,13 +165,13 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p className="font-body" style={{ fontSize: "0.8rem", fontWeight: 600, color: "#F5F5F0", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      💪 {s.nom}
+                      {s.video ? "▶" : "💪"} {s.nom}
                     </p>
                     {s.duree && (
                       <p className="font-body" style={{ fontSize: "0.68rem", color: "#555", margin: "1px 0 0" }}>{s.duree} min</p>
                     )}
                   </div>
-                  <span style={{ fontSize: "0.7rem", fontWeight: 700, color: COULEURS_EVENEMENT.seance.base, flexShrink: 0 }}>▶ Démarrer</span>
+                  <span style={{ fontSize: "0.7rem", fontWeight: 700, color: COULEURS_EVENEMENT.seance.base, flexShrink: 0 }}>{s.video ? "▶ Regarder" : "▶ Démarrer"}</span>
                 </Link>
               ) : (
                 <div
@@ -184,7 +186,7 @@ export default function DashboardCalendar({ weekDays, seancesTotal, seancesDone 
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p className="font-body" style={{ fontSize: "0.8rem", fontWeight: 600, color: s.validated ? COULEURS_EVENEMENT.seance.base : "#555", margin: 0 }}>
-                      {s.validated ? "✓" : "💪"} {s.nom}
+                      {s.validated ? "✓" : s.video ? "▶" : "💪"} {s.nom}
                     </p>
                     {s.duree && (
                       <p className="font-body" style={{ fontSize: "0.68rem", color: "#444", margin: "1px 0 0" }}>{s.duree} min</p>

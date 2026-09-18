@@ -16,7 +16,7 @@ import TachesSection from "@/components/TachesSection";
 import DashboardCalendar, { type DayData } from "@/components/DashboardCalendar";
 import PreviewBanner from "@/components/PreviewBanner";
 import { getEffectiveUser } from "@/lib/preview";
-import { decodeAssignments, gridKeyFor, itemsForDate, semaineCourante, toLocalDateStr } from "@/lib/programme-planning";
+import { decodeAssignments, estVideo, gridKeyFor, itemsForDate, nomItem, semaineCourante, toLocalDateStr, type ItemGrille } from "@/lib/programme-planning";
 import { FUSEAU_PAR_DEFAUT, aujourdhuiDans, occurrenceLe } from "@/lib/temps";
 import { getFuseau } from "@/lib/temps-serveur";
 import { estRendezVous } from "@/lib/couleurs-calendrier";
@@ -171,14 +171,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           .map((row) => `${row.assignment_id}:${row.grid_key}`)))
     : new Set<string>();
 
-  type SeanceItem = { type: string; seanceName?: string; nom?: string; duree?: number | null };
-
-  // Séances du jour — tous programmes actifs confondus
-  const seancesDuJour = itemsForDate<SeanceItem>(activeProgrammes, now)
-    .filter(({ item }) => item.type !== "video")
+  // Séances du jour — tous programmes actifs confondus. Une vidéo en fait
+  // partie : c'est une séance, elle se lance et se valide comme les autres.
+  const seancesDuJour = itemsForDate<ItemGrille>(activeProgrammes, now)
     .map(({ programme, gridKey, itemIndex, item }) => ({
-      nom: item.type === "seance" ? (item.seanceName ?? "") : (item.nom ?? ""),
+      nom: nomItem(item),
       duree: item.duree ?? null,
+      video: estVideo(item),
       itemIndex,
       gridKey,
       assignmentId: programme.id,
@@ -228,8 +227,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     const sem = semaineCourante(prog, now);
     for (let j = 1; j <= 7; j++) {
       const key = `S${sem}_J${j}`;
-      const items = (prog.grid[key] ?? []) as { type: string }[];
-      if (!items.some((i) => i.type !== "video")) continue;
+      const items = (prog.grid[key] ?? []) as ItemGrille[];
+      if (items.length === 0) continue;
       seancesPreSemaine++;
       if (prog.seancesTerminees.includes(key)) seancesTermineesSemaine++;
     }
@@ -242,11 +241,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     // clôt tout seul à sa dernière séance validée : s'il sortait aussitôt de
     // la semaine, elle verrait ses coches disparaître le jour même où elle
     // vient de finir. Son travail reste affiché.
-    const daySeances: DayData["seances"] = itemsForDate<SeanceItem>(programmesPourSerie, date)
-      .filter(({ item }) => item.type !== "video")
+    const daySeances: DayData["seances"] = itemsForDate<ItemGrille>(programmesPourSerie, date)
       .map(({ programme, gridKey, itemIndex, item }) => ({
-        nom: item.type === "seance" ? (item.seanceName ?? "") : (item.nom ?? ""),
+        nom: nomItem(item),
         duree: item.duree ?? null,
+        video: estVideo(item),
         gridKey,
         assignmentId: programme.id,
         itemIndex,
@@ -377,7 +376,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                       href={`/entrainement/seance?assignmentId=${s.assignmentId}&gridKey=${s.gridKey}&itemIndex=${s.itemIndex}`}
                       style={{ padding: "8px 14px", backgroundColor: "rgba(0,0,0,0.3)", borderRadius: 9, color: "#FFF", fontSize: "0.75rem", fontWeight: 700, textDecoration: "none", letterSpacing: "0.04em", flexShrink: 0 }}
                     >
-                      ▶ Démarrer
+                      {s.video ? "▶ Regarder" : "▶ Démarrer"}
                     </Link>
                   </div>
                 ))}

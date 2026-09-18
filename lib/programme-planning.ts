@@ -279,3 +279,35 @@ export function hasStarted(programme: DecodedProgramme, date: Date = new Date())
   ref.setHours(0, 0, 0, 0);
   return ref.getTime() >= start.getTime();
 }
+
+/**
+ * Un item posé dans une case de grille. Trois formes coexistent :
+ *   - `seance`        : une séance de la bibliothèque, référencée par son id
+ *   - `seance_locale` : une séance écrite directement dans le programme
+ *   - `video`         : une vidéo YouTube
+ *
+ * Les trois sont des SÉANCES du point de vue de la cliente : elles occupent un
+ * jour du programme, se lancent, se valident, comptent dans la semaine et dans
+ * la flamme. Le jour où la vidéo a été traitée comme « pas une vraie séance »,
+ * les clientes dont le vendredi était une vidéo ont vu « REPOS » à la place de
+ * leur séance et n'avaient aucun moyen de la démarrer.
+ */
+export interface ItemGrille {
+  type?: string;
+  seanceName?: string;
+  nom?: string;
+  titre?: string;
+  duree?: number | null;
+  url?: string;
+}
+
+/** La cliente regarde une vidéo au lieu d'enchaîner des blocs — même statut. */
+export function estVideo(item: ItemGrille | null | undefined): boolean {
+  return item?.type === "video";
+}
+
+/** Le nom affiché, quelle que soit la forme de l'item. */
+export function nomItem(item: ItemGrille | null | undefined): string {
+  if (!item) return "";
+  return item.seanceName ?? item.nom ?? item.titre ?? (estVideo(item) ? "Vidéo" : "Séance");
+}
