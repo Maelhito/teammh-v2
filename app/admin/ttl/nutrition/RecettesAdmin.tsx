@@ -10,6 +10,7 @@ import {
 } from "@/lib/ttl";
 import type { TtlRecette, TtlRecetteCategorie as Categorie, TtlRecetteGout as Gout } from "@/lib/ttl";
 import { miniature } from "./miniature";
+import { recettesDepuisPdf } from "./recettesDepuisPdf";
 
 const CATEGORIES = Object.keys(CATEGORIE_LABELS) as Categorie[];
 const GOUTS = Object.keys(GOUT_LABELS) as Gout[];
@@ -30,7 +31,10 @@ function libelleRangement(r: Pick<TtlRecette, "categorie" | "gout" | "calories">
 
 interface Brouillon {
   cle: string;
-  fichier: File;
+  /** Image finale et vignette, déjà réduites. */
+  grande: Blob;
+  petite: Blob;
+  nom: string;
   apercu: string;
   titre: string;
   envoi: "en_cours" | "ok" | "erreur";
@@ -56,7 +60,9 @@ export default function RecettesAdmin() {
   const [filtre, setFiltre] = useState<Categorie | "toutes">("toutes");
   const [apercu, setApercu] = useState<TtlRecette | null>(null);
   const [agrandie, setAgrandie] = useState<string | null>(null);
+  const [lecturePdf, setLecturePdf] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const pdfRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/admin/ttl/recettes")
@@ -73,31 +79,14 @@ export default function RecettesAdmin() {
     setBrouillons((prev) => prev.map((b) => (b.cle === cle ? { ...b, ...changement } : b)));
   }
 
-  /** Les photos s'envoient dès qu'elles sont choisies ; le rangement se fait pendant ce temps. */
-  function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    if (fileRef.current) fileRef.current.value = "";
-    if (files.length === 0) return;
-    setError(null);
-
-    const nouveaux: Brouillon[] = files.map((file) => ({
-      cle: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      fichier: file,
-      apercu: URL.createObjectURL(file),
-      titre: titreDepuisFichier(file.name),
-      envoi: "en_cours",
-      categorie: null,
-      gout: null,
-      calories: null,
-    }));
+  /** Les images s'envoient dès qu'elles sont prêtes ; le rangement se fait pendant ce temps. */
+  function ajouterBrouillons(nouveaux: Brouillon[]) {
     setBrouillons((prev) => [...prev, ...nouveaux]);
-
     nouveaux.forEach(async (b) => {
       try {
         const [photo, mini] = await Promise.all([
-          // La photo d'origine (souvent une capture de 2 à 3 Mo) est réduite à environ 300-500 Ko.
-          miniature(b.fichier, 2000).then((blob) => uploadToTtlBucket("ttl-images", blob, `recette-${b.fichier.name.replace(/\.[^.]+$/, "")}.jpg`)),
-          miniature(b.fichier).then((blob) => uploadToTtlBucket("ttl-images", blob, `recette-mini-${b.fichier.name.replace(/\.[^.]+$/, "")}.jpg`)),
+          uploadToTtlBucket("ttl-images", b.grande, `recette-${b.nom}.jpg`),
+          uploadToTtlBucket("ttl-images", b.petite, `recette-mini-${b.nom}.jpg`),
         ]);
         if ("error" in photo || "error" in mini) throw new Error();
         modifierBrouillon(b.cle, { envoi: "ok", photo_url: photo.url, miniature_url: mini.url });
@@ -105,6 +94,59 @@ export default function RecettesAdmin() {
         modifierBrouillon(b.cle, { envoi: "erreur" });
       }
     });
+  }
+
+  function nouvelleCle() {
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  /** Photos choisies à la main : réduites avant l'envoi (une capture pèse souvent 2 à 3 Mo). */
+  async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (fileRef.current) fileRef.current.value = "";
+    if (files.length === 0) return;
+    setError(null);
+
+    for (const file of files) {
+      const nom = file.name.replace(/\.[^.]+$/, "");
+      const [grande, petite] = await Promise.all([miniature(file, 2000), miniature(file)]);
+      ajouterBrouillons([{
+        cle: nouvelleCle(), grande, petite, nom, apercu: URL.createObjectURL(petite),
+        titre: titreDepuisFichier(file.name), envoi: "en_cours", categorie: null, gout: null, calories: null,
+      }]);
+    }
+  }
+
+  /** PDF d'un plan : l'app en sort les pages de recettes, sans les doublons. */
+  async function handlePdf(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (pdfRef.current) pdfRef.current.value = "";
+    if (!file) return;
+    setError(null);
+    setLecturePdf("Lecture du PDF…");
+    try {
+      const fiches = await recettesDepuisPdf(file, (page, total) => setLecturePdf(`Lecture de la page ${page}/${total}…`));
+      if (fiches.length === 0) {
+        setError("Aucune recette trouvée dans ce PDF : les pages de recettes doivent porter « Pour 1 part : … kcal »");
+        return;
+      }
+      ajouterBrouillons(fiches.map((f) => ({
+        cle: nouvelleCle(),
+        grande: f.images.grande,
+        petite: f.images.miniature,
+        nom: `${f.titre.replace(/[^a-zA-Z0-9]+/g, "-").toLowerCase().slice(0, 60)}-p${f.page}`,
+        apercu: URL.createObjectURL(f.images.miniature),
+        titre: f.titre,
+        envoi: "en_cours",
+        categorie: f.categorie,
+        gout: null,
+        calories: f.calories,
+      })));
+    } catch (err) {
+      setError(err instanceof Error ? `PDF illisible : ${err.message}` : "PDF illisible");
+    } finally {
+      setLecturePdf(null);
+    }
   }
 
   function retirerBrouillon(b: Brouillon) {
@@ -184,17 +226,33 @@ export default function RecettesAdmin() {
         Une recette = une fiche photo. Ajoute les photos, puis range chacune : catégorie, sucré ou salé, calories.
       </p>
 
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        style={{ ...cardStyle, width: "100%", padding: 22, marginBottom: 14, border: "1px dashed var(--admin-border)", color: "var(--admin-text)", fontSize: 14, fontWeight: 700, cursor: "pointer" }}
-      >
-        🖼 Ajouter des photos de recettes
-        <span style={{ display: "block", fontSize: 12, fontWeight: 400, color: "var(--admin-text-muted)", marginTop: 4 }}>
-          Tu peux en choisir plusieurs d&apos;un coup, puis ranger chacune en la regardant.
-        </span>
-      </button>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, marginBottom: 14 }}>
+        <button
+          type="button"
+          onClick={() => pdfRef.current?.click()}
+          disabled={!!lecturePdf}
+          style={{ ...cardStyle, padding: 22, border: "1px dashed #B22222", color: "var(--admin-text)", fontSize: 14, fontWeight: 700, cursor: lecturePdf ? "not-allowed" : "pointer", textAlign: "left" }}
+        >
+          {lecturePdf ?? "📄 Prendre les recettes d'un PDF de plan"}
+          <span style={{ display: "block", fontSize: 12, fontWeight: 400, color: "var(--admin-text-muted)", marginTop: 4 }}>
+            L&apos;app garde les pages de recettes, retire les doublons et devine le nom, les calories et souvent la catégorie.
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={!!lecturePdf}
+          style={{ ...cardStyle, padding: 22, border: "1px dashed var(--admin-border)", color: "var(--admin-text)", fontSize: 14, fontWeight: 700, cursor: lecturePdf ? "not-allowed" : "pointer", textAlign: "left" }}
+        >
+          🖼 Ajouter des photos de recettes
+          <span style={{ display: "block", fontSize: 12, fontWeight: 400, color: "var(--admin-text-muted)", marginTop: 4 }}>
+            Tu peux en choisir plusieurs d&apos;un coup, puis ranger chacune en la regardant.
+          </span>
+        </button>
+      </div>
       <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleFiles} />
+      <input ref={pdfRef} type="file" accept="application/pdf,.pdf" style={{ display: "none" }} onChange={handlePdf} />
 
       {brouillons.length > 0 && (
         <div style={{ ...cardStyle, marginBottom: 24 }}>
@@ -205,7 +263,8 @@ export default function RecettesAdmin() {
                   <img src={b.apercu} alt={b.titre} style={{ width: "100%", borderRadius: 8, display: "block" }} />
                 </button>
                 <button type="button" onClick={() => retirerBrouillon(b)} aria-label="Retirer" style={{ position: "absolute", top: 16, right: 16, width: 26, height: 26, borderRadius: "50%", border: "none", backgroundColor: "rgba(0,0,0,0.6)", color: "#fff", cursor: "pointer" }}>✕</button>
-                <p style={{ margin: "6px 0 10px", fontSize: 11, color: b.envoi === "erreur" ? "#F87171" : "var(--admin-text-muted)" }}>
+                <p style={{ margin: "6px 0 2px", fontSize: 13, fontWeight: 700, color: "var(--admin-text)" }}>{b.titre}</p>
+                <p style={{ margin: "0 0 10px", fontSize: 11, color: b.envoi === "erreur" ? "#F87171" : "var(--admin-text-muted)" }}>
                   {b.envoi === "en_cours" ? "Envoi de la photo…" : b.envoi === "erreur" ? "Échec de l'envoi : retire-la et réessaie" : "✓ Photo envoyée"}
                 </p>
 
