@@ -40,16 +40,20 @@ interface PageLue {
  * écrit le plus gros.
  */
 function lirePage(morceaux: MorceauTexte[]): PageLue {
-  const utiles = morceaux.filter((m) => typeof m.str === "string" && m.str.trim());
+  const utiles = (Array.isArray(morceaux) ? morceaux : []).filter(
+    (m) => m && typeof m.str === "string" && m.str.trim() && Array.isArray(m.transform),
+  );
   const parLigne = new Map<number, MorceauTexte[]>();
   let hauteurMax = 0;
-  for (const m of utiles) {
+  utiles.forEach((m) => {
     const y = Math.round(m.transform[5] / 4);
-    parLigne.set(y, [...(parLigne.get(y) ?? []), m]);
-    hauteurMax = Math.max(hauteurMax, m.height);
-  }
+    const deja = parLigne.get(y);
+    if (deja) deja.push(m);
+    else parLigne.set(y, [m]);
+    hauteurMax = Math.max(hauteurMax, m.height ?? 0);
+  });
 
-  const lignes = [...parLigne.entries()]
+  const lignes = Array.from(parLigne.entries())
     .sort((a, b) => b[0] - a[0])
     .map(([, ms]) =>
       ms.sort((a, b) => a.transform[4] - b.transform[4]).map((m) => m.str).join(" ").replace(/\s+/g, " ").trim(),
@@ -92,24 +96,28 @@ export async function recettesDepuisPdf(
     const pages: PageLue[] = [];
     for (let i = 1; i <= pdf.numPages; i++) {
       onProgress(i, pdf.numPages);
-      const page = await pdf.getPage(i);
-      const contenu = await page.getTextContent();
-      pages.push(lirePage(contenu.items as MorceauTexte[]));
-      page.cleanup();
+      try {
+        const page = await pdf.getPage(i);
+        const contenu = await page.getTextContent();
+        pages.push(lirePage(contenu.items as MorceauTexte[]));
+        page.cleanup();
+      } catch (e) {
+        throw new Error(`texte de la page ${i} (${e instanceof Error ? e.message : e})`);
+      }
     }
 
     // « Déjeuner: Wrap Thon-Mayo » sur les pages « Jour X » : le plat appartient aux repas.
     const categorieParPlat = new Map<string, TtlRecetteCategorie>();
-    for (const p of pages) {
-      for (const ligne of p.lignes) {
+    pages.forEach((p) => {
+      p.lignes.forEach((ligne) => {
         // Certaines pages collent plusieurs libellés : on retient le dernier avant le nom du plat.
         const m = ligne.match(/([^:]+):\s*([^:]{3,})$/);
-        if (!m) continue;
+        if (!m) return;
         const repas = REPAS.find(([r]) => r.test(m[1]));
         const plat = cleRecette(m[2]);
         if (repas && plat && !categorieParPlat.has(plat)) categorieParPlat.set(plat, repas[1]);
-      }
-    }
+      });
+    });
 
     // 2e passage : on ne rend en image que les pages de recette encore inconnues.
     const fiches: FicheRecette[] = [];
@@ -122,9 +130,14 @@ export async function recettesDepuisPdf(
       vues.add(cle);
 
       onProgress(i, pdf.numPages);
-      const page = await pdf.getPage(i);
-      const images = await pageEnImages(page, 2000, 800);
-      page.cleanup();
+      let images;
+      try {
+        const page = await pdf.getPage(i);
+        images = await pageEnImages(page, 2000, 800);
+        page.cleanup();
+      } catch (e) {
+        throw new Error(`image de la page ${i} (${e instanceof Error ? e.message : e})`);
+      }
 
       const categorie = categorieParPlat.get(cle) ?? null;
       const kcal = p.texte.match(/(\d{2,4})\s*kcal/i);
