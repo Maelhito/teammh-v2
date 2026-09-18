@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { cardStyle, uploadToTtlBucket, Modal } from "../TtlShared";
 import {
   categorieAvecGout,
+  cleRecette,
   TTL_RECETTE_CALORIES,
   TTL_RECETTE_CATEGORIE_LABELS as CATEGORIE_LABELS,
   TTL_RECETTE_GOUT_LABELS as GOUT_LABELS,
@@ -48,6 +49,13 @@ interface Brouillon {
 function estRange(b: Pick<Brouillon, "categorie" | "gout" | "calories">) {
   return b.categorie !== null && b.calories !== null && (!categorieAvecGout(b.categorie) || b.gout !== null);
 }
+
+/** « déjà dans l'app » = même nom, même catégorie et même tranche de calories. */
+function empreinte(r: { titre: string; categorie: Categorie | null; calories: number | null }) {
+  return `${cleRecette(r.titre)}|${r.categorie}|${r.calories}`;
+}
+
+type Doublon = "identique" | "meme_nom" | null;
 
 export default function RecettesAdmin() {
   const [recettes, setRecettes] = useState<TtlRecette[]>([]);
@@ -154,8 +162,24 @@ export default function RecettesAdmin() {
     setBrouillons((prev) => prev.filter((x) => x.cle !== b.cle));
   }
 
-  const prets = brouillons.filter((b) => b.envoi === "ok" && estRange(b));
-  const toutPret = brouillons.length > 0 && prets.length === brouillons.length;
+  // Une recette déjà en ligne n'est pas renvoyée ; une recette du même nom mais rangée
+  // ailleurs (autre tranche de calories) est signalée, sans être bloquée.
+  const empreintesEnLigne = new Set(recettes.map(empreinte));
+  const nomsEnLigne = new Set(recettes.map((r) => cleRecette(r.titre)));
+  const dejaVues = new Set<string>();
+  const doublons = new Map<string, Doublon>();
+  for (const b of brouillons) {
+    const e = empreinte(b);
+    if (empreintesEnLigne.has(e) || dejaVues.has(e)) doublons.set(b.cle, "identique");
+    else if (nomsEnLigne.has(cleRecette(b.titre))) doublons.set(b.cle, "meme_nom");
+    else doublons.set(b.cle, null);
+    dejaVues.add(e);
+  }
+
+  const aAjouter = brouillons.filter((b) => doublons.get(b.cle) !== "identique");
+  const nbDoublons = brouillons.length - aAjouter.length;
+  const prets = aAjouter.filter((b) => b.envoi === "ok" && estRange(b));
+  const toutPret = aAjouter.length > 0 && prets.length === aAjouter.length;
 
   async function enregistrer() {
     if (!toutPret) return;
@@ -167,7 +191,7 @@ export default function RecettesAdmin() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           notifier,
-          recettes: brouillons.map((b) => ({
+          recettes: aAjouter.map((b) => ({
             titre: b.titre, photo_url: b.photo_url, miniature_url: b.miniature_url,
             categorie: b.categorie, gout: b.gout, calories: b.calories,
           })),
@@ -176,6 +200,7 @@ export default function RecettesAdmin() {
       const d = await res.json();
       if (!res.ok) { setError(d.error ?? "Erreur"); return; }
       setRecettes((prev) => [...d.recettes, ...prev]);
+      if (d.ignorees > 0) setError(`${d.ignorees} recette(s) déjà présente(s) n'ont pas été ajoutées.`);
       brouillons.forEach((b) => URL.revokeObjectURL(b.apercu));
       setBrouillons([]);
     } catch {
@@ -257,8 +282,10 @@ export default function RecettesAdmin() {
       {brouillons.length > 0 && (
         <div style={{ ...cardStyle, marginBottom: 24 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
-            {brouillons.map((b) => (
-              <div key={b.cle} style={{ border: `1px solid ${estRange(b) ? "var(--admin-border)" : "rgba(178,34,34,0.6)"}`, borderRadius: 12, padding: 10, position: "relative" }}>
+            {brouillons.map((b) => {
+              const doublon = doublons.get(b.cle) ?? null;
+              return (
+              <div key={b.cle} style={{ border: `1px solid ${doublon === "identique" ? "#F59E0B" : estRange(b) ? "var(--admin-border)" : "rgba(178,34,34,0.6)"}`, borderRadius: 12, padding: 10, position: "relative", opacity: doublon === "identique" ? 0.6 : 1 }}>
                 <button type="button" onClick={() => setAgrandie(b.apercu)} style={{ all: "unset", cursor: "zoom-in", display: "block", width: "100%" }}>
                   <img src={b.apercu} alt={b.titre} style={{ width: "100%", borderRadius: 8, display: "block" }} />
                 </button>
@@ -267,6 +294,16 @@ export default function RecettesAdmin() {
                 <p style={{ margin: "0 0 10px", fontSize: 11, color: b.envoi === "erreur" ? "#F87171" : "var(--admin-text-muted)" }}>
                   {b.envoi === "en_cours" ? "Envoi de la photo…" : b.envoi === "erreur" ? "Échec de l'envoi : retire-la et réessaie" : "✓ Photo envoyée"}
                 </p>
+                {doublon === "identique" && (
+                  <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>
+                    ⚠️ Déjà dans l&apos;app — elle ne sera pas ajoutée une deuxième fois
+                  </p>
+                )}
+                {doublon === "meme_nom" && (
+                  <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--admin-text-muted)" }}>
+                    Une recette du même nom existe déjà, dans une autre tranche de calories. Celle-ci sera ajoutée en plus.
+                  </p>
+                )}
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <Ligne titre="Catégorie">
@@ -290,7 +327,8 @@ export default function RecettesAdmin() {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginTop: 16 }}>
@@ -298,6 +336,11 @@ export default function RecettesAdmin() {
               <input type="checkbox" checked={notifier} onChange={(e) => setNotifier(e.target.checked)} />
               Envoyer une notification aux clientes TTL (une seule pour tout le lot)
             </label>
+            {nbDoublons > 0 && (
+              <p style={{ fontSize: 12, color: "#F59E0B", margin: 0, fontWeight: 700 }}>
+                {nbDoublons} recette(s) déjà dans l&apos;app sont ignorées.
+              </p>
+            )}
             <button
               type="button"
               onClick={enregistrer}
@@ -306,9 +349,11 @@ export default function RecettesAdmin() {
             >
               {enregistrement
                 ? "Enregistrement…"
-                : toutPret
-                  ? `Ajouter ${brouillons.length > 1 ? `les ${brouillons.length} recettes` : "la recette"} dans l'app`
-                  : `${prets.length}/${brouillons.length} prête${prets.length > 1 ? "s" : ""} : range chaque photo`}
+                : aAjouter.length === 0
+                  ? "Toutes ces recettes sont déjà dans l'app"
+                  : toutPret
+                    ? `Ajouter ${aAjouter.length > 1 ? `les ${aAjouter.length} recettes` : "la recette"} dans l'app`
+                    : `${prets.length}/${aAjouter.length} prête${prets.length > 1 ? "s" : ""} : range chaque photo`}
             </button>
           </div>
         </div>

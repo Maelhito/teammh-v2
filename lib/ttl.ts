@@ -66,6 +66,23 @@ export const TTL_RECETTE_CALORIES: Record<TtlRecetteCategorie, number[]> = {
   collation: [250, 300],
 };
 
+/**
+ * Clé de comparaison des recettes : le nom sans accent, sans ponctuation ni majuscule.
+ * « Sauté de Poulet au Riz de Chou-Fleur » et « saute de poulet au riz de chou fleur »
+ * sont la même recette, « Toast jambon-œuf » et « Toast jambon oeuf » aussi.
+ */
+export function cleRecette(titre: string): string {
+  return titre
+    .toLowerCase()
+    // « œuf » et « oeuf », « nœud » et « noeud » : même mot.
+    .replace(/œ/g, "oe")
+    .replace(/æ/g, "ae")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 /** Une recette = une fiche photo (titre, ingrédients et macros sont sur l'image). */
 export interface TtlRecette {
   id: string;

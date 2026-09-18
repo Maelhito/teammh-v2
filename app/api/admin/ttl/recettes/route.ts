@@ -3,7 +3,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { sendPushToAllTtl } from "@/lib/push";
-import { categorieAvecGout, TTL_RECETTE_CALORIES, TTL_RECETTE_GOUT_LABELS } from "@/lib/ttl";
+import { categorieAvecGout, cleRecette, TTL_RECETTE_CALORIES, TTL_RECETTE_GOUT_LABELS } from "@/lib/ttl";
 import type { TtlRecetteCategorie, TtlRecetteGout } from "@/lib/ttl";
 import { supprimerFichiers } from "@/lib/ttl-stockage";
 
@@ -63,7 +63,23 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createSupabaseAdminClient();
-  const { data, error } = await admin.from("ttl_recettes").insert(lignes).select(COLONNES);
+
+  // Dernier rempart contre les doublons : une même recette (même nom, même catégorie,
+  // même tranche de calories) n'entre qu'une fois, même si l'admin la renvoie.
+  const { data: existantes } = await admin.from("ttl_recettes").select("titre, categorie, calories");
+  const deja = new Set((existantes ?? []).map((r) => `${cleRecette(r.titre)}|${r.categorie}|${r.calories}`));
+  const aInserer = lignes.filter((l) => {
+    const cle = `${cleRecette(l.titre)}|${l.categorie}|${l.calories}`;
+    if (deja.has(cle)) return false;
+    deja.add(cle);
+    return true;
+  });
+  const ignorees = lignes.length - aInserer.length;
+  if (aInserer.length === 0) {
+    return NextResponse.json({ recettes: [], ignorees, message: "Ces recettes sont déjà dans l'app" });
+  }
+
+  const { data, error } = await admin.from("ttl_recettes").insert(aInserer).select(COLONNES);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (body.notifier) {
@@ -75,7 +91,7 @@ export async function POST(request: NextRequest) {
     }));
   }
 
-  return NextResponse.json({ recettes: data });
+  return NextResponse.json({ recettes: data, ignorees });
 }
 
 /** Change le rangement d'une fiche (catégorie, sucré / salé, calories). */

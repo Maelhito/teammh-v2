@@ -1,6 +1,6 @@
 "use client";
 
-import { TTL_RECETTE_CALORIES } from "@/lib/ttl";
+import { cleRecette, TTL_RECETTE_CALORIES } from "@/lib/ttl";
 import type { TtlRecetteCategorie } from "@/lib/ttl";
 import { chargerPdfjs, pageEnImages } from "./pdfEnImages";
 import type { PageImages } from "./pdfEnImages";
@@ -21,11 +21,6 @@ const REPAS: [RegExp, TtlRecetteCategorie][] = [
   [/d[ée]jeuner/i, "repas"],
   [/d[iî]ner|souper/i, "repas"],
 ];
-
-/** Pour comparer des noms de plats écrits différemment d'une page à l'autre. */
-function normaliser(nom: string) {
-  return nom.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
 
 /** La tranche de calories la plus proche de la valeur écrite sur la fiche. */
 function trancheLaPlusProche(categorie: TtlRecetteCategorie | null, kcal: number | null): number | null {
@@ -78,7 +73,7 @@ export async function recettesDepuisPdf(
         const m = ligne.match(/([^:]+):\s*([^:]{3,})$/);
         if (!m) continue;
         const repas = REPAS.find(([r]) => r.test(m[1]));
-        const plat = normaliser(m[2]);
+        const plat = cleRecette(m[2]);
         if (repas && plat && !categorieParPlat.has(plat)) categorieParPlat.set(plat, repas[1]);
       }
     }
@@ -99,7 +94,7 @@ export async function recettesDepuisPdf(
       const suite = lignes.slice(debut).findIndex((l) => /^[-•]/.test(l));
       const titre = lignes.slice(debut, suite > 0 ? debut + suite : debut + 1).join(" ").replace(/\s+/g, " ").trim();
       if (!titre) continue;
-      const cle = normaliser(titre);
+      const cle = cleRecette(titre);
       if (vues.has(cle)) continue;
       vues.add(cle);
 
