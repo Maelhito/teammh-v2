@@ -1,17 +1,119 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import "./vente-ttl.css";
-import RevealOnScroll from "./RevealOnScroll";
+import { Rail, Faq, RevealOnScroll } from "./Interactif";
+import { ECRANS, PhoneMockup, EcranAccueil } from "./PhoneScreens";
 
-const VALEURS = [
-  { mark: "01", titre: "UN PROGRAMME GUIDÉ, PAS UN PDF", texte: "Onboarding vidéo, séances qui se lancent toutes seules — tout est expliqué, pas à toi de deviner." },
-  { mark: "02", titre: "SPORT + NUTRITION, ENSEMBLE", texte: "Séances vidéo et plans alimentaires avec recettes, dans la même application." },
-  { mark: "03", titre: "FAIT POUR TENIR DANS LA DURÉE", texte: "Série de séances, jokers et capsules motivation — pour ne pas lâcher après deux semaines." },
+export const metadata: Metadata = {
+  title: "Time To Live — l'app qui ne te lâche pas",
+  description:
+    "Sport, nutrition et motivation dans une seule application. 6 000 XPF par mois, sans engagement.",
+};
+
+const MARQUEE = [
+  "Séances vidéo",
+  "Plans alimentaires",
+  "Recettes du mois",
+  "Capsules motivation",
+  "Rappels quotidiens",
+  "Badges & série",
+  "Sans engagement",
+];
+
+const PILIERS = [
+  {
+    no: "01",
+    titre: "Elle te dit quoi faire aujourd'hui",
+    texte:
+      "Tu ouvres l'app, tu as UNE mission du jour. Pas trente onglets, pas un PDF de 40 pages à trier toute seule.",
+  },
+  {
+    no: "02",
+    titre: "Sport et alimentation au même endroit",
+    texte:
+      "Tes séances vidéo, tes plans alimentaires et tes recettes ne vivent plus dans trois applis différentes. Tout est là.",
+  },
+  {
+    no: "03",
+    titre: "Elle te relance quand tu lâches",
+    texte:
+      "Série de séances, rappels, badges, capsules motivation. Ce qui compte, ce n'est pas la semaine 1 — c'est la semaine 9.",
+  },
 ];
 
 const ETAPES = [
-  { no: "ÉTAPE 01", emoji: "🎯", titre: "TU CHOISIS TON OBJECTIF", texte: "Perdre du poids, te muscler, retrouver de l'énergie, de bonnes habitudes — l'app s'adapte à toi." },
-  { no: "ÉTAPE 02", emoji: "🎬", titre: "TU DÉMARRES TON PROGRAMME", texte: "Onboarding vidéo, ton programme sport et ton plan alimentaire sont prêts dès le premier jour." },
-  { no: "ÉTAPE 03", emoji: "🔥", titre: "TU TIENS DANS LA DURÉE", texte: "Séances qui se lancent seules, série à ne pas casser, capsules motivation pour rester dedans." },
+  {
+    no: "01",
+    titre: "Tu dis où tu vas",
+    texte:
+      "Perdre du poids, te muscler, retrouver de l'énergie ou installer de bonnes habitudes. L'app se cale sur ton objectif dès l'inscription.",
+  },
+  {
+    no: "02",
+    titre: "Tu ouvres, c'est déjà prêt",
+    texte:
+      "Ton parcours vidéo, ton programme du mois et tes plans alimentaires t'attendent. Rien à construire, rien à chercher.",
+  },
+  {
+    no: "03",
+    titre: "Tu avances, elle suit",
+    texte:
+      "Chaque séance validée nourrit ta série. Tu vois où tu en es, et l'app te remet dedans les jours où l'envie n'y est pas.",
+  },
+];
+
+const TEMOIGNAGES = [
+  {
+    initiale: "?",
+    nom: "Ton premier avis",
+    meta: "À venir",
+    texte:
+      "Cet emplacement attend le message d'une de tes clientes. Tu m'envoies sa phrase, je la mets ici.",
+    vide: true,
+  },
+  {
+    initiale: "?",
+    nom: "Deuxième avis",
+    meta: "À venir",
+    texte:
+      "Un retour WhatsApp, un message vocal retranscrit, une phrase dite en visio — tout fait l'affaire.",
+    vide: true,
+  },
+  {
+    initiale: "?",
+    nom: "Troisième avis",
+    meta: "À venir",
+    texte:
+      "Les avis sont ce qui convainc le plus sur une page comme celle-ci. On les ajoute dès que tu les as.",
+    vide: true,
+  },
+];
+
+const FAQ = [
+  {
+    q: "C'est un programme sportif ?",
+    a: "Non. Time To Live est une application d'accompagnement : elle t'ouvre chaque jour sur une seule chose à faire, te donne tes séances, ton alimentation et de quoi rester motivée. Le sport n'est qu'une partie de ce qu'elle contient.",
+  },
+  {
+    q: "Je suis vraiment débutante, c'est pour moi ?",
+    a: "Oui. Le parcours démarre par des vidéos courtes qui expliquent comment tout fonctionne, et les séances se lancent toutes seules : tu suis, tu n'as rien à préparer.",
+  },
+  {
+    q: "Il me faut du matériel ou une salle ?",
+    a: "Non. Les séances sont pensées pour être faites chez toi. Si tu as du matériel, tant mieux ; sinon ça fonctionne quand même.",
+  },
+  {
+    q: "Je peux arrêter quand je veux ?",
+    a: "Oui. L'abonnement est sans engagement : tu le résilies en un clic depuis ton profil, et tu gardes l'accès jusqu'à la fin du mois déjà payé.",
+  },
+  {
+    q: "Comment se passe le paiement ?",
+    a: "Tu crées ton compte, puis tu paies en ligne par carte via Stripe — le même système qu'utilisent des millions de sites. Ton accès s'ouvre immédiatement après le paiement.",
+  },
+  {
+    q: "Et si je pars en déplacement ou que je tombe malade ?",
+    a: "Ta série n'est pas perdue pour un jour manqué : tu as des jokers, et tu reprends là où tu t'étais arrêtée. L'app est faite pour la vraie vie, pas pour une vie parfaite.",
+  },
 ];
 
 export default function VenteTtlPage() {
@@ -19,75 +121,138 @@ export default function VenteTtlPage() {
     <div className="vttl">
       <RevealOnScroll />
 
+      {/* ---------- NAV ---------- */}
       <nav className="v-nav">
         <div className="v-nav-inner">
-          <div className="v-brand">
-            <strong className="font-title">TIME TO <span>LIVE</span></strong>
-          </div>
+          <span className="v-brand">TIME TO <span className="v-flame">LIVE</span></span>
           <div className="v-navlinks">
-            <a href="#programme">Le programme</a>
+            <a href="#app">L&apos;app</a>
+            <a href="#comment">Comment ça marche</a>
+            <a href="#avis">Avis</a>
             <a href="#offre">Tarif</a>
           </div>
-          <a href="#offre" className="v-btn v-btn-primary font-title">Je démarre</a>
+          <Link href="/inscription-ttl" className="v-btn v-btn-primary">Je rejoins</Link>
         </div>
       </nav>
 
+      {/* ---------- HERO ---------- */}
       <header className="v-hero">
         <div className="v-wrap v-hero-grid">
           <div data-reveal>
-            <span className="v-eyebrow"><span className="v-dot" /> Sport &amp; nutrition, dans une seule app</span>
-            <h1 className="font-title">
-              Le déclic que tu<br />remets <span>depuis</span><br />trop longtemps.
+            <span className="v-eyebrow"><span className="v-dot" /> Sport · Nutrition · Motivation</span>
+            <h1>
+              L&apos;app qui<br />
+              ne te <span className="v-flame">lâche</span><br />
+              <span className="v-outline">pas.</span>
             </h1>
             <p className="v-lede">
-              Un programme sport et nutrition complet, pensé pour tenir dans la durée — pas juste jusqu&apos;à la deuxième semaine.
+              Tes séances, ton alimentation et ta motivation au même endroit — avec une seule chose à faire chaque jour. Pas un programme de plus qu&apos;on abandonne en semaine deux.
             </p>
             <div className="v-hero-ctas">
-              <Link href="/inscription-ttl" className="v-btn v-btn-primary font-title">Je démarre mon programme</Link>
-              <a href="#programme" className="v-btn v-btn-ghost font-title">Comment ça marche ↓</a>
+              <Link href="/inscription-ttl" className="v-btn v-btn-primary">Je rejoins Time To Live</Link>
+              <a href="#app" className="v-btn v-btn-outline">Voir l&apos;app ↓</a>
+            </div>
+            <div className="v-hero-stats">
+              <div className="v-stat">
+                <span className="v-stat-num v-flame">6 000</span>
+                <span className="v-stat-lbl">XPF / mois</span>
+              </div>
+              <div className="v-stat">
+                <span className="v-stat-num">4</span>
+                <span className="v-stat-lbl">Espaces dans l&apos;app</span>
+              </div>
+              <div className="v-stat">
+                <span className="v-stat-num">0</span>
+                <span className="v-stat-lbl">Engagement</span>
+              </div>
             </div>
           </div>
 
-          <div data-reveal>
-            <div className="v-phone-frame">
-              <span className="v-phone-tag">Time To Live</span>
-              <div className="v-notch" />
-              <div className="v-row v-tall v-accent" />
-              <div className="v-row" />
-              <div className="v-row" />
-            </div>
+          <div data-reveal style={{ display: "flex", justifyContent: "center" }}>
+            <PhoneMockup float>
+              <EcranAccueil />
+            </PhoneMockup>
           </div>
         </div>
       </header>
 
+      {/* ---------- BANDEAU DÉFILANT ---------- */}
+      <div className="v-marquee">
+        <div className="v-marquee-track">
+          {[0, 1].map((copie) => (
+            <div key={copie} style={{ display: "flex" }} aria-hidden={copie === 1}>
+              {MARQUEE.map((mot) => (
+                <span className="v-marquee-item" key={`${copie}-${mot}`}>{mot}<i /></span>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ---------- CARROUSEL DES ÉCRANS ---------- */}
+      <section className="v-section" id="app">
+        <div className="v-wrap">
+          <Rail
+            count={ECRANS.length}
+            label="Écrans de l'application"
+            head={
+              <div className="v-section-head" style={{ marginBottom: 0 }} data-reveal>
+                <span className="v-eyebrow"><span className="v-dot" /> Dans ta poche</span>
+                <h2>Voilà exactement<br />ce que tu ouvres<br />chaque matin.</h2>
+                <p>Fais glisser pour visiter l&apos;app espace par espace.</p>
+              </div>
+            }
+          >
+            {ECRANS.map(({ id, titre, legende, Ecran }) => (
+              <div className="v-phone-col" key={id}>
+                <PhoneMockup>
+                  <Ecran />
+                </PhoneMockup>
+                <div className="v-phone-caption">
+                  <strong>{titre}</strong>
+                  <span>{legende}</span>
+                </div>
+              </div>
+            ))}
+          </Rail>
+        </div>
+      </section>
+
+      {/* ---------- PILIERS ---------- */}
       <section className="v-section">
         <div className="v-wrap">
-          <div className="v-value-grid">
-            {VALEURS.map((v) => (
-              <div className="v-value-item" data-reveal key={v.mark}>
-                <div className="v-mark font-title">{v.mark}</div>
-                <h3 className="font-title">{v.titre}</h3>
-                <p>{v.texte}</p>
+          <div className="v-section-head" data-reveal>
+            <span className="v-eyebrow"><span className="v-dot" /> Pourquoi ça tient</span>
+            <h2>Ce n&apos;est pas un programme.<br />C&apos;est un rendez-vous quotidien.</h2>
+          </div>
+          <div className="v-pillars">
+            {PILIERS.map((p) => (
+              <div className="v-pillar" data-reveal key={p.no}>
+                <div className="v-pillar-no">{p.no}</div>
+                <h3>{p.titre}</h3>
+                <p>{p.texte}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="v-section" id="programme">
+      {/* ---------- ÉTAPES ---------- */}
+      <section className="v-section" id="comment">
         <div className="v-wrap">
           <div className="v-section-head" data-reveal>
             <span className="v-eyebrow"><span className="v-dot" /> Comment ça marche</span>
-            <h2 className="font-title"><span className="v-accent-bar" />Trois étapes pour démarrer.</h2>
-            <p>Une seule décision à prendre — le reste est déjà prêt dans l&apos;application.</p>
+            <h2>Trois minutes pour<br />commencer.</h2>
+            <p>Tu crées ton compte, tu choisis ton objectif, et tout est déjà en place.</p>
           </div>
-
           <div className="v-steps">
             {ETAPES.map((e) => (
               <div className="v-step" data-reveal key={e.no}>
-                <div className="v-step-no font-title">{e.no}</div>
-                <div className="v-step-emoji">{e.emoji}</div>
-                <h3 className="font-title">{e.titre}</h3>
+                <div className="v-step-rail">
+                  <div className="v-step-num">{e.no}</div>
+                  <div className="v-step-line" />
+                </div>
+                <h3>{e.titre}</h3>
                 <p>{e.texte}</p>
               </div>
             ))}
@@ -95,61 +260,135 @@ export default function VenteTtlPage() {
         </div>
       </section>
 
+      {/* ---------- TÉMOIGNAGES ---------- */}
+      <section className="v-section" id="avis">
+        <div className="v-wrap">
+          <Rail
+            count={TEMOIGNAGES.length}
+            label="Avis"
+            head={
+              <div className="v-section-head" style={{ marginBottom: 0 }} data-reveal>
+                <span className="v-eyebrow"><span className="v-dot" /> Elles en parlent</span>
+                <h2>Ce que ça change,<br />dans leurs mots.</h2>
+                <p>Ces emplacements attendent tes vrais avis clientes.</p>
+              </div>
+            }
+          >
+            {TEMOIGNAGES.map((t) => (
+              <div className={`v-testi${t.vide ? " v-placeholder" : ""}`} key={t.nom}>
+                <div className="v-quote">“</div>
+                {!t.vide && <div className="v-stars">★★★★★</div>}
+                <p>{t.texte}</p>
+                <div className="v-testi-who">
+                  <div className="v-avatar">{t.initiale}</div>
+                  <div>
+                    <span className="v-testi-name">{t.nom}</span>
+                    <span className="v-testi-meta">{t.meta}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </Rail>
+        </div>
+      </section>
+
+      {/* ---------- OFFRE ---------- */}
       <section className="v-section" id="offre">
-        <div className="v-wrap v-offer-wrap">
+        <div className="v-wrap v-offer">
           <div data-reveal>
-            <span className="v-eyebrow" style={{ marginBottom: 16 }}><span className="v-dot" /> L&apos;offre</span>
-            <h2 className="font-title" style={{ fontSize: "clamp(1.8rem, 3.2vw, 2.5rem)", letterSpacing: "3px", margin: "0 0 20px" }}>
-              <span className="v-accent-bar" />Time To Live — tout inclus.
+            <span className="v-eyebrow" style={{ marginBottom: 16 }}><span className="v-dot" /> Ce que tu as dedans</span>
+            <h2 style={{ fontSize: "clamp(2.2rem, 5vw, 3.4rem)", lineHeight: 0.94, letterSpacing: "2px", margin: "0 0 26px" }}>
+              Un seul accès.<br />Tout est dedans.
             </h2>
-            <ul className="v-offer-list">
-              <li><span className="v-arrow">→</span><p><strong className="font-title">ONBOARDING GUIDÉ</strong><span>Des vidéos courtes pour démarrer du bon pied, dans l&apos;ordre.</span></p></li>
-              <li><span className="v-arrow">→</span><p><strong className="font-title">UN PROGRAMME SPORT</strong><span>Des séances vidéo à suivre chez toi, qui se lancent toutes seules.</span></p></li>
-              <li><span className="v-arrow">→</span><p><strong className="font-title">NUTRITION</strong><span>Des plans alimentaires et des recettes classées, adaptés à ton objectif.</span></p></li>
-              <li><span className="v-arrow">→</span><p><strong className="font-title">CAPSULES MOTIVATION</strong><span>De quoi tenir dans la durée, pas juste les premières semaines.</span></p></li>
+            <ul className="v-incl">
+              <li>
+                <span className="v-check">✓</span>
+                <p style={{ margin: 0 }}><strong>Ton parcours de démarrage</strong><span>Des vidéos courtes, dans l&apos;ordre, pour ne pas partir dans tous les sens.</span></p>
+              </li>
+              <li>
+                <span className="v-check">✓</span>
+                <p style={{ margin: 0 }}><strong>Tes séances vidéo</strong><span>Un programme par mois, semaine par semaine, à faire chez toi.</span></p>
+              </li>
+              <li>
+                <span className="v-check">✓</span>
+                <p style={{ margin: 0 }}><strong>Plans alimentaires & recettes</strong><span>Des plans selon tes calories et des recettes classées par catégorie.</span></p>
+              </li>
+              <li>
+                <span className="v-check">✓</span>
+                <p style={{ margin: 0 }}><strong>Capsules motivation</strong><span>De quoi te remettre dedans les jours sans, plus badges et série de séances.</span></p>
+              </li>
+              <li>
+                <span className="v-check">✓</span>
+                <p style={{ margin: 0 }}><strong>Les nouveautés incluses</strong><span>Chaque mois, de nouveaux contenus arrivent sans supplément.</span></p>
+              </li>
             </ul>
           </div>
 
           <div data-reveal>
             <div className="v-price-card">
-              <span className="v-pill font-title">Sans engagement</span>
-              <h3 className="font-title">TIME TO LIVE</h3>
-              <p className="v-sub">Accès complet à l&apos;application.</p>
-              <div className="v-price-row">
-                <span className="v-amount font-title">6 000</span>
-                <span className="v-per">XPF / mois</span>
+              <span className="v-price-pill">Sans engagement</span>
+              <h3>Time To Live</h3>
+              <p className="v-price-sub">Accès complet à l&apos;application.</p>
+              <div className="v-price-amount">
+                <b className="v-flame">6 000</b>
+                <i>XPF / mois</i>
               </div>
-              <p className="v-price-note">Résiliable à tout moment depuis l&apos;app.</p>
+              <p className="v-price-note">Soit environ 200 XPF par jour.</p>
               <ul className="v-price-feats">
-                <li><span className="v-arrow">→</span>Onboarding, sport, nutrition, motivation</li>
-                <li><span className="v-arrow">→</span>Accès complet à l&apos;application</li>
-                <li><span className="v-arrow">→</span>Paiement sécurisé, résiliable en un clic</li>
+                <li><em>✓</em> Accès à tous les espaces de l&apos;app</li>
+                <li><em>✓</em> Nouveaux contenus chaque mois</li>
+                <li><em>✓</em> Paiement sécurisé par carte</li>
+                <li><em>✓</em> Résiliable en un clic, à tout moment</li>
               </ul>
-              <Link href="/inscription-ttl" className="v-btn v-btn-primary font-title">Je m&apos;inscris</Link>
+              <Link href="/inscription-ttl" className="v-btn v-btn-primary">Je rejoins Time To Live</Link>
+              <p className="v-price-legal">Ton accès s&apos;ouvre dès le paiement validé.</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="v-final-cta">
-        <div className="v-wrap v-final-cta-inner">
-          <div data-reveal>
-            <h2 className="font-title">Le meilleur moment<br />pour <span>commencer</span>, c&apos;est celui-ci.</h2>
-            <p>Un programme complet, une application pour ne rien perdre en route.</p>
+      {/* ---------- FAQ ---------- */}
+      <section className="v-section">
+        <div className="v-wrap">
+          <div className="v-section-head v-center" data-reveal>
+            <span className="v-eyebrow"><span className="v-dot" /> Questions</span>
+            <h2>Ce qu&apos;on nous demande<br />le plus souvent.</h2>
           </div>
-          <Link href="/inscription-ttl" className="v-btn v-btn-primary font-title" data-reveal>Je démarre mon programme</Link>
+          <div data-reveal>
+            <Faq items={FAQ} />
+          </div>
         </div>
       </section>
 
+      {/* ---------- CTA FINALE ---------- */}
+      <section className="v-final">
+        <div className="v-wrap" data-reveal>
+          <h2>
+            Le bon moment,<br />
+            <span className="v-flame">c&apos;est maintenant.</span>
+          </h2>
+          <p>Trois minutes pour créer ton compte. Et demain matin, tu sais déjà quoi faire.</p>
+          <Link href="/inscription-ttl" className="v-btn v-btn-primary">Je rejoins Time To Live</Link>
+        </div>
+      </section>
+
+      {/* ---------- PIED DE PAGE ---------- */}
       <footer className="v-footer">
         <div className="v-wrap v-footer-top">
-          <div className="v-brand">
-            <strong className="font-title">TIME TO <span style={{ color: "#B22222" }}>LIVE</span></strong>
-          </div>
-          <Link href="/login" className="v-footer-link">Déjà un compte ? Se connecter</Link>
+          <span className="v-brand">TIME TO <span className="v-flame">LIVE</span></span>
+          <Link href="/login">Déjà un compte ? Se connecter</Link>
         </div>
         <div className="v-footer-bar" />
       </footer>
+
+      {/* barre collante sur téléphone */}
+      <div className="v-sticky-cta">
+        <div>
+          <span className="v-sticky-lbl">Sans engagement</span>
+          <span className="v-sticky-price v-flame">6 000 XPF / mois</span>
+        </div>
+        <Link href="/inscription-ttl" className="v-btn v-btn-primary">Je rejoins</Link>
+      </div>
     </div>
   );
 }
