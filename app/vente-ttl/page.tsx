@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import "./vente-ttl.css";
 import { Rail, Faq, RevealOnScroll } from "./Interactif";
 import { ECRANS, PhoneMockup, EcranAccueil } from "./PhoneScreens";
+import { RESULTATS, TEMOIGNAGES, VIDEOS, Courbe } from "./Preuves";
 
 export const metadata: Metadata = {
   title: "Time To Live — l'app qui ne te lâche pas",
@@ -10,15 +11,7 @@ export const metadata: Metadata = {
     "Sport, nutrition et motivation dans une seule application. 6 000 XPF par mois, sans engagement.",
 };
 
-const MARQUEE = [
-  "Séances vidéo",
-  "Plans alimentaires",
-  "Recettes du mois",
-  "Capsules motivation",
-  "Rappels quotidiens",
-  "Badges & série",
-  "Sans engagement",
-];
+const MARQUEE = RESULTATS.map((r) => `${r.prenom} −${r.kg} kg`);
 
 const PILIERS = [
   {
@@ -62,33 +55,6 @@ const ETAPES = [
   },
 ];
 
-const TEMOIGNAGES = [
-  {
-    initiale: "?",
-    nom: "Ton premier avis",
-    meta: "À venir",
-    texte:
-      "Cet emplacement attend le message d'une de tes clientes. Tu m'envoies sa phrase, je la mets ici.",
-    vide: true,
-  },
-  {
-    initiale: "?",
-    nom: "Deuxième avis",
-    meta: "À venir",
-    texte:
-      "Un retour WhatsApp, un message vocal retranscrit, une phrase dite en visio — tout fait l'affaire.",
-    vide: true,
-  },
-  {
-    initiale: "?",
-    nom: "Troisième avis",
-    meta: "À venir",
-    texte:
-      "Les avis sont ce qui convainc le plus sur une page comme celle-ci. On les ajoute dès que tu les as.",
-    vide: true,
-  },
-];
-
 const FAQ = [
   {
     q: "C'est un programme sportif ?",
@@ -126,8 +92,8 @@ export default function VenteTtlPage() {
         <div className="v-nav-inner">
           <span className="v-brand">TIME TO <span className="v-flame">LIVE</span></span>
           <div className="v-navlinks">
+            <a href="#resultats">Résultats</a>
             <a href="#app">L&apos;app</a>
-            <a href="#comment">Comment ça marche</a>
             <a href="#avis">Avis</a>
             <a href="#offre">Tarif</a>
           </div>
@@ -188,6 +154,40 @@ export default function VenteTtlPage() {
           ))}
         </div>
       </div>
+
+      {/* ---------- RÉSULTATS ---------- */}
+      <section className="v-section" id="resultats">
+        <div className="v-wrap">
+          <Rail
+            count={RESULTATS.length}
+            label="Résultats clientes"
+            head={
+              <div className="v-section-head" style={{ marginBottom: 0 }} data-reveal>
+                <span className="v-eyebrow"><span className="v-dot" /> Elles l&apos;ont fait avec la Team MJ</span>
+                <h2>Des résultats,<br />pas des promesses.</h2>
+                <p>Chaque courbe est celle d&apos;une vraie cliente suivie par l&apos;équipe.</p>
+              </div>
+            }
+          >
+            {RESULTATS.map((r, i) => (
+              <div className="v-result" key={r.prenom + r.kg}>
+                <Courbe seed={i} />
+                <div className="v-result-kg">−{r.kg}<i>kg</i></div>
+                <div className="v-result-who">
+                  <strong>{r.prenom}</strong>
+                  {r.duree && <span>en {r.duree}</span>}
+                </div>
+              </div>
+            ))}
+          </Rail>
+
+          <p className="v-disclaimer" data-reveal>
+            Ces résultats ont été obtenus avec l&apos;accompagnement complet Team MJ (plan personnalisé,
+            suivi hebdomadaire, visios). <b>Time To Live, c&apos;est cette méthode mise dans une app</b> —
+            les résultats dépendent de ton implication.
+          </p>
+        </div>
+      </section>
 
       {/* ---------- CARROUSEL DES ÉCRANS ---------- */}
       <section className="v-section" id="app">
@@ -270,21 +270,50 @@ export default function VenteTtlPage() {
               <div className="v-section-head" style={{ marginBottom: 0 }} data-reveal>
                 <span className="v-eyebrow"><span className="v-dot" /> Elles en parlent</span>
                 <h2>Ce que ça change,<br />dans leurs mots.</h2>
-                <p>Ces emplacements attendent tes vrais avis clientes.</p>
+                <p>Des messages reçus par l&apos;équipe, repris tels quels.</p>
               </div>
             }
           >
             {TEMOIGNAGES.map((t) => (
-              <div className={`v-testi${t.vide ? " v-placeholder" : ""}`} key={t.nom}>
+              <div className="v-testi" key={t.prenom + t.meta}>
                 <div className="v-quote">“</div>
-                {!t.vide && <div className="v-stars">★★★★★</div>}
+                <div className="v-stars">★★★★★</div>
                 <p>{t.texte}</p>
                 <div className="v-testi-who">
-                  <div className="v-avatar">{t.initiale}</div>
+                  <div className="v-avatar">{t.prenom.charAt(0)}</div>
                   <div>
-                    <span className="v-testi-name">{t.nom}</span>
+                    <span className="v-testi-name">{t.prenom}</span>
                     <span className="v-testi-meta">{t.meta}</span>
                   </div>
+                </div>
+              </div>
+            ))}
+          </Rail>
+        </div>
+      </section>
+
+      {/* ---------- TÉMOIGNAGES VIDÉO ---------- */}
+      <section className="v-section" id="videos">
+        <div className="v-wrap">
+          <Rail
+            count={VIDEOS.length}
+            label="Témoignages vidéo"
+            head={
+              <div className="v-section-head" style={{ marginBottom: 0 }} data-reveal>
+                <span className="v-eyebrow"><span className="v-dot" /> En vidéo</span>
+                <h2>Elles le racontent<br />elles-mêmes.</h2>
+                <p>Douze clientes ont pris la parole face caméra.</p>
+              </div>
+            }
+          >
+            {VIDEOS.map((prenom) => (
+              <div className="v-video" key={prenom}>
+                <div className="v-video-thumb">
+                  <div className="v-play" aria-hidden>▶</div>
+                </div>
+                <div className="v-video-cap">
+                  <strong>{prenom}</strong>
+                  <span>Témoignage vidéo</span>
                 </div>
               </div>
             ))}
