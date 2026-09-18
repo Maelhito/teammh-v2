@@ -114,7 +114,7 @@ export default function InscriptionTtlPage() {
             🔥
           </div>
           <h1 className="font-body" style={{ color: "#FFFFFF", fontSize: "2rem", fontWeight: 700, letterSpacing: "0.08em", margin: 0 }}>
-            TIME TO LAST
+            TIME TO LIVE
           </h1>
           <p className="font-body" style={{ color: ttlColors.muted, marginTop: 8, fontSize: 14 }}>
             Créer ton compte

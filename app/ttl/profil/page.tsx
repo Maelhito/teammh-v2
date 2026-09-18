@@ -78,7 +78,7 @@ export default async function TtlProfilPage() {
                 className="font-body"
                 style={{ display: "inline-block", marginTop: 6, background: "rgba(0,0,0,0.35)", border: "1px solid rgba(230,57,70,0.4)", color: ttlColors.redBright, fontSize: 10, letterSpacing: "1px", padding: "3px 9px", borderRadius: 20, fontWeight: 700 }}
               >
-                TIME TO LAST
+                TIME TO LIVE
               </span>
             </div>
           </div>

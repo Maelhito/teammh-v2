@@ -120,7 +120,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
         <TtlHeader
           variant="home"
           firstName={firstName || "toi"}
-          offerLabel="TIME TO LAST"
+          offerLabel="TIME TO LIVE"
           streak={streakInfo.streak_current}
           freezes={streakInfo.streak_freezes}
           objectifLabel={ttlObjectifLabel(objectif)}
