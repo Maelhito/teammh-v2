@@ -17,6 +17,12 @@ CREATE TABLE IF NOT EXISTS questionnaire_demarrage (
   objectif_12mois_poids TEXT,
   objectif_12mois_bienetre TEXT,
 
+  -- Comment tu te sens aujourd'hui
+  niveau_energie TEXT,
+  niveau_sommeil TEXT,
+  niveau_confiance TEXT,
+  taille_pantalon TEXT,
+
   -- Accompagnement
   freins TEXT,
   aide_accompagnement TEXT,

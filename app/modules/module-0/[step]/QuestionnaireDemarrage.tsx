@@ -118,7 +118,34 @@ export default function QuestionnaireDemarrage() {
                   {q.label}
                 </label>
 
-                {q.kind === "ouinon" ? (
+                {q.kind === "note10" ? (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {Array.from({ length: 10 }, (_, i) => String(i + 1)).map((n) => {
+                      const active = answers[q.field] === n;
+                      return (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => set(q.field, n)}
+                          style={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: 8,
+                            border: `1px solid ${active ? "#B45309" : "#262626"}`,
+                            backgroundColor: active ? "rgba(180,83,9,0.15)" : "#0D0D0D",
+                            color: active ? "#F59E0B" : "#6B7280",
+                            fontSize: "0.8rem",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                          }}
+                        >
+                          {n}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : q.kind === "ouinon" ? (
                   <div style={{ display: "flex", gap: 8 }}>
                     {["Oui", "Non"].map((opt) => {
                       const active = (answers[q.field] ?? "").toLowerCase() === opt.toLowerCase();

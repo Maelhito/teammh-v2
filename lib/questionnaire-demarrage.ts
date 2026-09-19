@@ -11,6 +11,10 @@ export interface QuestionnaireDemarrage {
   objectif_4mois_bienetre: string | null;
   objectif_12mois_poids: string | null;
   objectif_12mois_bienetre: string | null;
+  niveau_energie: string | null;
+  niveau_sommeil: string | null;
+  niveau_confiance: string | null;
+  taille_pantalon: string | null;
   freins: string | null;
   aide_accompagnement: string | null;
   sport_actuel: string | null;
@@ -30,6 +34,10 @@ export const OBJECTIF_FIELDS = [
 
 export const ALL_FIELDS = [
   ...OBJECTIF_FIELDS,
+  "niveau_energie",
+  "niveau_sommeil",
+  "niveau_confiance",
+  "taille_pantalon",
   "freins",
   "aide_accompagnement",
   "sport_actuel",
@@ -40,7 +48,7 @@ export const ALL_FIELDS = [
 
 export type QuestionnaireField = (typeof ALL_FIELDS)[number];
 
-export type FieldKind = "text" | "textarea" | "ouinon";
+export type FieldKind = "text" | "textarea" | "ouinon" | "note10";
 
 export interface QuestionDef {
   field: QuestionnaireField;
@@ -68,6 +76,15 @@ export const QUESTIONNAIRE_GROUPS: QuestionGroup[] = [
     questions: [
       { field: "objectif_12mois_poids", label: "Objectif poids", placeholder: "ex : atteindre mon poids de forme", kind: "text" },
       { field: "objectif_12mois_bienetre", label: "Objectif bien-être", placeholder: "ex : une relation saine avec la nourriture", kind: "text" },
+    ],
+  },
+  {
+    title: "Comment tu te sens aujourd'hui",
+    questions: [
+      { field: "niveau_energie", label: "Quel est ton niveau d'énergie quotidien ? (note sur 10)", kind: "note10" },
+      { field: "niveau_sommeil", label: "Quel est ton niveau de sommeil ? (note sur 10)", kind: "note10" },
+      { field: "niveau_confiance", label: "Quel est ton niveau de confiance en toi ? (note sur 10)", kind: "note10" },
+      { field: "taille_pantalon", label: "Quelle est ta taille de pantalon ?", placeholder: "ex : 38", kind: "text" },
     ],
   },
   {
@@ -108,6 +125,10 @@ export const EMPTY_QUESTIONNAIRE: QuestionnaireDemarrage = {
   objectif_4mois_bienetre: null,
   objectif_12mois_poids: null,
   objectif_12mois_bienetre: null,
+  niveau_energie: null,
+  niveau_sommeil: null,
+  niveau_confiance: null,
+  taille_pantalon: null,
   freins: null,
   aide_accompagnement: null,
   sport_actuel: null,
