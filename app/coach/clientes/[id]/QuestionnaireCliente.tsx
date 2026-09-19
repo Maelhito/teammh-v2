@@ -37,8 +37,10 @@ export default function QuestionnaireCliente({ clienteId }: { clienteId: string 
   }, [clienteId]);
 
   const answered = countAnswered(data);
-  // Groupes 3 et 4 (accompagnement, sport) — les objectifs sont affichés à part
-  const [, , accompagnement, sport] = QUESTIONNAIRE_GROUPS;
+  // Tous les groupes sauf les objectifs (affichés à part ci-dessous)
+  const autresGroupes = QUESTIONNAIRE_GROUPS.filter(
+    (g) => g.title !== "Tes objectifs sur les 4 prochains mois" && g.title !== "Tes objectifs sur 12 mois"
+  );
 
   const card: React.CSSProperties = {
     backgroundColor: "#fff",
@@ -161,27 +163,18 @@ export default function QuestionnaireCliente({ clienteId }: { clienteId: string 
       {/* Reste du questionnaire */}
       {showAll && (
         <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #f5f5f5", display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <p style={{ fontSize: 10, fontWeight: 700, color: "#B45309", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 10px", fontFamily: "system-ui" }}>
-              {accompagnement.title}
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {accompagnement.questions.map((q) => (
-                <Answer key={q.field} label={q.label} value={data[q.field]} />
-              ))}
+          {autresGroupes.map((groupe) => (
+            <div key={groupe.title}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: "#B45309", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 10px", fontFamily: "system-ui" }}>
+                {groupe.title}
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {groupe.questions.map((q) => (
+                  <Answer key={q.field} label={q.label} value={data[q.field]} />
+                ))}
+              </div>
             </div>
-          </div>
-
-          <div>
-            <p style={{ fontSize: 10, fontWeight: 700, color: "#B45309", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 10px", fontFamily: "system-ui" }}>
-              {sport.title}
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {sport.questions.map((q) => (
-                <Answer key={q.field} label={q.label} value={data[q.field]} />
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
       )}
     </div>
