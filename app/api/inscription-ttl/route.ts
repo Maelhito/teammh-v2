@@ -5,7 +5,7 @@ import { FUSEAU_PAR_DEFAUT, aujourdhuiDans, fuseauOuDefaut } from "@/lib/temps";
 const OBJECTIF_VALUES = ["perdre_poids", "se_muscler", "energie", "habitudes", "autre"];
 
 export async function POST(req: NextRequest) {
-  const { prenom, nom, email, password, objectif, timezone } = await req.json();
+  const { prenom, nom, email, password, objectif, poids, frein, pretADemarrer, timezone } = await req.json();
 
   if (!prenom || !email || !password) {
     return NextResponse.json({ error: "Prénom, email et mot de passe requis." }, { status: 400 });
@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
   if (!objectif || !OBJECTIF_VALUES.includes(objectif)) {
     return NextResponse.json({ error: "Choisis ton objectif." }, { status: 400 });
   }
+  const poidsDepart = typeof poids === "number" && poids > 0 && poids < 400 ? poids : null;
 
   // Le fuseau de l'appareil, capté dès l'inscription : sans lui, la personne
   // hérite du repli jusqu'à sa première ouverture de l'app. Ça compte d'autant
@@ -84,7 +85,19 @@ export async function POST(req: NextRequest) {
   await admin.from("ttl_objectifs").upsert({
     user_id: data.user.id,
     objectif,
+    frein: typeof frein === "string" && frein.trim() ? frein.trim().slice(0, 500) : null,
+    pret_a_demarrer: typeof pretADemarrer === "boolean" ? pretADemarrer : null,
   }, { onConflict: "user_id" });
+
+  // Le poids de départ rejoint directement les mesures : la cliente le
+  // retrouve dans sa courbe, sans ressaisie, et le coach n'a rien à reporter.
+  if (poidsDepart) {
+    await admin.from("mesures").upsert({
+      user_id: data.user.id,
+      date: dateDemarrage,
+      poids: poidsDepart,
+    }, { onConflict: "user_id,date" });
+  }
 
   return NextResponse.json({ success: true }, { status: 201 });
 }
