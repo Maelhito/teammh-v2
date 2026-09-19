@@ -95,20 +95,22 @@ export const TEMOIGNAGES: Temoignage[] = [
   },
 ];
 
-/** Prénoms des clientes qui ont enregistré un témoignage vidéo. */
-export const VIDEOS = [
-  "Sandrine",
-  "Karina",
-  "Sandy",
-  "Judith",
-  "Lolette",
-  "Lan",
-  "Gwen",
-  "Maria",
-  "Julie",
-  "Poe",
-  "Titikua",
-  "Romy",
+/**
+ * Témoignages filmés, hébergés sur YouTube en "non répertorié".
+ * `resultat` reprend ce qu'annonce la vignette : c'est l'état au moment du
+ * tournage, pas forcément le total d'aujourd'hui (voir RESULTATS).
+ */
+export interface VideoTemoignage {
+  prenom: string;
+  id: string;
+  resultat: string;
+}
+
+export const VIDEOS: VideoTemoignage[] = [
+  { prenom: "Sandy", id: "HFYqmowXE6A", resultat: "−7 kg en 3 mois" },
+  { prenom: "Judith", id: "TJcaL7SHw9o", resultat: "−8 kg en 16 semaines" },
+  { prenom: "Julie", id: "7FD3UkHIIaE", resultat: "−10 kg en 16 semaines" },
+  { prenom: "Sandrine", id: "WqTicwy-pT4", resultat: "« Enfin accompagnée, sans jugement »" },
 ];
 
 /**

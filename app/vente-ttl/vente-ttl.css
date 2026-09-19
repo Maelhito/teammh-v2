@@ -622,28 +622,44 @@
 .vttl .v-disclaimer b { color: var(--v-gris-txt); font-weight: 600; }
 
 /* ---------- TÉMOIGNAGES VIDÉO ---------- */
-.vttl .v-video { width: 208px; }
+.vttl .v-video { width: 340px; max-width: 82vw; }
 .vttl .v-video-thumb {
-  aspect-ratio: 9 / 14;
+  aspect-ratio: 16 / 9;
   border-radius: 16px;
-  background: linear-gradient(165deg, #1e1414 0%, #0d0a0a 100%);
+  background: #0d0a0a;
   border: 1px solid var(--v-border);
-  display: flex; align-items: center; justify-content: center;
   position: relative; overflow: hidden;
   transition: border-color 0.3s, transform 0.35s cubic-bezier(0.22,1,0.36,1);
 }
-.vttl .v-video-thumb::after {
-  content: ""; position: absolute; inset: 0;
-  background: radial-gradient(circle at 50% 45%, rgba(178,34,34,0.22), transparent 62%);
-}
 .vttl .v-video:hover .v-video-thumb { border-color: rgba(230,57,70,0.45); transform: translateY(-5px); }
+.vttl .v-video-thumb button {
+  all: unset;
+  display: block; width: 100%; height: 100%;
+  cursor: pointer; position: relative;
+}
+/* hqdefault est en 4/3 avec des bandes noires : on recadre pour ne garder
+   que l'image 16/9 du milieu. */
+.vttl .v-video-thumb img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s cubic-bezier(0.22,1,0.36,1), opacity 0.3s;
+}
+.vttl .v-video-thumb button:hover img { transform: scale(1.04); opacity: 0.88; }
+.vttl .v-video-thumb iframe { width: 100%; height: 100%; border: none; display: block; }
 .vttl .v-play {
-  width: 54px; height: 54px; border-radius: 50%;
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 58px; height: 58px; border-radius: 50%;
   background: var(--v-rouge); color: #fff;
   display: flex; align-items: center; justify-content: center;
-  font-size: 15px; padding-left: 3px;
-  box-shadow: 0 0 0 9px rgba(178,34,34,0.16);
-  position: relative; z-index: 2;
+  font-size: 16px; padding-left: 3px;
+  box-shadow: 0 0 0 10px rgba(178,34,34,0.18);
+  transition: background 0.25s, box-shadow 0.25s;
+}
+.vttl .v-video-thumb button:hover .v-play {
+  background: var(--v-rouge-vif);
+  box-shadow: 0 0 0 14px rgba(230,57,70,0.2);
 }
 .vttl .v-video-cap { padding: 14px 2px 0; }
 .vttl .v-video-cap strong {

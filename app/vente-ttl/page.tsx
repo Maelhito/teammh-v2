@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import "./vente-ttl.css";
-import { Rail, Faq, RevealOnScroll } from "./Interactif";
+import { Rail, Faq, RevealOnScroll, VideoYoutube } from "./Interactif";
 import { ECRANS, PhoneMockup, EcranAccueil } from "./PhoneScreens";
 import { RESULTATS, TEMOIGNAGES, VIDEOS, Courbe } from "./Preuves";
 
@@ -302,20 +302,12 @@ export default function VenteTtlPage() {
               <div className="v-section-head" style={{ marginBottom: 0 }} data-reveal>
                 <span className="v-eyebrow"><span className="v-dot" /> En vidéo</span>
                 <h2>Elles le racontent<br />elles-mêmes.</h2>
-                <p>Douze clientes ont pris la parole face caméra.</p>
+                <p>Quatre clientes ont pris la parole face caméra, sans script.</p>
               </div>
             }
           >
-            {VIDEOS.map((prenom) => (
-              <div className="v-video" key={prenom}>
-                <div className="v-video-thumb">
-                  <div className="v-play" aria-hidden>▶</div>
-                </div>
-                <div className="v-video-cap">
-                  <strong>{prenom}</strong>
-                  <span>Témoignage vidéo</span>
-                </div>
-              </div>
+            {VIDEOS.map((v) => (
+              <VideoYoutube key={v.id} id={v.id} prenom={v.prenom} resultat={v.resultat} />
             ))}
           </Rail>
         </div>

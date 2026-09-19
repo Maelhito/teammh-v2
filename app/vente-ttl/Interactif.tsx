@@ -118,6 +118,40 @@ export function Rail({
   );
 }
 
+/**
+ * Vignette YouTube cliquable. Tant qu'on n'a pas cliqué, rien de YouTube n'est
+ * chargé (ni iframe, ni scripts, ni cookies) : la page reste légère et on
+ * n'impose pas de traceur à quelqu'un qui ne regarde aucune vidéo.
+ */
+export function VideoYoutube({ id, prenom, resultat }: { id: string; prenom: string; resultat: string }) {
+  const [lance, setLance] = useState(false);
+
+  return (
+    <div className="v-video">
+      <div className="v-video-thumb">
+        {lance ? (
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`}
+            title={`Témoignage de ${prenom}`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        ) : (
+          <button onClick={() => setLance(true)} aria-label={`Lire le témoignage de ${prenom}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`} alt="" loading="lazy" />
+            <span className="v-play" aria-hidden>▶</span>
+          </button>
+        )}
+      </div>
+      <div className="v-video-cap">
+        <strong>{prenom}</strong>
+        <span>{resultat}</span>
+      </div>
+    </div>
+  );
+}
+
 export function Faq({ items }: { items: { q: string; a: string }[] }) {
   const [ouvert, setOuvert] = useState<number | null>(0);
 
