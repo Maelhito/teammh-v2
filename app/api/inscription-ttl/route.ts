@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { FUSEAU_PAR_DEFAUT, aujourdhuiDans, fuseauOuDefaut } from "@/lib/temps";
 
-const OBJECTIF_VALUES = ["perdre_poids", "se_muscler", "energie", "habitudes", "autre"];
-
 export async function POST(req: NextRequest) {
-  const { prenom, nom, email, password, objectif, poids, frein, pretADemarrer, timezone } = await req.json();
+  const { prenom, nom, email, password, poids, poidsVise, frein, pretADemarrer, timezone } = await req.json();
 
   if (!prenom || !email || !password) {
     return NextResponse.json({ error: "Prénom, email et mot de passe requis." }, { status: 400 });
@@ -13,10 +11,11 @@ export async function POST(req: NextRequest) {
   if (password.length < 8) {
     return NextResponse.json({ error: "Le mot de passe doit contenir au moins 8 caractères." }, { status: 400 });
   }
-  if (!objectif || !OBJECTIF_VALUES.includes(objectif)) {
-    return NextResponse.json({ error: "Choisis ton objectif." }, { status: 400 });
-  }
+  // Toute la base TTL cible la perte de poids — plus de choix d'objectif à
+  // l'inscription, seulement le poids de départ et le poids visé.
+  const objectif = "perdre_poids";
   const poidsDepart = typeof poids === "number" && poids > 0 && poids < 400 ? poids : null;
+  const poidsViseVal = typeof poidsVise === "number" && poidsVise > 0 && poidsVise < 400 ? poidsVise : null;
 
   // Le fuseau de l'appareil, capté dès l'inscription : sans lui, la personne
   // hérite du repli jusqu'à sa première ouverture de l'app. Ça compte d'autant
@@ -87,6 +86,7 @@ export async function POST(req: NextRequest) {
     objectif,
     frein: typeof frein === "string" && frein.trim() ? frein.trim().slice(0, 500) : null,
     pret_a_demarrer: typeof pretADemarrer === "boolean" ? pretADemarrer : null,
+    poids_vise: poidsViseVal,
   }, { onConflict: "user_id" });
 
   // Le poids de départ rejoint directement les mesures : la cliente le

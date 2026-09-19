@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import "./inscription.css";
-import { TTL_OBJECTIF_OPTIONS, type TtlObjectifValue } from "@/lib/ttl-objectifs";
 
 const FREINS = [
   { value: "temps", emoji: "⏱️", label: "Le manque de temps", sub: "Entre le travail et le reste, difficile de caser une séance" },
@@ -16,8 +15,8 @@ const FREINS = [
 type FreinValue = (typeof FREINS)[number]["value"];
 
 type Step =
-  | "objectif"
   | "poids"
+  | "poids_vise"
   | "frein"
   | "frein_autre"
   | "pret"
@@ -26,19 +25,19 @@ type Step =
   | "mdp"
   | "success";
 
-const ORDRE: Step[] = ["objectif", "poids", "frein", "pret", "identite", "email", "mdp"];
+const ORDRE: Step[] = ["poids", "poids_vise", "frein", "pret", "identite", "email", "mdp"];
 
 function fuseauAppareil(): string | null {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; }
 }
 
 export default function InscriptionFunnel() {
-  const [historique, setHistorique] = useState<Step[]>(["objectif"]);
+  const [historique, setHistorique] = useState<Step[]>(["poids"]);
   const [direction, setDirection] = useState<"avant" | "arriere">("avant");
   const step = historique[historique.length - 1];
 
-  const [objectif, setObjectif] = useState<TtlObjectifValue | "">("");
   const [poids, setPoids] = useState("");
+  const [poidsVise, setPoidsVise] = useState("");
   const [frein, setFrein] = useState<FreinValue | "">("");
   const [freinAutre, setFreinAutre] = useState("");
   const [pretADemarrer, setPretADemarrer] = useState<boolean | null>(null);
@@ -65,12 +64,12 @@ export default function InscriptionFunnel() {
 
   const positionActuelle = Math.max(0, ORDRE.indexOf(step === "frein_autre" ? "frein" : step));
 
-  function choisirObjectif(v: TtlObjectifValue) {
-    setObjectif(v);
-    aller("poids");
+  function validerPoids() {
+    setError("");
+    aller("poids_vise");
   }
 
-  function validerPoids() {
+  function validerPoidsVise() {
     setError("");
     aller("frein");
   }
@@ -126,8 +125,8 @@ export default function InscriptionFunnel() {
           nom,
           email,
           password,
-          objectif,
           poids: poids ? Number(poids.replace(",", ".")) : null,
+          poidsVise: poidsVise ? Number(poidsVise.replace(",", ".")) : null,
           frein: frein === "autre" ? freinAutre : FREINS.find((f) => f.value === frein)?.label,
           pretADemarrer,
           timezone: fuseauAppareil(),
@@ -183,25 +182,9 @@ export default function InscriptionFunnel() {
 
       <div className="vq-body">
         <div className={`vq-step${direction === "arriere" ? " vq-back-anim" : ""}`} key={step}>
-          {step === "objectif" && (
-            <>
-              <span className="vq-kicker"><i /> 1 / 6</span>
-              <h1 className="vq-question">Quel est <span>ton objectif</span> ?</h1>
-              <div className="vq-options">
-                {TTL_OBJECTIF_OPTIONS.map((o) => (
-                  <button key={o.value} className="vq-option" onClick={() => choisirObjectif(o.value)}>
-                    <span className="vq-option-emoji">{o.emoji}</span>
-                    <span className="vq-option-txt">{o.label}</span>
-                    <span className="vq-option-arrow">→</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
           {step === "poids" && (
             <>
-              <span className="vq-kicker"><i /> 2 / 6</span>
+              <span className="vq-kicker"><i /> 1 / 6</span>
               <h1 className="vq-question">Quel est <span>ton poids</span> aujourd&apos;hui ?</h1>
               <div className="vq-field">
                 <div className="vq-suffix-wrap">
@@ -219,7 +202,31 @@ export default function InscriptionFunnel() {
               </div>
               {error && <p className="vq-error">{error}</p>}
               <button className="vq-cta" onClick={validerPoids}>Continuer</button>
-              <button className="vq-skip" onClick={() => { setPoids(""); aller("frein"); }}>Je préfère ne pas le dire</button>
+              <button className="vq-skip" onClick={() => { setPoids(""); aller("poids_vise"); }}>Je préfère ne pas le dire</button>
+            </>
+          )}
+
+          {step === "poids_vise" && (
+            <>
+              <span className="vq-kicker"><i /> 2 / 6</span>
+              <h1 className="vq-question">Quel poids <span>vises-tu</span> ?</h1>
+              <div className="vq-field">
+                <div className="vq-suffix-wrap">
+                  <input
+                    className="vq-input"
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="Ex : 65"
+                    value={poidsVise}
+                    onChange={(e) => setPoidsVise(e.target.value)}
+                    autoFocus
+                  />
+                  <span className="vq-suffix">kg</span>
+                </div>
+              </div>
+              {error && <p className="vq-error">{error}</p>}
+              <button className="vq-cta" onClick={validerPoidsVise}>Continuer</button>
+              <button className="vq-skip" onClick={() => { setPoidsVise(""); aller("frein"); }}>Je préfère ne pas le dire</button>
             </>
           )}
 

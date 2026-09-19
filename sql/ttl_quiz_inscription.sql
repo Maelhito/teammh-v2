@@ -7,4 +7,5 @@
 
 ALTER TABLE ttl_objectifs
   ADD COLUMN IF NOT EXISTS frein TEXT,
-  ADD COLUMN IF NOT EXISTS pret_a_demarrer BOOLEAN;
+  ADD COLUMN IF NOT EXISTS pret_a_demarrer BOOLEAN,
+  ADD COLUMN IF NOT EXISTS poids_vise NUMERIC(5,2);
