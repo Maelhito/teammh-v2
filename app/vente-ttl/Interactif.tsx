@@ -173,6 +173,18 @@ export function Faq({ items }: { items: { q: string; a: string }[] }) {
 }
 
 export function RevealOnScroll() {
+  // Safari (surtout en PWA/ajout à l'écran d'accueil) rouvre parfois une page
+  // là où on l'avait laissée au lieu de repartir du haut. La page de vente
+  // doit toujours s'ouvrir sur le hero, jamais au milieu.
+  useEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+    if (!window.location.hash) {
+      window.scrollTo(0, 0);
+    }
+  }, []);
+
   useEffect(() => {
     const els = document.querySelectorAll("[data-reveal]");
     if (!("IntersectionObserver" in window)) {
