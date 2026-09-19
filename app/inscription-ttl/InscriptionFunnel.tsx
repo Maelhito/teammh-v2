@@ -21,11 +21,9 @@ type Step =
   | "frein_autre"
   | "pret"
   | "identite"
-  | "email"
-  | "mdp"
-  | "success";
+  | "email";
 
-const ORDRE: Step[] = ["poids", "poids_vise", "frein", "pret", "identite", "email", "mdp"];
+const ORDRE: Step[] = ["poids", "poids_vise", "frein", "pret", "identite", "email"];
 
 function fuseauAppareil(): string | null {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; }
@@ -44,8 +42,6 @@ export default function InscriptionFunnel() {
   const [prenom, setPrenom] = useState("");
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -96,35 +92,22 @@ export default function InscriptionFunnel() {
     aller("email");
   }
 
-  function validerEmail() {
+  async function lancerPaiement() {
+    setError("");
     if (!email.trim() || !email.includes("@")) {
       setError("Une adresse email valide, s'il te plaît.");
-      return;
-    }
-    aller("mdp");
-  }
-
-  async function creerCompte() {
-    setError("");
-    if (password.length < 8) {
-      setError("Le mot de passe doit contenir au moins 8 caractères.");
-      return;
-    }
-    if (password !== confirm) {
-      setError("Les mots de passe ne correspondent pas.");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch("/api/inscription-ttl", {
+      const res = await fetch("/api/ttl/checkout-quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prenom,
           nom,
           email,
-          password,
           poids: poids ? Number(poids.replace(",", ".")) : null,
           poidsVise: poidsVise ? Number(poidsVise.replace(",", ".")) : null,
           frein: frein === "autre" ? freinAutre : FREINS.find((f) => f.value === frein)?.label,
@@ -133,37 +116,16 @@ export default function InscriptionFunnel() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data.error ?? "Une erreur est survenue.");
+      if (!res.ok || !data.url) {
+        setError(data.error ?? "Impossible de lancer le paiement.");
         setLoading(false);
         return;
       }
-      localStorage.setItem("ttl_show_welcome_new", "1");
-      setDirection("avant");
-      setHistorique((h) => [...h, "success"]);
+      window.location.href = data.url;
     } catch {
       setError("Impossible de contacter le serveur.");
       setLoading(false);
     }
-  }
-
-  if (step === "success") {
-    return (
-      <div className="vq">
-        <div className="vq-body">
-          <div className="vq-step">
-            <div className="vq-success">
-              <div className="vq-success-emoji">🔥</div>
-              <h1 className="vq-question">Compte créé,<br /><span>{prenom || "toi"}</span>.</h1>
-              <p>Ton compte Time To Live est prêt. Connecte-toi dès maintenant avec ton email et ton mot de passe.</p>
-              <Link href="/login" className="vq-cta" style={{ display: "block", textDecoration: "none", lineHeight: "17px" }}>
-                Se connecter →
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -314,26 +276,12 @@ export default function InscriptionFunnel() {
                 <input className="vq-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ton@email.com" autoFocus autoComplete="email" />
               </div>
               {error && <p className="vq-error">{error}</p>}
-              <button className="vq-cta" onClick={validerEmail}>Continuer</button>
-            </>
-          )}
-
-          {step === "mdp" && (
-            <>
-              <span className="vq-kicker"><i /> 6 / 6</span>
-              <h1 className="vq-question">Choisis <span>ton mot de passe</span>.</h1>
-              <div className="vq-field">
-                <label className="vq-label">Mot de passe</label>
-                <input className="vq-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="8 caractères minimum" autoFocus autoComplete="new-password" />
-              </div>
-              <div className="vq-field">
-                <label className="vq-label">Confirmer</label>
-                <input className="vq-input" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
-              </div>
-              {error && <p className="vq-error">{error}</p>}
-              <button className="vq-cta" onClick={creerCompte} disabled={loading}>
-                {loading ? "Création..." : "Créer mon compte"}
+              <button className="vq-cta" onClick={lancerPaiement} disabled={loading}>
+                {loading ? "Un instant..." : "Continuer vers le paiement →"}
               </button>
+              <p className="vq-skip" style={{ textDecoration: "none", cursor: "default" }}>
+                6 000 XPF/mois, sans engagement. Ton compte se crée juste après.
+              </p>
             </>
           )}
 
