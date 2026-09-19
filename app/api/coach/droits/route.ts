@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkCoachAccess, isCoachOnly } from "@/lib/check-coach-access";
+import { isAdminUser } from "@/lib/is-admin";
 
 /**
  * Ce que la personne connectée a le droit de faire dans le portail coach.
@@ -21,5 +22,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     peutModifierBibliotheque: !simuleCoach && !isCoachOnly(user),
+    estAdmin: !simuleCoach && isAdminUser(user),
   });
 }
