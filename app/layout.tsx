@@ -19,6 +19,9 @@ export const metadata: Metadata = {
   title: "Time to Move",
   description: "Coaching sportif en ligne",
   manifest: "/manifest.json",
+  // Déclarée ici (et non en <link> écrit à la main) pour que /ttl puisse
+  // poser sa propre icône : voir app/ttl/layout.tsx.
+  icons: { apple: "/icons/icon-192x192.png" },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -41,9 +44,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-      </head>
       <body className={`${bebasNeue.variable} ${dmSans.variable} antialiased`}>
         <ServiceWorkerRegistration />
         {/* Tient à jour le fuseau de la personne connectée, partout dans l'app. */}

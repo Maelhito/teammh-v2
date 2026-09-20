@@ -1,6 +1,8 @@
 {
+  "id": "/dashboard",
   "name": "Time to Move",
   "short_name": "Time to Move",
+  "scope": "/",
   "description": "Coaching sportif en ligne",
   "start_url": "/dashboard",
   "display": "standalone",
