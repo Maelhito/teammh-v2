@@ -9,6 +9,7 @@ import FlammeSerie from "@/components/FlammeSerie";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import DashboardModules from "@/components/DashboardModules";
+import AvisGoogleCard from "@/components/AvisGoogleCard";
 import PushSubscriber from "@/components/PushSubscriber";
 import WelcomeVideoPopup from "@/components/WelcomeVideoPopup";
 import Link from "next/link";
@@ -209,12 +210,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   let semaineLabel = "";
   let semaineProgress = 0;
+  let eligibleAvisGoogle = false;
   if (profile?.date_demarrage) {
     const start = new Date(profile.date_demarrage);
     const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
     const semaine = Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), cfg.weeks);
     semaineLabel = `Semaine ${semaine} / ${cfg.weeks}`;
     semaineProgress = semaine / cfg.weeks;
+    eligibleAvisGoogle = diffDays >= 60;
   }
 
   // Stat séances de la semaine courante
@@ -384,6 +387,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             </div>
           </div>
         )}
+
+        {!isPreview && <AvisGoogleCard eligible={eligibleAvisGoogle} />}
 
         {/* ── CETTE SEMAINE ── */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "24px 16px 10px" }}>

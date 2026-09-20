@@ -15,6 +15,7 @@ export interface ClienteCarte {
   statut: string;
   accesApp: boolean;
   dateDemarrage: string | null;
+  avisGoogle: { id: string; message: string } | null;
 }
 
 /**
@@ -24,6 +25,22 @@ export interface ClienteCarte {
  */
 export default function ClientesGrid({ clients }: { clients: ClienteCarte[] }) {
   const [recherche, setRecherche] = useState("");
+  const [ouvert, setOuvert] = useState<string | null>(null);
+  const [lus, setLus] = useState<Set<string>>(new Set());
+
+  async function marquerLu(avisId: string) {
+    setLus(prev => new Set(prev).add(avisId));
+    setOuvert(null);
+    try {
+      await fetch("/api/coach/avis-google", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: avisId }),
+      });
+    } catch {
+      // Le badge réapparaîtra au prochain chargement si l'appel échoue — pas grave.
+    }
+  }
 
   const resultats = useMemo(() => {
     const q = normaliser(recherche);
@@ -72,6 +89,8 @@ export default function ClientesGrid({ clients }: { clients: ClienteCarte[] }) {
       }}>
         {resultats.map(c => {
           const isActive = c.statut === "active";
+          const avisNonLu = c.avisGoogle && !lus.has(c.avisGoogle.id) ? c.avisGoogle : null;
+          const popoverOuvert = ouvert === c.id && !!avisNonLu;
           return (
             <Link key={c.id} href={`/coach/clientes/${c.id}`} style={{ textDecoration: "none" }}>
               <div style={{
@@ -87,6 +106,46 @@ export default function ClientesGrid({ clients }: { clients: ClienteCarte[] }) {
                   width: 9, height: 9, borderRadius: "50%",
                   backgroundColor: isActive ? "#22C55E" : "#ccc",
                 }} title={isActive ? "Active" : "Inactive"} />
+                {avisNonLu && (
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOuvert(popoverOuvert ? null : c.id); }}
+                    title="Nouvel avis à lire"
+                    aria-label="Nouvel avis à lire"
+                    style={{
+                      position: "absolute", top: 8, left: 8,
+                      width: 22, height: 22, borderRadius: "50%",
+                      backgroundColor: "#B22222", color: "#fff", fontSize: 11,
+                      border: "none", cursor: "pointer", display: "flex",
+                      alignItems: "center", justifyContent: "center", padding: 0,
+                    }}
+                  >
+                    💬
+                  </button>
+                )}
+                {popoverOuvert && avisNonLu && (
+                  <div
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    style={{
+                      position: "absolute", top: 34, left: 8, right: 8, zIndex: 5,
+                      backgroundColor: "#1a1a1a", borderRadius: 10, padding: 12,
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.25)", textAlign: "left",
+                    }}
+                  >
+                    <p style={{ fontSize: 12, color: "#eee", margin: "0 0 10px", fontFamily: "system-ui", lineHeight: 1.5 }}>
+                      {avisNonLu.message}
+                    </p>
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); marquerLu(avisNonLu.id); }}
+                      style={{
+                        width: "100%", padding: "6px 10px", borderRadius: 7, border: "none",
+                        backgroundColor: "#fff", color: "#1a1a1a", fontSize: 11, fontWeight: 700,
+                        fontFamily: "system-ui", cursor: "pointer",
+                      }}
+                    >
+                      Marquer comme lu
+                    </button>
+                  </div>
+                )}
                 <div style={{
                   width: 48, height: 48, borderRadius: "50%",
                   backgroundColor: "#FEF2F2", flexShrink: 0,

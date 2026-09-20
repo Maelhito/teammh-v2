@@ -78,6 +78,14 @@ export default async function CoachClientesPage({
 
   const createdMap = Object.fromEntries(authUsers.map(u => [u.id, u.created_at ?? null]));
 
+  // Avis Google "mitigés" pas encore lus par un coach — badge sur la carte.
+  const { data: avisNonLus } = await admin
+    .from("avis_google_reponses")
+    .select("id, user_id, message, created_at")
+    .eq("reponse", "mitige")
+    .eq("lu_par_coach", false);
+  const avisParUser = new Map((avisNonLus ?? []).map(a => [a.user_id, a]));
+
   // Ordre alphabétique, avec les clientes révoquées reléguées en fin de liste
   // (voir lib/tri-clientes).
   const clients = trierClientesAlpha(
@@ -93,6 +101,9 @@ export default async function CoachClientesPage({
       date_demarrage: p.date_demarrage,
       created_at: createdMap[p.user_id] ?? null,
       dateDemarrage: p.date_demarrage,
+      avisGoogle: avisParUser.has(p.user_id)
+        ? { id: avisParUser.get(p.user_id)!.id, message: avisParUser.get(p.user_id)!.message as string }
+        : null,
     })),
     clientLabel
   );
