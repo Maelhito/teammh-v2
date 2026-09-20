@@ -53,7 +53,7 @@ function reportRecent(): boolean {
   }
 }
 
-export default function TtlInstallApp() {
+export default function InstallAppBanner() {
   const [contexte, setContexte] = useState<Contexte | null>(null);
   const [prompt, setPrompt] = useState<PromptInstallation | null>(null);
   const [ouvert, setOuvert] = useState(false);

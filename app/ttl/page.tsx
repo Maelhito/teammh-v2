@@ -28,7 +28,7 @@ import PreviewBanner from "@/components/PreviewBanner";
 import { TtlProgressRing, TtlSectionTitle } from "@/components/TtlUI";
 import PushSubscriber from "@/components/PushSubscriber";
 import TtlWelcomePopup from "@/components/TtlWelcomePopup";
-import TtlInstallApp from "@/components/TtlInstallApp";
+import InstallAppBanner from "@/components/InstallAppBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -130,7 +130,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
 
         <div style={{ padding: "20px 20px 100px" }}>
 
-          {!isPreview && <TtlInstallApp />}
+          {!isPreview && <InstallAppBanner />}
 
           {ttlObjectifTagline(objectif) && (
             <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12.5, margin: "0 0 16px", lineHeight: 1.4 }}>

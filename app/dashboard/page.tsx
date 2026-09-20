@@ -16,6 +16,7 @@ import Link from "next/link";
 import TachesSection from "@/components/TachesSection";
 import DashboardCalendar, { type DayData } from "@/components/DashboardCalendar";
 import PreviewBanner from "@/components/PreviewBanner";
+import InstallAppBanner from "@/components/InstallAppBanner";
 import { getEffectiveUser } from "@/lib/preview";
 import { decodeAssignments, estVideo, gridKeyFor, itemsForDate, nomItem, semaineCourante, toLocalDateStr, type ItemGrille } from "@/lib/programme-planning";
 import { FUSEAU_PAR_DEFAUT, aujourdhuiDans, occurrenceLe } from "@/lib/temps";
@@ -285,6 +286,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       {!isPreview && <PushSubscriber />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>
+
+        {!isPreview && (
+          <div style={{ padding: "12px 16px 0" }}>
+            <InstallAppBanner />
+          </div>
+        )}
 
         {locked === "1" && (
           <div style={{ margin: "12px 16px 0", backgroundColor: "#1a1a1a", border: "1px solid rgba(178,34,34,0.3)", borderRadius: 10, padding: "12px 16px" }}>
