@@ -11,6 +11,7 @@ import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import ValidateButton from "./ValidateButton";
 import VisioReplaysClient from "./VisioReplaysClient";
+import GuideEquivalences from "@/components/GuideEquivalences";
 import PreviewBanner from "@/components/PreviewBanner";
 import { getEffectiveUser } from "@/lib/preview";
 import fs from "fs";
@@ -280,6 +281,13 @@ export default async function ModulePage({ params }: PageProps) {
           >
             📋 Voir le guide des équivalences
           </a>
+        )}
+
+        {/* Guide interactif des équivalences (module-4) */}
+        {slug === "module-4" && (
+          <div style={{ marginTop: 20 }}>
+            <GuideEquivalences variante="ttm" />
+          </div>
         )}
 
         {/* Accordéon replays (module-8 : Tes interrogations du Quotidien, module-9 : Séances Mobilité) */}

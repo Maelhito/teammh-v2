@@ -24,7 +24,7 @@ export default async function TtlAlimentationPage({ searchParams }: { searchPara
       {isPreview && <PreviewBanner name={firstName} />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>
-        <TtlHeader variant="page" title="Alimentation" subtitle="Tes plans alimentaires et tes recettes" />
+        <TtlHeader variant="page" title="Alimentation" subtitle="Tes plans alimentaires, tes recettes et tes équivalences" />
 
         <TtlAlimentation plans={plans} recettes={recettes} recetteInitiale={recette} />
       </div>

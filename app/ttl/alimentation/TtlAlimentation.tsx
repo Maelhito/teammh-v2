@@ -5,6 +5,7 @@ import { ttlColors } from "@/lib/ttl-theme";
 import { categorieAvecGout, TTL_PLAN_CALORIES, TTL_RECETTE_CALORIES, TTL_RECETTE_CATEGORIE_LABELS, TTL_RECETTE_GOUT_LABELS } from "@/lib/ttl";
 import type { TtlPlanAlimentaire, TtlPlanPages, TtlRecette, TtlRecetteCategorie, TtlRecetteGout } from "@/lib/ttl";
 import { TtlFilterChip } from "@/components/TtlUI";
+import GuideEquivalences from "@/components/GuideEquivalences";
 
 interface Props {
   plans: TtlPlanAlimentaire[];
@@ -13,7 +14,7 @@ interface Props {
   recetteInitiale?: string;
 }
 
-const ONGLETS = ["Plans alimentaires", "Recettes"] as const;
+const ONGLETS = ["Plans alimentaires", "Recettes", "Équivalences"] as const;
 const CATEGORIE_ORDER: TtlRecetteCategorie[] = ["repas", "petit_dej", "collation"];
 
 function formatKcal(calories: number) {
@@ -57,7 +58,7 @@ export default function TtlAlimentation({ plans, recettes, recetteInitiale }: Pr
 
   return (
     <div style={{ padding: "20px 0 100px" }}>
-      <div style={{ margin: "0 20px 18px", display: "grid", gridTemplateColumns: "1fr 1fr", background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 14, padding: 4 }}>
+      <div style={{ margin: "0 20px 18px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 14, padding: 4 }}>
         {ONGLETS.map((label, i) => (
           <button
             key={label}
@@ -66,8 +67,8 @@ export default function TtlAlimentation({ plans, recettes, recetteInitiale }: Pr
             style={{
               background: onglet === i ? ttlColors.red : "transparent",
               color: onglet === i ? "#fff" : ttlColors.muted,
-              border: "none", borderRadius: 10, padding: "11px 8px",
-              fontSize: 14, fontWeight: onglet === i ? 700 : 500, cursor: "pointer",
+              border: "none", borderRadius: 10, padding: "11px 4px",
+              fontSize: 13, lineHeight: 1.2, fontWeight: onglet === i ? 700 : 500, cursor: "pointer",
               transition: "background 0.2s",
             }}
           >
@@ -87,6 +88,9 @@ export default function TtlAlimentation({ plans, recettes, recetteInitiale }: Pr
         </div>
         <div ref={(el) => { panneauxRef.current[1] = el; }} style={panneauStyle}>
           <PanneauRecettes recettes={recettes} recetteInitiale={aOuvrir} />
+        </div>
+        <div ref={(el) => { panneauxRef.current[2] = el; }} style={panneauStyle}>
+          <GuideEquivalences variante="ttl" />
         </div>
       </div>
       <style>{`.ttl-alim-slider::-webkit-scrollbar { display: none; }`}</style>

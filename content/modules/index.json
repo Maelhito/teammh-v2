@@ -41,11 +41,21 @@
       "emoji": "🥗"
     },
     {
+      "slug": "module-4",
+      "title": "Guide des équivalences",
+      "description": "Remplace un aliment de ton plan par un autre, au bon grammage, sans casser ton équilibre.",
+      "category": "Nutrition",
+      "order": 4,
+      "duration": "",
+      "type": "mixed",
+      "emoji": "🔄"
+    },
+    {
       "slug": "module-5",
       "title": "Gérer la faim émotionnelle",
       "description": "Identifie les déclencheurs émotionnels et développe des stratégies pour les gérer.",
       "category": "Mental",
-      "order": 4,
+      "order": 5,
       "duration": "25 min",
       "type": "document",
       "emoji": "🧘"
@@ -55,7 +65,7 @@
       "title": "Sorties & restaurants",
       "description": "Mange intelligemment au restaurant sans sacrifier tes objectifs ni te priver.",
       "category": "Lifestyle",
-      "order": 5,
+      "order": 6,
       "duration": "15 min",
       "type": "document",
       "emoji": "🍽️"
@@ -65,7 +75,7 @@
       "title": "Ton guide des courses",
       "description": "Faire ses courses intelligemment : les bons rayons, les bonnes marques, sans prise de tête.",
       "category": "Lifestyle",
-      "order": 6,
+      "order": 7,
       "duration": "20 min",
       "type": "mixed",
       "emoji": "🛒"
@@ -75,7 +85,7 @@
       "title": "Tes interrogations du Quotidien",
       "description": "Retrouve tous les replays des séances de groupe qui répondent à tes questions du quotidien.",
       "category": "Replays",
-      "order": 7,
+      "order": 8,
       "duration": "",
       "type": "video",
       "emoji": "💬"
@@ -85,7 +95,7 @@
       "title": "Séances Mobilité",
       "description": "Retrouve tous les replays de tes séances de mobilité en groupe.",
       "category": "Replays",
-      "order": 8,
+      "order": 9,
       "duration": "",
       "type": "video",
       "emoji": "🧘"
