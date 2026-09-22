@@ -250,7 +250,6 @@ function Resultat({ resultat }: { resultat: ResultatRecherche }) {
       {resultat.tableaux.map((t, i) => (
         <div key={i} className="geq-card geq-block">
           <p className="geq-block-title">{t.titre}</p>
-          {t.meta && <p className="geq-block-meta">{t.meta}</p>}
           {t.reference && (
             <div className={`geq-ref${classeBande(t.reference.bande)}`}>
               <span className="geq-ref-amt">{t.reference.quantite} {t.reference.unite}</span>
@@ -271,11 +270,8 @@ function Resultat({ resultat }: { resultat: ResultatRecherche }) {
             {t.alternatives.map((a) => (
               <li key={a.nom} className={classeBande(a.bande).trim()} title={a.bandeLibelle ?? undefined}>
                 <span className="geq-name">
-                  {a.bande && <span className={`geq-dot bande-${a.bande}`} aria-hidden />}
-                  <span>
-                    {a.nom}
-                    {a.note && <span className="geq-note">{a.note}</span>}
-                  </span>
+                  {a.nom}
+                  {a.note && <span className="geq-note">{a.note}</span>}
                 </span>
                 <span className="geq-right">
                   <span className="geq-amt">{a.quantite} {a.unite}</span>
@@ -318,11 +314,11 @@ function Infos() {
       <div className="geq-card geq-info">
         <h4>Le code couleur</h4>
         <p>Un petit point coloré précède chaque aliment dans les résultats, pour repérer sa densité calorique en un coup d&apos;œil :</p>
-        <p className="geq-legende">
-          <span><span className="geq-dot bande-vertfonce" /> moins de 100 kcal/100g</span>
-          <span><span className="geq-dot bande-vertclair" /> 100 à 150 kcal/100g</span>
-          <span><span className="geq-dot bande-jaune" /> 150 à 250 kcal/100g</span>
-          <span><span className="geq-dot bande-rouge" /> plus de 250 kcal/100g</span>
+        <p>
+          <span className="geq-dot bande-vertfonce" /> moins de 100 kcal/100g &nbsp;·&nbsp;{" "}
+          <span className="geq-dot bande-vertclair" /> 100 à 150 kcal/100g &nbsp;·&nbsp;{" "}
+          <span className="geq-dot bande-jaune" /> 150 à 250 kcal/100g &nbsp;·&nbsp;{" "}
+          <span className="geq-dot bande-rouge" /> plus de 250 kcal/100g
         </p>
       </div>
       <div className="geq-card geq-info">
@@ -404,8 +400,7 @@ const CSS = `
 .geq-heading h3 { font-size:1.2rem; font-weight:800; margin:0; }
 .geq-subtext { font-size:13px; color:var(--geq-muted); }
 .geq-block { padding:16px; margin-bottom:14px; }
-.geq-block-title { font-size:13.5px; font-weight:700; color:#F5F5F0; margin:0 0 3px; }
-.geq-block-meta { font-size:12px; color:var(--geq-muted); margin:0 0 12px; }
+.geq-block-title { font-size:13.5px; font-weight:700; color:#F5F5F0; margin:0 0 12px; }
 .geq-ref { display:flex; align-items:center; gap:4px 10px; flex-wrap:wrap; background:#222; border-radius:10px; padding:10px 12px; margin-bottom:10px; font-size:14.5px; }
 .geq-ref-amt { font-weight:800; font-size:16px; color:#fff; }
 .geq-ref-nutri { display:flex; gap:8px; flex-wrap:wrap; width:100%; }
@@ -413,13 +408,13 @@ const CSS = `
 .geq-kcal { color:var(--geq-muted); font-size:12px; }
 .geq-list { list-style:none; margin:0; padding:0; }
 .geq-list li { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:9px 10px; margin-bottom:4px; border-radius:10px; font-size:14.5px; }
-.geq-name { display:flex; align-items:center; gap:8px; min-width:0; }
+.geq-name { min-width:0; }
 .geq-aucun { font-style:italic; color:var(--geq-muted); }
 .geq-note { display:block; font-size:11.5px; color:var(--geq-muted); font-style:italic; }
 .geq-right { text-align:right; white-space:nowrap; flex-shrink:0; }
 .geq-amt { font-weight:700; color:#fff; font-variant-numeric:tabular-nums; }
 .geq-nutri { display:block; font-size:11px; color:var(--geq-muted); }
-.geq-dot { display:inline-block; width:9px; height:9px; border-radius:50%; flex-shrink:0; vertical-align:middle; }
+.geq-dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; vertical-align:middle; }
 .geq-dot.bande-vertfonce { background:#22A559; }
 .geq-dot.bande-vertclair { background:#9BD35A; }
 .geq-dot.bande-jaune { background:#EAC435; }
@@ -439,8 +434,6 @@ const CSS = `
 .geq-info h4 { font-size:1rem; font-weight:700; color:#F5F5F0; margin:0 0 8px; }
 .geq-info p { margin:0 0 8px; }
 .geq-info p:last-child { margin-bottom:0; }
-.geq-legende { display:flex; flex-direction:column; gap:4px; }
-.geq-legende > span { display:flex; align-items:center; gap:8px; }
 .geq-two-col { display:flex; gap:16px; flex-wrap:wrap; margin-top:8px; }
 .geq-two-col > div { flex:1 1 200px; }
 .geq-h { font-weight:700; font-size:13px; margin-bottom:4px; }
