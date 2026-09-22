@@ -24,36 +24,13 @@ function formatKcal(calories: number) {
 export default function TtlAlimentation({ plans, recettes, recetteInitiale }: Props) {
   const aOuvrir = recettes.find((r) => r.id === recetteInitiale && r.categorie) ?? null;
   const [onglet, setOnglet] = useState(aOuvrir ? 1 : 0);
-  const [hauteur, setHauteur] = useState<number | undefined>(undefined);
-  const sliderRef = useRef<HTMLDivElement>(null);
-  const panneauxRef = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Le slider prend la hauteur du panneau affiché, pour ne pas laisser de vide sous le plus court.
-  useEffect(() => {
-    const panneau = panneauxRef.current[onglet];
-    if (!panneau) return;
-    const observer = new ResizeObserver(() => setHauteur(panneau.offsetHeight));
-    observer.observe(panneau);
-    return () => observer.disconnect();
-  }, [onglet]);
-
-  useLayoutEffect(() => {
-    if (aOuvrir && sliderRef.current) sliderRef.current.scrollLeft = sliderRef.current.clientWidth;
-    // Uniquement à l'arrivée sur la page.
-  }, []);
-
+  // On change d'onglet uniquement en touchant les boutons : plus de glissement
+  // gauche/droite entre les panneaux, qui basculait d'onglet au moindre scroll
+  // un peu en biais. Les panneaux restent montés (display: none) pour garder
+  // leur état (plan choisi, filtres, recherche du guide).
   function allerA(index: number) {
-    const slider = sliderRef.current;
-    if (!slider) return;
-    slider.scrollTo({ left: index * slider.clientWidth, behavior: "smooth" });
     setOnglet(index);
-  }
-
-  function onScroll() {
-    const slider = sliderRef.current;
-    if (!slider) return;
-    const index = Math.round(slider.scrollLeft / slider.clientWidth);
-    if (index !== onglet) setOnglet(index);
   }
 
   return (
@@ -63,6 +40,7 @@ export default function TtlAlimentation({ plans, recettes, recetteInitiale }: Pr
           <button
             key={label}
             onClick={() => allerA(i)}
+            aria-pressed={onglet === i}
             className="font-body"
             style={{
               background: onglet === i ? ttlColors.red : "transparent",
@@ -77,21 +55,14 @@ export default function TtlAlimentation({ plans, recettes, recetteInitiale }: Pr
         ))}
       </div>
 
-      <div
-        ref={sliderRef}
-        onScroll={onScroll}
-        className="ttl-alim-slider"
-        style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", height: hauteur }}
-      >
-        <div ref={(el) => { panneauxRef.current[0] = el; }} style={panneauStyle}>
-          <PanneauPlans plans={plans} />
-        </div>
-        <div ref={(el) => { panneauxRef.current[1] = el; }} style={panneauStyle}>
-          <PanneauRecettes recettes={recettes} recetteInitiale={aOuvrir} />
-        </div>
-        <div ref={(el) => { panneauxRef.current[2] = el; }} style={panneauStyle}>
-          <GuideEquivalences variante="ttl" />
-        </div>
+      <div style={{ ...panneauStyle, display: onglet === 0 ? "block" : "none" }}>
+        <PanneauPlans plans={plans} />
+      </div>
+      <div style={{ ...panneauStyle, display: onglet === 1 ? "block" : "none" }}>
+        <PanneauRecettes recettes={recettes} recetteInitiale={aOuvrir} />
+      </div>
+      <div style={{ ...panneauStyle, display: onglet === 2 ? "block" : "none" }}>
+        <GuideEquivalences variante="ttl" />
       </div>
       <style>{`.ttl-alim-slider::-webkit-scrollbar { display: none; }`}</style>
     </div>
@@ -99,7 +70,7 @@ export default function TtlAlimentation({ plans, recettes, recetteInitiale }: Pr
 }
 
 const panneauStyle: React.CSSProperties = {
-  flex: "0 0 100%", width: "100%", scrollSnapAlign: "start", scrollSnapStop: "always", padding: "0 20px", boxSizing: "border-box",
+  width: "100%", padding: "0 20px", boxSizing: "border-box",
 };
 
 /* ------------------------------------------------------------------ */
