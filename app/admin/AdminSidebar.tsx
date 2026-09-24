@@ -270,6 +270,12 @@ export default function AdminSidebar() {
         }}>
           <span>👁</span> Vue cliente
         </Link>
+        <a href="/api/cliente-test/entrer" style={{
+          display: "flex", alignItems: "center", gap: 8, padding: "8px 10px",
+          borderRadius: 7, textDecoration: "none", color: "var(--admin-bottom-action)", fontSize: 12, fontFamily: "system-ui",
+        }}>
+          <span>🧪</span> Ma cliente test
+        </a>
         <button onClick={handleLogout} style={{
           display: "flex", alignItems: "center", gap: 8, padding: "8px 10px",
           borderRadius: 7, border: "none", backgroundColor: "transparent",

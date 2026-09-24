@@ -3,6 +3,7 @@ import { Bebas_Neue, DM_Sans } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import SyncFuseau from "@/components/SyncFuseau";
+import BandeauClienteTest from "@/components/BandeauClienteTest";
 
 const bebasNeue = Bebas_Neue({
   weight: "400",
@@ -48,6 +49,7 @@ export default function RootLayout({
         <ServiceWorkerRegistration />
         {/* Tient à jour le fuseau de la personne connectée, partout dans l'app. */}
         <SyncFuseau />
+        <BandeauClienteTest />
         {children}
       </body>
     </html>

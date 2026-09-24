@@ -116,6 +116,16 @@ export default function CoachSidebar() {
         >
           App cliente
         </Link>
+        <a href="/api/cliente-test/entrer" style={{
+          display: "block", textAlign: "center",
+          padding: "10px 14px", marginBottom: 8,
+          backgroundColor: "#B22222", borderRadius: 10,
+          color: "#fff", textDecoration: "none",
+          fontSize: 12, fontWeight: 800, fontFamily: "system-ui",
+          letterSpacing: "0.05em", textTransform: "uppercase",
+        }}>
+          Ma cliente test
+        </a>
         <button onClick={handleLogout} style={{
           width: "100%", padding: "10px 12px", borderRadius: 8,
           border: "none", backgroundColor: "transparent",
