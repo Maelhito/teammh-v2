@@ -17,33 +17,39 @@ function pasDeGraduation(etendue: number): number {
 }
 
 /**
- * Tracé courbe qui passe exactement par chaque mesure (spline cubique monotone) :
- * les virages sont arrondis, mais la courbe ne descend jamais sous la vraie valeur
- * la plus basse ni ne monte au-dessus de la plus haute — pas de fausse bosse.
+ * Tracé bien arrondi qui passe par chaque mesure (même principe que les graphiques
+ * d'Azeoo) : à chaque point, la courbe suit la direction donnée par ses deux voisins,
+ * ce qui donne des virages souples au lieu d'angles. Les points de contrôle restent
+ * dans le cadre [haut, bas] pour que les vagues ne débordent jamais du graphique.
  */
-function traceLisse(pts: { x: number; y: number }[]): string {
+const TENSION = 0.5;
+function traceLisse(pts: { x: number; y: number }[], haut: number, bas: number): string {
   const n = pts.length;
   if (n < 3) return pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-  const d: number[] = [];
-  for (let i = 0; i < n - 1; i++) d.push((pts[i + 1].y - pts[i].y) / (pts[i + 1].x - pts[i].x));
-  const m: number[] = [d[0]];
-  for (let i = 1; i < n - 1; i++) m.push(d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2);
-  m.push(d[n - 2]);
-  for (let i = 0; i < n - 1; i++) {
-    if (d[i] === 0) { m[i] = 0; m[i + 1] = 0; continue; }
-    const a = m[i] / d[i];
-    const b = m[i + 1] / d[i];
-    const s = a * a + b * b;
-    if (s > 9) {
-      const t = 3 / Math.sqrt(s);
-      m[i] = t * a * d[i];
-      m[i + 1] = t * b * d[i];
+  const borne = (v: number) => Math.min(bas, Math.max(haut, v));
+  // Deux points de contrôle par mesure : un vers la précédente, un vers la suivante
+  const avant: { x: number; y: number }[] = [];
+  const apres: { x: number; y: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const p = pts[i];
+    if (i === 0 || i === n - 1) {
+      avant.push(p);
+      apres.push(p);
+      continue;
     }
+    const prec = pts[i - 1];
+    const suiv = pts[i + 1];
+    const d1 = Math.hypot(p.x - prec.x, p.y - prec.y);
+    const d2 = Math.hypot(suiv.x - p.x, suiv.y - p.y);
+    const total = d1 + d2 || 1;
+    const dx = suiv.x - prec.x;
+    const dy = suiv.y - prec.y;
+    avant.push({ x: p.x - (TENSION * d1 * dx) / total, y: borne(p.y - (TENSION * d1 * dy) / total) });
+    apres.push({ x: p.x + (TENSION * d2 * dx) / total, y: borne(p.y + (TENSION * d2 * dy) / total) });
   }
   let out = `M ${pts[0].x} ${pts[0].y}`;
   for (let i = 0; i < n - 1; i++) {
-    const h = (pts[i + 1].x - pts[i].x) / 3;
-    out += ` C ${pts[i].x + h} ${pts[i].y + m[i] * h}, ${pts[i + 1].x - h} ${pts[i + 1].y - m[i + 1] * h}, ${pts[i + 1].x} ${pts[i + 1].y}`;
+    out += ` C ${apres[i].x} ${apres[i].y}, ${avant[i + 1].x} ${avant[i + 1].y}, ${pts[i + 1].x} ${pts[i + 1].y}`;
   }
   return out;
 }
@@ -116,7 +122,7 @@ export default function MesureChart({
   const x = (i: number) => PAD_G + (i * (W - PAD_G - PAD_D)) / (points.length - 1);
   const y = (v: number) => PAD_Y + ((max - v) * (H - PAD_Y * 2)) / (max - min);
 
-  const d = traceLisse(points.map((p, i) => ({ x: x(i), y: y(p.valeur) })));
+  const d = traceLisse(points.map((p, i) => ({ x: x(i), y: y(p.valeur) })), PAD_Y, H - PAD_Y);
   const aire = `${d} L ${x(points.length - 1)} ${H - PAD_Y} L ${x(0)} ${H - PAD_Y} Z`;
 
   const grille: number[] = [];
