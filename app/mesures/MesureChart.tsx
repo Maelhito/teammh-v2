@@ -5,16 +5,16 @@ import type { Mesure, MesureChamp } from "@/lib/mesures";
 import { trierParDate } from "@/lib/mesures";
 
 /**
- * Échelle fixe par unité : la hauteur du graphique représente toujours la même
- * amplitude, pour que 11 kg perdus descendent presque 3 fois plus bas que 4 kg
- * (avant, chaque courbe s'étirait sur toute la hauteur, quel que soit l'écart).
- * Une ligne de grille = un « pas » (1 kg, 2 cm). Si l'écart dépasse la fenêtre,
- * elle s'agrandit juste assez pour que la courbe reste dans le rectangle.
+ * Échelle calée sur la cliente (comme Azeoo) : le haut du graphique = son plus haut
+ * relevé, le bas = son plus bas, arrondis au kg (ou au cm) entier. Une cliente qui
+ * a bougé de 1 kg voit donc chacune de ses variations, et 11 kg perdus remplissent
+ * toute la hauteur avec 11 lignes de graduation.
  */
-const ECHELLE: Record<string, { fenetre: number; pas: number; labelTous: number }> = {
-  kg: { fenetre: 10, pas: 1, labelTous: 2 },
-  cm: { fenetre: 16, pas: 2, labelTous: 4 },
-};
+function pasDeGraduation(etendue: number): number {
+  if (etendue <= 12) return 1;
+  if (etendue <= 24) return 2;
+  return 5;
+}
 
 /**
  * Tracé courbe qui passe exactement par chaque mesure (spline cubique monotone) :
@@ -96,49 +96,49 @@ export default function MesureChart({
 
   const W = 320;
   const H = 180;
-  const PAD_X = 8;
+  const PAD_G = 34; // place des kilos écrits à gauche
+  const PAD_D = 8;
   const PAD_Y = 9;
 
-  const echelle = ECHELLE[unite] ?? { fenetre: 10, pas: 1, labelTous: 2 };
   const valeurs = points.map((p) => p.valeur);
-  const vMin = Math.min(...valeurs);
-  const vMax = Math.max(...valeurs);
-  const depart = points[0].valeur;
-  const descend = points[points.length - 1].valeur <= depart;
+  let vMin = Math.min(...valeurs);
+  let vMax = Math.max(...valeurs);
+  if (objectif != null) {
+    vMin = Math.min(vMin, objectif);
+    vMax = Math.max(vMax, objectif);
+  }
+  // Bornes arrondies au pas entier le plus proche, à l'extérieur des mesures
+  const pas = pasDeGraduation(Math.ceil(vMax) - Math.floor(vMin));
+  const min = Math.floor(vMin / pas) * pas;
+  let max = Math.ceil(vMax / pas) * pas;
+  if (max === min) max = min + pas;
 
-  // Fenêtre fixe, agrandie seulement si les mesures ne tiennent pas dedans
-  const fenetre = Math.max(echelle.fenetre, (vMax - vMin) * 1.06);
-  const respiration = fenetre * 0.03;
-  // Perte : on part du haut et on descend. Prise : on part du bas et on monte.
-  const max = descend ? vMax + respiration : vMin - respiration + fenetre;
-  const min = max - fenetre;
-  // L'objectif n'est affiché que s'il tient dans la fenêtre (sinon il écraserait l'échelle)
-  const objectifVisible = objectif != null && objectif >= min && objectif <= max;
-
-  const x = (i: number) => PAD_X + (i * (W - PAD_X * 2)) / (points.length - 1);
+  const x = (i: number) => PAD_G + (i * (W - PAD_G - PAD_D)) / (points.length - 1);
   const y = (v: number) => PAD_Y + ((max - v) * (H - PAD_Y * 2)) / (max - min);
 
   const d = traceLisse(points.map((p, i) => ({ x: x(i), y: y(p.valeur) })));
   const aire = `${d} L ${x(points.length - 1)} ${H - PAD_Y} L ${x(0)} ${H - PAD_Y} Z`;
 
-  // Lignes de grille alignées sur la valeur de départ : 0, −1, −2 kg…
-  // On espace les pas si la fenêtre a dû beaucoup s'agrandir, pour ne pas griser le graphique.
-  const facteur = Math.max(1, Math.round(fenetre / echelle.fenetre));
-  const pas = echelle.pas * facteur;
-  const labelTous = echelle.labelTous * facteur;
-  const grille: { v: number; ecart: number }[] = [];
-  for (let k = Math.ceil((min - depart) / pas); depart + k * pas <= max; k++) {
-    grille.push({ v: depart + k * pas, ecart: Math.round(k * pas * 10) / 10 });
-  }
-  const couleurGrille = clair ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.07)";
-  const couleurGrilleForte = clair ? "rgba(0,0,0,0.14)" : "rgba(255,255,255,0.14)";
+  const grille: number[] = [];
+  for (let v = min; v <= max + 1e-9; v += pas) grille.push(Math.round(v * 10) / 10);
+  const couleurGrille = clair ? "rgba(0,0,0,0.09)" : "rgba(255,255,255,0.09)";
 
-  // Chute totale depuis le départ, dessinée comme une flèche au bout de la courbe
+  // Chute totale depuis le départ, écrite en gros au bout de la courbe
+  const depart = points[0].valeur;
   const chute = Math.round((points[points.length - 1].valeur - depart) * 10) / 10;
-  const montrerChute = Math.abs(chute) >= echelle.pas;
   const xFin = x(points.length - 1);
   const yDepart = y(depart);
   const yFin = y(points[points.length - 1].valeur);
+  // L'étiquette va en haut à droite, sinon en bas à droite, là où la courbe ne passe
+  // pas ; si les deux coins sont pris, on ne l'affiche pas plutôt que de masquer la courbe.
+  const LARGEUR_ETIQUETTE = 75;
+  const pointsADroite = points
+    .map((p, i) => ({ x: x(i), y: y(p.valeur) }))
+    .filter((p, i, t) => p.x >= xFin - LARGEUR_ETIQUETTE - 10 || (t[i + 1] && t[i + 1].x >= xFin - LARGEUR_ETIQUETTE - 10));
+  const hautLibre = pointsADroite.every((p) => p.y > PAD_Y + 26);
+  const basLibre = pointsADroite.every((p) => p.y < H - PAD_Y - 26);
+  const yEtiquette = hautLibre ? PAD_Y + 16 : basLibre ? H - PAD_Y - 8 : null;
+  const montrerChute = chute !== 0 && yEtiquette != null;
 
   const premier = points[0];
   const dernier = points[points.length - 1];
@@ -179,34 +179,24 @@ export default function MesureChart({
             </clipPath>
           </defs>
 
-          {/* Grille : une ligne par pas, étiquetée en écart depuis le départ */}
-          {grille.map(({ v, ecart }) => {
-            const etiquette = ecart !== 0 && Math.abs(ecart) % labelTous === 0;
-            return (
-              <g key={v}>
-                <line
-                  x1={PAD_X} y1={y(v)} x2={W - PAD_X} y2={y(v)}
-                  stroke={ecart === 0 || etiquette ? couleurGrilleForte : couleurGrille}
-                  strokeWidth="0.6"
-                  strokeDasharray={ecart === 0 ? "3 3" : undefined}
-                />
-                {etiquette && (
-                  <text x={PAD_X + 1} y={y(v) - 1.5} textAnchor="start" fill={texteFaible} fontSize="6.5" fontFamily="system-ui">
-                    {ecart > 0 ? "+" : "−"}{Math.abs(ecart)} {unite}
-                  </text>
-                )}
-              </g>
-            );
-          })}
+          {/* Graduations : une ligne par kg (ou par cm), valeur écrite à gauche */}
+          {grille.map((v) => (
+            <g key={v}>
+              <line x1={PAD_G} y1={y(v)} x2={W - PAD_D} y2={y(v)} stroke={couleurGrille} strokeWidth="0.6" />
+              <text x={PAD_G - 5} y={y(v) + 2.5} textAnchor="end" fill={texteFaible} fontSize="7.5" fontFamily="system-ui">
+                {v} {unite}
+              </text>
+            </g>
+          ))}
 
           {/* Ligne d'objectif */}
-          {objectif != null && objectifVisible && (
+          {objectif != null && (
             <g>
               <line
-                x1={PAD_X} y1={y(objectif)} x2={W - PAD_X} y2={y(objectif)}
+                x1={PAD_G} y1={y(objectif)} x2={W - PAD_D} y2={y(objectif)}
                 stroke="#4ADE80" strokeWidth="1" strokeDasharray="4 4" opacity="0.7"
               />
-              <text x={W - PAD_X} y={y(objectif) - 4} textAnchor="end" fill="#4ADE80" fontSize="8">
+              <text x={W - PAD_D} y={y(objectif) - 4} textAnchor="end" fill="#4ADE80" fontSize="8">
                 objectif {objectif} {unite}
               </text>
             </g>
@@ -222,10 +212,10 @@ export default function MesureChart({
           {montrerChute && (
             <g opacity="0">
               <animate attributeName="opacity" from="0" to="1" begin="1.1s" dur="0.4s" fill="freeze" />
-              <line x1={PAD_X} y1={yDepart} x2={xFin} y2={yDepart} stroke={couleur} strokeWidth="0.8" strokeDasharray="2 3" opacity="0.6" />
+              <line x1={PAD_G} y1={yDepart} x2={xFin} y2={yDepart} stroke={couleur} strokeWidth="0.8" strokeDasharray="2 3" opacity="0.6" />
               <line x1={xFin} y1={yDepart} x2={xFin} y2={yFin} stroke={couleur} strokeWidth="1.4" />
               <text
-                x={xFin - 7} y={chute < 0 ? yDepart + 17 : yDepart - 6} textAnchor="end"
+                x={xFin - 7} y={yEtiquette ?? 0} textAnchor="end"
                 fill={couleur} fontSize="15" fontWeight="800" fontFamily="system-ui"
               >
                 {chute > 0 ? "+" : "−"}{Math.abs(chute)} {unite}
