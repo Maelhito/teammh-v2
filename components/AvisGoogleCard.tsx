@@ -104,7 +104,7 @@ export default function AvisGoogleCard({ eligible }: { eligible: boolean }) {
                   2 MOIS AVEC TIME TO MOVE
                 </p>
                 <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#FFFFFF", margin: "2px 0 0" }}>
-                  Comment se passe ton accompagnement ?
+                  Partage ton avis sur Google !
                 </p>
               </div>
             </div>
@@ -116,7 +116,7 @@ export default function AvisGoogleCard({ eligible }: { eligible: boolean }) {
                   color: "#FFF", fontSize: "0.78rem", fontWeight: 700, border: "none", cursor: "pointer",
                 }}
               >
-                Ça va, mais...
+                Bof...
               </button>
               <button
                 onClick={() => envoyer("positif")}
