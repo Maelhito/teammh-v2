@@ -284,8 +284,9 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
           const dayEvts = getDayEvents(dayDate);
           const seanceEvts = dayEvts.filter((e) => e.event_type === "seance");
           const hasSeance       = seanceEvts.length > 0 && seanceEvts.some((e) => !isSeanceValidee(e, completedSeances));
-          const hasSeanceValidee = seanceEvts.some((e) => isSeanceValidee(e, completedSeances));
-          const hasVideo        = dayEvts.some((e) => e.event_type === "video");
+          // Une vidéo du programme validée prend le même repère qu'une séance validée.
+          const hasSeanceValidee = dayEvts.some((e) => (e.event_type === "seance" || e.event_type === "video") && isSeanceValidee(e, completedSeances));
+          const hasVideo        = dayEvts.some((e) => e.event_type === "video" && !isSeanceValidee(e, completedSeances));
           const hasCoach        = dayEvts.some((e) => e.event_type === "coach");
           const hasCoachingGroupe = dayEvts.some((e) => e.event_type === "coaching_groupe");
           const hasNutrition    = dayEvts.some((e) => e.event_type === "nutrition");

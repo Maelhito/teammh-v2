@@ -682,7 +682,9 @@ function MonthCalendar({ layers, today, events, seancesValidees, fuseauCliente, 
                   // reste lisible dans l'infobulle de la case.
                   const color = item.type === "video" ? COULEUR_VIDEO : COULEURS_EVENEMENT.seance.base;
                   // Validée par la cliente : même repère que dans son app, une coche.
-                  const validee = item.type !== "video" && estSeanceValidee(seancesValidees, layer.id, cellKey);
+                  // Une vidéo se valide comme une séance (VideoViewer → même
+                  // enregistrement) : elle prend donc la même coche verte.
+                  const validee = estSeanceValidee(seancesValidees, layer.id, cellKey);
                   return (
                     <div key={`${layer.id}-${item._key}`}
                       draggable={!layer.archive}
