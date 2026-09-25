@@ -46,7 +46,14 @@ function saisieDepuis(m: Mesure): Saisie {
   return s;
 }
 
-export default function MesuresCliente({ clienteId }: { clienteId: string }) {
+export default function MesuresCliente({
+  clienteId,
+  onPremierPoids,
+}: {
+  clienteId: string;
+  /** Remonte le tout premier poids saisi (poids de démarrage), null s'il n'y en a pas */
+  onPremierPoids?: (poids: number | null) => void;
+}) {
   const [mesures, setMesures] = useState<Mesure[]>([]);
   const [photos, setPhotos] = useState<PhotoProgression[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,6 +94,13 @@ export default function MesuresCliente({ clienteId }: { clienteId: string }) {
     })();
     return () => { cancelled = true; };
   }, [clienteId]);
+
+  // Poids de démarrage = le plus ancien poids renseigné dans le suivi
+  useEffect(() => {
+    if (loading) return;
+    const premier = trierParDate(mesures).find(m => m.poids != null);
+    onPremierPoids?.(premier?.poids ?? null);
+  }, [mesures, loading, onPremierPoids]);
 
   async function enregistrer() {
     if (!saisie) return;

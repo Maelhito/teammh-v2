@@ -1476,6 +1476,8 @@ export default function ClienteFichePage() {
   const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null);
   // Le fuseau de la cliente : c'est lui qui règle le calendrier ci-dessous.
   const [fuseauCliente, setFuseauCliente] = useState<string | null>(null);
+  // Premier poids du suivi des mesures, affiché à côté de la date de démarrage
+  const [poidsDemarrage, setPoidsDemarrage] = useState<number | null>(null);
 
   const loadCalEvents = useCallback(() => {
     fetch(`/api/coach/clientes/${id}/evenements`).then(r => r.json()).then(d => setCalEvents(d.events ?? []));
@@ -1656,6 +1658,14 @@ export default function ClienteFichePage() {
               </p>
             </div>
           )}
+          {poidsDemarrage != null && (
+            <div style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #e8e8e8", backgroundColor: "#fafafa", textAlign: "center" }}>
+              <p style={{ fontSize: 9, fontWeight: 700, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 2px", fontFamily: "system-ui" }}>Poids de départ</p>
+              <p style={{ fontSize: 13, fontWeight: 800, color: "#1a1a1a", margin: 0, fontFamily: "system-ui" }}>
+                {poidsDemarrage.toLocaleString("fr-FR")} kg
+              </p>
+            </div>
+          )}
           {/*
             Un vrai lien, pas un bouton : la route pose le cookie d'aperçu et
             redirige elle-même vers l'app de la cliente. Le `window.open()`
@@ -1679,7 +1689,7 @@ export default function ClienteFichePage() {
       <QuestionnaireCliente clienteId={id} />
 
       {/* Suivi des mesures (poids, mensurations, photos) */}
-      <MesuresCliente clienteId={id} />
+      <MesuresCliente clienteId={id} onPremierPoids={setPoidsDemarrage} />
 
       {/* Calendrier */}
       <MonthCalendar

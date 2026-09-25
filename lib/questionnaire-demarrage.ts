@@ -67,14 +67,14 @@ export const QUESTIONNAIRE_GROUPS: QuestionGroup[] = [
   {
     title: "Tes objectifs sur les 4 prochains mois",
     questions: [
-      { field: "objectif_4mois_poids", label: "Objectif poids", placeholder: "ex : perdre 5 kg", kind: "text" },
+      { field: "objectif_4mois_poids", label: "Objectif poids", placeholder: "ex : perdre 5 kg / atteindre 75 kg", kind: "text" },
       { field: "objectif_4mois_bienetre", label: "Objectif bien-être", placeholder: "ex : me sentir plus légère, dormir mieux", kind: "text" },
     ],
   },
   {
     title: "Tes objectifs sur 12 mois",
     questions: [
-      { field: "objectif_12mois_poids", label: "Objectif poids", placeholder: "ex : atteindre mon poids de forme", kind: "text" },
+      { field: "objectif_12mois_poids", label: "Objectif poids", placeholder: "ex : perdre 15 kg et atteindre 60 kg", kind: "text" },
       { field: "objectif_12mois_bienetre", label: "Objectif bien-être", placeholder: "ex : une relation saine avec la nourriture", kind: "text" },
     ],
   },
