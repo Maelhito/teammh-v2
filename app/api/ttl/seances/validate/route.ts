@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { updateTtlStreak, grantStreakFreezeIfEligible } from "@/lib/ttl-streak";
+import { computeCurrentPeriode, getOffreCliente } from "@/lib/ttl";
+
+/** La période se calcule ici, jamais côté téléphone : c'est la date de démarrage qui fait foi. */
+async function periodeEnCours(userId: string): Promise<number> {
+  const offre = await getOffreCliente(userId);
+  return offre?.date_debut ? computeCurrentPeriode(offre.date_debut) : 1;
+}
 
 function parseBody(videoId: unknown, semaine: unknown) {
   if (!videoId || typeof videoId !== "string") return null;
@@ -19,10 +26,14 @@ export async function POST(request: NextRequest) {
   const parsed = parseBody(videoId, semaine);
   if (!parsed) return NextResponse.json({ error: "videoId et semaine (1-4) requis" }, { status: 400 });
 
+  const periode = await periodeEnCours(user.id);
   const admin = createSupabaseAdminClient();
   const { error } = await admin
     .from("ttl_seances_progress")
-    .upsert({ user_id: user.id, video_id: parsed.videoId, semaine: parsed.semaine }, { onConflict: "user_id,video_id,semaine" });
+    .upsert(
+      { user_id: user.id, video_id: parsed.videoId, periode, semaine: parsed.semaine },
+      { onConflict: "user_id,video_id,periode,semaine" }
+    );
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const { streak, freezeUsed } = await updateTtlStreak(user.id);
@@ -45,12 +56,14 @@ export async function DELETE(request: NextRequest) {
   const parsed = parseBody(videoId, semaine);
   if (!parsed) return NextResponse.json({ error: "videoId et semaine (1-4) requis" }, { status: 400 });
 
+  const periode = await periodeEnCours(user.id);
   const admin = createSupabaseAdminClient();
   const { error } = await admin
     .from("ttl_seances_progress")
     .delete()
     .eq("user_id", user.id)
     .eq("video_id", parsed.videoId)
+    .eq("periode", periode)
     .eq("semaine", parsed.semaine);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

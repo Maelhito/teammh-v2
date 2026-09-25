@@ -6,7 +6,9 @@ import {
   getOnboardingModules,
   getWatchedVideoIds,
   getProgrammes,
-  computeCurrentNumeroMois,
+  computeCurrentPeriode,
+  getChoixProgramme,
+  programmeDeLaPeriode,
   computeCurrentSemaine,
   getRecettes,
   recetteDuJour as tirerRecetteDuJour,
@@ -67,10 +69,10 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
   const onboardingDone = totalModules > 0 && completedModules === totalModules;
   const unlocks = computeTtlModuleUnlock(modules, watchedIds);
 
-  const currentNumeroMois = offre?.date_debut ? computeCurrentNumeroMois(offre.date_debut) : 1;
+  const periode = offre?.date_debut ? computeCurrentPeriode(offre.date_debut) : 1;
   const currentSemaine = offre?.date_debut ? computeCurrentSemaine(offre.date_debut) : 1;
-  const sortedProgrammes = [...programmes].sort((a, b) => a.numero_mois - b.numero_mois);
-  const currentProgramme = sortedProgrammes.filter((p) => p.numero_mois <= currentNumeroMois).pop() ?? null;
+  const choixId = userId ? await getChoixProgramme(userId, periode) : null;
+  const currentProgramme = programmeDeLaPeriode(programmes, periode, choixId);
 
   const recetteDuJour = tirerRecetteDuJour(recettes, aujourdhuiDans(fuseau ?? FUSEAU_PAR_DEFAUT));
   const seancesValidees = seancesProgress.length;
@@ -86,7 +88,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
     };
   } else if (currentProgramme && currentProgramme.videos.length > 0) {
     const validatedThisWeek = currentProgramme.videos.filter((v) =>
-      seancesProgress.some((p) => p.video_id === v.id && p.semaine === currentSemaine)
+      seancesProgress.some((p) => p.video_id === v.id && p.periode === periode && p.semaine === currentSemaine)
     ).length;
     mission = {
       title: "Ton programme du mois",

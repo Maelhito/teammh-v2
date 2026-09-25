@@ -259,3 +259,38 @@ ALTER TABLE offres_clientes
 
 ALTER TABLE ttl_programmes
   ADD COLUMN IF NOT EXISTS cover_url TEXT;
+
+-- ============================================================
+-- MIGRATION 11 — un programme par période de 4 semaines, au choix.
+-- Les programmes ne sont plus liés à un mois : ils sortent un par un
+-- (numero_mois = ordre de sortie). Chaque cliente les suit dans
+-- l'ordre, une période de 4 semaines chacun à partir de sa date de
+-- démarrage, et peut en rechoisir un autre pour la période en cours.
+-- La validation des séances porte désormais la période : refaire
+-- Momentum en période 3 repart de zéro.
+-- ============================================================
+
+ALTER TABLE ttl_seances_progress
+  ADD COLUMN IF NOT EXISTS periode INT NOT NULL DEFAULT 1;
+
+UPDATE ttl_seances_progress p
+SET periode = GREATEST(1, ((p.validated_at::date - o.date_debut) / 28) + 1)
+FROM offres_clientes o
+WHERE o.user_id = p.user_id AND o.date_debut IS NOT NULL;
+
+ALTER TABLE ttl_seances_progress
+  DROP CONSTRAINT IF EXISTS ttl_seances_progress_user_id_video_id_semaine_key;
+
+ALTER TABLE ttl_seances_progress
+  ADD CONSTRAINT ttl_seances_progress_user_video_periode_semaine_key
+  UNIQUE (user_id, video_id, periode, semaine);
+
+CREATE TABLE IF NOT EXISTS ttl_programme_choix (
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  periode INT NOT NULL CHECK (periode >= 1),
+  programme_id UUID REFERENCES ttl_programmes(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, periode)
+);
+
+ALTER TABLE ttl_programme_choix ENABLE ROW LEVEL SECURITY;

@@ -180,21 +180,53 @@ export async function getWatchedVideoIds(userId: string): Promise<Set<string>> {
   return new Set((data ?? []).map((r) => r.video_id as string));
 }
 
-/** Numéro du mois de programme sport en cours (1-indexé) selon la date de démarrage de l'offre. */
-export function computeCurrentNumeroMois(dateDebut: string): number {
+/** Durée d'une période de programme sport : 4 semaines. */
+const JOURS_PAR_PERIODE = 28;
+
+function joursDepuis(dateDebut: string): number {
   const start = new Date(dateDebut + "T00:00:00");
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-  return Math.max(Math.floor(diffDays / 30) + 1, 1);
+  return Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-/** Semaine en cours (1-4) à l'intérieur du mois de programme sport en cours. */
+/**
+ * Période de programme sport en cours (1-indexée) : une période = 4 semaines à partir
+ * de la date de démarrage de la cliente. Chaque période a son programme.
+ */
+export function computeCurrentPeriode(dateDebut: string): number {
+  return Math.max(Math.floor(joursDepuis(dateDebut) / JOURS_PAR_PERIODE) + 1, 1);
+}
+
+/** Semaine en cours (1-4) à l'intérieur de la période en cours. */
 export function computeCurrentSemaine(dateDebut: string): number {
-  const start = new Date(dateDebut + "T00:00:00");
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-  const daysIntoMonth = ((diffDays % 30) + 30) % 30;
-  return Math.min(Math.max(Math.floor(daysIntoMonth / 7) + 1, 1), 4);
+  const jours = ((joursDepuis(dateDebut) % JOURS_PAR_PERIODE) + JOURS_PAR_PERIODE) % JOURS_PAR_PERIODE;
+  return Math.min(Math.max(Math.floor(jours / 7) + 1, 1), 4);
+}
+
+/**
+ * Le programme de la période : celui que la cliente a choisi s'il existe encore, sinon
+ * les programmes dans l'ordre de sortie (période 1 = le premier sorti, période 2 = le
+ * deuxième…). Si elle a dépassé le dernier sorti, elle reste sur le dernier.
+ */
+export function programmeDeLaPeriode(
+  programmes: TtlProgramme[],
+  periode: number,
+  choixId: string | null
+): TtlProgramme | null {
+  const choisi = choixId ? programmes.find((p) => p.id === choixId) : undefined;
+  if (choisi) return choisi;
+  const tries = [...programmes].sort((a, b) => a.numero_mois - b.numero_mois);
+  return tries[Math.min(periode, tries.length) - 1] ?? null;
+}
+
+export async function getChoixProgramme(userId: string, periode: number): Promise<string | null> {
+  const admin = createSupabaseAdminClient();
+  const { data } = await admin
+    .from("ttl_programme_choix")
+    .select("programme_id")
+    .eq("user_id", userId)
+    .eq("periode", periode)
+    .maybeSingle();
+  return data?.programme_id ?? null;
 }
 
 export async function getProgrammes(): Promise<TtlProgramme[]> {
@@ -253,6 +285,7 @@ export async function getCapsules(): Promise<TtlCapsule[]> {
 
 export interface TtlSeanceProgress {
   video_id: string;
+  periode: number;
   semaine: number;
 }
 
@@ -260,7 +293,7 @@ export async function getSeancesProgress(userId: string): Promise<TtlSeanceProgr
   const admin = createSupabaseAdminClient();
   const { data } = await admin
     .from("ttl_seances_progress")
-    .select("video_id, semaine")
+    .select("video_id, periode, semaine")
     .eq("user_id", userId);
   return data ?? [];
 }

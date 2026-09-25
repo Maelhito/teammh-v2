@@ -1,18 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ttlColors } from "@/lib/ttl-theme";
 import type { TtlProgramme, TtlProgrammeVideo, TtlSeanceProgress } from "@/lib/ttl";
-import { TtlFilterChip, TtlRowCard } from "@/components/TtlUI";
+import { TtlFilterChip } from "@/components/TtlUI";
 import TtlVideoModal from "@/components/TtlVideoModal";
 import TtlCelebration from "@/components/TtlCelebration";
 
 interface Props {
   current: TtlProgramme | null;
-  previous: TtlProgramme[];
-  future: TtlProgramme[];
+  /** Tous les programmes sortis, dans l'ordre de sortie. */
+  programmes: TtlProgramme[];
+  /** Validations de la période en cours seulement. */
   seancesProgress: TtlSeanceProgress[];
   initialSemaine: number;
+  isPreview: boolean;
 }
 
 const SEMAINES = [1, 2, 3, 4];
@@ -21,12 +24,14 @@ function progressKey(videoId: string, semaine: number) {
   return `${videoId}:${semaine}`;
 }
 
-export default function TtlSport({ current, previous, future, seancesProgress, initialSemaine }: Props) {
+export default function TtlSport({ current, programmes, seancesProgress, initialSemaine, isPreview }: Props) {
+  const router = useRouter();
   const [semaine, setSemaine] = useState(initialSemaine);
   const [validated, setValidated] = useState(() => new Set(seancesProgress.map((p) => progressKey(p.video_id, p.semaine))));
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<string | null>(null);
-  const [openMonth, setOpenMonth] = useState<string | null>(null);
+  const [openProgramme, setOpenProgramme] = useState<string | null>(null);
+  const [choosingId, setChoosingId] = useState<string | null>(null);
   const [openSeanceVideo, setOpenSeanceVideo] = useState<TtlProgrammeVideo | null>(null);
 
   async function handleValidate(videoId: string) {
@@ -59,6 +64,25 @@ export default function TtlSport({ current, previous, future, seancesProgress, i
       if (res.ok) setValidated((prev) => { const next = new Set(prev); next.delete(key); return next; });
     } finally {
       setPendingKey(null);
+    }
+  }
+
+  async function handleChoose(programmeId: string) {
+    setChoosingId(programmeId);
+    try {
+      const res = await fetch("/api/ttl/programme/choisir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ programmeId }),
+      });
+      if (res.ok) {
+        setOpenProgramme(null);
+        setCelebration("Programme choisi !");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        router.refresh();
+      }
+    } finally {
+      setChoosingId(null);
     }
   }
 
@@ -118,19 +142,34 @@ export default function TtlSport({ current, previous, future, seancesProgress, i
         <p className="font-body" style={{ color: ttlColors.muted, fontSize: 13 }}>Aucun programme disponible pour l&apos;instant.</p>
       )}
 
-      {previous.length > 0 && (
+      {programmes.length > 0 && (
         <>
-          <p className="font-body" style={{ color: "#fff", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", margin: "22px 0 10px" }}>PROGRAMMES PRÉCÉDENTS</p>
-          {previous.map((p) => {
-            const isOpen = openMonth === p.id;
+          <p className="font-body" style={{ color: "#fff", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", margin: "28px 0 4px" }}>CHOISIR SON PROGRAMME</p>
+          <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: "0 0 12px" }}>
+            Envie de refaire un programme ? Choisis-le pour tes 4 semaines en cours.
+          </p>
+          {programmes.map((p) => {
+            const isOpen = openProgramme === p.id;
+            const isCurrent = current?.id === p.id;
             return (
-              <div key={p.id} style={{ background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, overflow: "hidden", marginBottom: 10 }}>
+              <div key={p.id} style={{ background: ttlColors.card, border: `1px solid ${isCurrent ? ttlColors.red : ttlColors.cardBorder}`, borderRadius: 16, overflow: "hidden", marginBottom: 10 }}>
                 <button
-                  onClick={() => setOpenMonth(isOpen ? null : p.id)}
+                  onClick={() => setOpenProgramme(isOpen ? null : p.id)}
                   className="font-body"
-                  style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: "none", border: "none", cursor: "pointer", color: "#fff", fontSize: "13px", fontWeight: 600 }}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: 10, background: "none", border: "none", cursor: "pointer", color: "#fff", fontSize: 14, fontWeight: 600, textAlign: "left" }}
                 >
-                  {p.titre || "Programme"}
+                  <span
+                    style={{
+                      width: 56, height: 56, borderRadius: 12, flexShrink: 0,
+                      background: p.cover_url ? `center / cover no-repeat url(${p.cover_url})` : "linear-gradient(135deg,#B22222,#3a0a0a)",
+                    }}
+                  />
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    {p.titre || "Programme"}
+                    <span style={{ display: "block", color: isCurrent ? ttlColors.redBright : ttlColors.muted, fontSize: 12, fontWeight: isCurrent ? 700 : 400, marginTop: 2 }}>
+                      {isCurrent ? "En cours" : `${p.videos.length} séance${p.videos.length > 1 ? "s" : ""}`}
+                    </span>
+                  </span>
                   <span style={{ color: ttlColors.muted, fontSize: 12 }}>{isOpen ? "▲" : "▼"}</span>
                 </button>
                 {isOpen && (
@@ -139,27 +178,21 @@ export default function TtlSport({ current, previous, future, seancesProgress, i
                       <TtlVideoCard key={v.id} video={v} onClick={() => setOpenSeanceVideo(v)} />
                     ))}
                     {p.videos.length === 0 && <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12 }}>Aucune vidéo.</p>}
+                    {!isCurrent && (
+                      <button
+                        onClick={() => handleChoose(p.id)}
+                        disabled={isPreview || choosingId !== null}
+                        className="font-body"
+                        style={{ width: "100%", padding: "12px 0", background: isPreview || choosingId ? ttlColors.cardBorder : ttlColors.red, border: "none", borderRadius: 12, color: "#fff", fontSize: 13, fontWeight: 700, cursor: isPreview || choosingId ? "not-allowed" : "pointer" }}
+                      >
+                        {choosingId === p.id ? "..." : "Choisir ce programme pour ce mois-ci"}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
             );
           })}
-        </>
-      )}
-
-      {future.length > 0 && (
-        <>
-          <p className="font-body" style={{ color: ttlColors.muted, fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", margin: "22px 0 10px" }}>À VENIR</p>
-          {future.map((p) => (
-            <TtlRowCard
-              key={p.id}
-              thumbEmoji="🔒"
-              thumbVariant="module"
-              title={p.titre || "Programme"}
-              subtitle="Se débloque avec ton avancement"
-              locked
-            />
-          ))}
         </>
       )}
 

@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getEffectiveUser } from "@/lib/preview";
 import { requireTtlAccess } from "@/lib/ttl-access";
-import { getProgrammes, computeCurrentNumeroMois, computeCurrentSemaine, getSeancesProgress } from "@/lib/ttl";
+import { getProgrammes, computeCurrentPeriode, computeCurrentSemaine, getSeancesProgress, getChoixProgramme, programmeDeLaPeriode } from "@/lib/ttl";
 import TtlHeader from "@/components/TtlHeader";
 import TtlBottomNav from "@/components/TtlBottomNav";
 import PreviewBanner from "@/components/PreviewBanner";
@@ -16,32 +16,31 @@ export default async function TtlSportPage() {
 
   const offre = await requireTtlAccess(userId, isPreview);
 
-  const [programmes, seancesProgress] = await Promise.all([
+  const periode = offre?.date_debut ? computeCurrentPeriode(offre.date_debut) : 1;
+  const currentSemaine = offre?.date_debut ? computeCurrentSemaine(offre.date_debut) : 1;
+
+  const [programmes, seancesProgress, choixId] = await Promise.all([
     getProgrammes(),
     userId ? getSeancesProgress(userId) : Promise.resolve([]),
+    userId ? getChoixProgramme(userId, periode) : Promise.resolve(null),
   ]);
 
-  const currentNumeroMois = offre?.date_debut ? computeCurrentNumeroMois(offre.date_debut) : 1;
-  const currentSemaine = offre?.date_debut ? computeCurrentSemaine(offre.date_debut) : 1;
-  const sorted = [...programmes].sort((a, b) => a.numero_mois - b.numero_mois);
-  const reached = sorted.filter((p) => p.numero_mois <= currentNumeroMois);
-  const current = reached[reached.length - 1] ?? null;
-  const previous = reached.slice(0, -1).reverse();
-  const future = sorted.filter((p) => p.numero_mois > currentNumeroMois);
+  const current = programmeDeLaPeriode(programmes, periode, choixId);
+  const tous = [...programmes].sort((a, b) => a.numero_mois - b.numero_mois);
 
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 100 }}>
       {isPreview && <PreviewBanner name={firstName} />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>
-        <TtlHeader variant="page" title="Sport" subtitle="Ton programme du mois, semaine par semaine" />
+        <TtlHeader variant="page" title="Sport" subtitle="Ton programme des 4 semaines, semaine par semaine" />
 
         <TtlSport
           current={current}
-          previous={previous}
-          future={future}
-          seancesProgress={seancesProgress}
+          programmes={tous}
+          seancesProgress={seancesProgress.filter((p) => p.periode === periode)}
           initialSemaine={currentSemaine}
+          isPreview={isPreview}
         />
       </div>
 
