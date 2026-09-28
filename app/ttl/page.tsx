@@ -14,8 +14,9 @@ import {
   recetteDuJour as tirerRecetteDuJour,
   getObjectif,
   getSeancesProgress,
+  getTtlQuestionnaire,
 } from "@/lib/ttl";
-import { computeTtlModuleUnlock } from "@/lib/ttl-unlock";
+import { computeTtlParcours, ttlParcoursTermine } from "@/lib/ttl-unlock";
 import { ttlObjectifLabel, ttlObjectifEmoji, ttlObjectifTagline } from "@/lib/ttl-objectifs";
 import { computeTtlBadges } from "@/lib/ttl-badges";
 import { getStreak } from "@/lib/streak";
@@ -51,7 +52,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
 
   const offre = await requireTtlAccess(userId, isPreview);
 
-  const [modules, watchedIds, programmes, recettes, streakInfo, objectif, seancesProgress, fuseau] = await Promise.all([
+  const [modules, watchedIds, programmes, recettes, streakInfo, objectif, seancesProgress, fuseau, questionnaire] = await Promise.all([
     getOnboardingModules(),
     userId ? getWatchedVideoIds(userId) : Promise.resolve(new Set<string>()),
     getProgrammes(),
@@ -60,14 +61,16 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
     userId ? getObjectif(userId) : Promise.resolve(null),
     userId ? getSeancesProgress(userId) : Promise.resolve([]),
     userId ? getFuseau(userId) : Promise.resolve(undefined),
+    userId ? getTtlQuestionnaire(userId) : Promise.resolve({ reponses: null, complet: false }),
   ]);
 
+  const etats = computeTtlParcours(modules, watchedIds, questionnaire.complet);
   const totalModules = modules.length;
-  const completedModules = modules.filter((m) => m.videos.length > 0 && m.videos.every((v) => watchedIds.has(v.id))).length;
-  const currentModuleIndex = modules.findIndex((m) => !(m.videos.length > 0 && m.videos.every((v) => watchedIds.has(v.id))));
+  const completedModules = etats.filter((e) => e.termine).length;
+  // Le module à faire : le premier disponible pas encore terminé (un module « bientôt disponible » n'en est pas un)
+  const currentModuleIndex = etats.findIndex((e) => e.pret && !e.termine);
   const currentModule = currentModuleIndex >= 0 ? modules[currentModuleIndex] : null;
-  const onboardingDone = totalModules > 0 && completedModules === totalModules;
-  const unlocks = computeTtlModuleUnlock(modules, watchedIds);
+  const onboardingDone = ttlParcoursTermine(etats);
 
   const periode = offre?.date_debut ? computeCurrentPeriode(offre.date_debut) : 1;
   const currentSemaine = offre?.date_debut ? computeCurrentSemaine(offre.date_debut) : 1;
@@ -84,7 +87,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
       title: "Ta mission du jour",
       subtitle: currentModule.titre,
       progress: completedModules / totalModules,
-      href: unlocks[currentModuleIndex] ? `/ttl/modules/${currentModule.id}` : "#parcours",
+      href: etats[currentModuleIndex].debloque ? `/ttl/modules/${currentModule.id}` : "#parcours",
     };
   } else if (currentProgramme && currentProgramme.videos.length > 0) {
     const validatedThisWeek = currentProgramme.videos.filter((v) =>
@@ -216,7 +219,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
                 </div>
               )}
 
-              <TtlParcoursTimeline modules={modules} watchedIds={watchedIds} unlocks={unlocks} />
+              <TtlParcoursTimeline modules={modules} etats={etats} />
 
               <div style={{ background: "rgba(178,34,34,0.08)", border: "1px solid rgba(178,34,34,0.3)", borderRadius: 16, padding: 14, marginTop: 4 }}>
                 <p className="font-body" style={{ color: "#cbb", fontSize: 12, margin: 0 }}>

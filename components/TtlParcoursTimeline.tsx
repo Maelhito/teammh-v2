@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { TtlModule } from "@/lib/ttl";
+import type { TtlEtatModule } from "@/lib/ttl-unlock";
 import { ttlColors } from "@/lib/ttl-theme";
 
 interface Props {
   modules: TtlModule[];
-  watchedIds: Set<string>;
-  unlocks: boolean[];
+  /** calculé par computeTtlParcours, dans le même ordre que `modules` */
+  etats: TtlEtatModule[];
 }
 
 /**
@@ -13,11 +14,11 @@ interface Props {
  * Vit sur l'accueil (l'onglet « Mon Parcours » a disparu de la barre du bas) :
  * la cliente retrouve sa progression sans changer d'écran.
  */
-export default function TtlParcoursTimeline({ modules, watchedIds, unlocks }: Props) {
+export default function TtlParcoursTimeline({ modules, etats }: Props) {
   const total = modules.length;
   if (total === 0) return null;
 
-  const completedModules = modules.filter((m) => m.videos.length > 0 && m.videos.every((v) => watchedIds.has(v.id))).length;
+  const completedModules = etats.filter((e) => e.termine).length;
   const progress = completedModules / total;
 
   return (
@@ -39,21 +40,23 @@ export default function TtlParcoursTimeline({ modules, watchedIds, unlocks }: Pr
       </div>
 
       {modules.map((m, i) => {
-        const unlocked = unlocks[i];
-        const completed = m.videos.length > 0 && m.videos.every((v) => watchedIds.has(v.id));
-        const inProgress = unlocked && !completed && m.videos.some((v) => watchedIds.has(v.id));
+        const { pret, debloque: unlocked, termine: completed, faites, total: nbEtapes, avecQuestionnaire } = etats[i];
+        const inProgress = unlocked && !completed && faites > 0;
         const isLast = i === total - 1;
 
         const nodeBg = completed ? ttlColors.green : unlocked ? ttlColors.red : ttlColors.card;
         const nodeBorder = completed ? ttlColors.green : unlocked ? ttlColors.redBright : ttlColors.cardBorder;
-        const prevCompleted = i > 0 && modules[i - 1].videos.length > 0 && modules[i - 1].videos.every((v) => watchedIds.has(v.id));
-        const lineAboveColor = prevCompleted ? ttlColors.green : ttlColors.cardBorder;
+        const lineAboveColor = i > 0 && etats[i - 1].termine ? ttlColors.green : ttlColors.cardBorder;
 
-        const subtitle = !unlocked
+        // Module 1 : les vidéos + le questionnaire comptent comme des étapes ; ailleurs, que des vidéos.
+        const unite = avecQuestionnaire ? "étape" : "vidéo";
+        const subtitle = !pret
+          ? "Bientôt disponible"
+          : !unlocked
           ? "Complète le module précédent"
           : completed
-          ? `Terminé · ${m.videos.length} vidéo${m.videos.length > 1 ? "s" : ""}`
-          : `${m.videos.filter((v) => watchedIds.has(v.id)).length}/${m.videos.length} vidéo${m.videos.length > 1 ? "s" : ""} · ${inProgress ? "En cours" : "À commencer"}`;
+          ? `Terminé · ${nbEtapes} ${unite}${nbEtapes > 1 ? "s" : ""}`
+          : `${faites}/${nbEtapes} ${unite}${nbEtapes > 1 ? "s" : ""} · ${inProgress ? "En cours" : "À commencer"}`;
 
         const card = (
           <div

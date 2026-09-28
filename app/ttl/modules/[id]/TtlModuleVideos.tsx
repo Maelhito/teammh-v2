@@ -17,7 +17,13 @@ interface Video {
   watched: boolean;
 }
 
-export default function TtlModuleVideos({ videos }: { videos: Video[] }) {
+interface Props {
+  videos: Video[];
+  /** le questionnaire du module reste à remplir : les vidéos vues ne suffisent pas à le terminer */
+  resteQuestionnaire?: boolean;
+}
+
+export default function TtlModuleVideos({ videos, resteQuestionnaire = false }: Props) {
   const router = useRouter();
   const [watchedIds, setWatchedIds] = useState(new Set(videos.filter((v) => v.watched).map((v) => v.id)));
   const [openId, setOpenId] = useState<string | null>(null);
@@ -33,7 +39,7 @@ export default function TtlModuleVideos({ videos }: { videos: Video[] }) {
       body: JSON.stringify({ videoId }),
     });
     if (res.ok) {
-      const moduleDone = allWatchedAfter(videoId);
+      const moduleDone = allWatchedAfter(videoId) && !resteQuestionnaire;
       setWatchedIds((prev) => new Set(prev).add(videoId));
       setCelebration(moduleDone ? "Module terminé !" : "Vidéo validée !");
       router.refresh();

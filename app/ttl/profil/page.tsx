@@ -1,7 +1,10 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getEffectiveUser } from "@/lib/preview";
 import { requireTtlAccess } from "@/lib/ttl-access";
-import { getOnboardingModules, getWatchedVideoIds, getSeancesProgress, getObjectif, getJoursEntrainement, getTtlSubscription } from "@/lib/ttl";
+import Link from "next/link";
+import { getOnboardingModules, getWatchedVideoIds, getSeancesProgress, getObjectif, getJoursEntrainement, getTtlSubscription, getTtlQuestionnaire } from "@/lib/ttl";
+import { computeTtlParcours, ttlParcoursTermine } from "@/lib/ttl-unlock";
+import { TTL_QUESTIONS } from "@/lib/ttl-questionnaire";
 import { ttlObjectifLabel } from "@/lib/ttl-objectifs";
 import { computeTtlBadges } from "@/lib/ttl-badges";
 import { getStreak } from "@/lib/streak";
@@ -23,7 +26,7 @@ export default async function TtlProfilPage() {
 
   const offre = await requireTtlAccess(userId, isPreview);
 
-  const [modules, watchedIds, seancesProgress, objectif, streakInfo, joursEntrainement, abonnement] = await Promise.all([
+  const [modules, watchedIds, seancesProgress, objectif, streakInfo, joursEntrainement, abonnement, questionnaire] = await Promise.all([
     getOnboardingModules(),
     userId ? getWatchedVideoIds(userId) : Promise.resolve(new Set<string>()),
     userId ? getSeancesProgress(userId) : Promise.resolve([]),
@@ -31,18 +34,22 @@ export default async function TtlProfilPage() {
     userId ? getStreak(userId) : Promise.resolve({ streak_current: 0, streak_last_activity: null, streak_freezes: 0 }),
     userId ? getJoursEntrainement(userId) : Promise.resolve([]),
     userId ? getTtlSubscription(userId) : Promise.resolve(null),
+    userId ? getTtlQuestionnaire(userId) : Promise.resolve({ reponses: null, complet: false }),
   ]);
 
   const dateDebutLabel = offre?.date_debut
     ? new Date(offre.date_debut + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
     : null;
 
-  const totalModules = modules.length;
-  const completedModules = modules.filter((m) => m.videos.length > 0 && m.videos.every((v) => watchedIds.has(v.id))).length;
+  const etats = computeTtlParcours(modules, watchedIds, questionnaire.complet);
   const seancesValidees = seancesProgress.length;
   const joursDepuisDebut = offre?.date_debut ? Math.floor((Date.now() - new Date(offre.date_debut).getTime()) / 86400000) : 0;
 
-  const onboardingDone = totalModules > 0 && completedModules === totalModules;
+  // Le questionnaire vit dans le module 1 : c'est là qu'elle le remplit ou le modifie
+  const moduleQuestionnaire = modules[0] ?? null;
+  const reponsesQuestionnaire = TTL_QUESTIONS.filter((q) => (questionnaire.reponses?.[q.field] ?? "").trim() !== "");
+
+  const onboardingDone = ttlParcoursTermine(etats);
   const badges = computeTtlBadges({
     hasWatchedAny: watchedIds.size > 0,
     onboardingDone,
@@ -105,6 +112,38 @@ export default async function TtlProfilPage() {
             <div style={{ background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, padding: "14px 18px", marginTop: 12 }}>
               <p className="font-body" style={{ margin: 0, color: ttlColors.muted, fontSize: 12 }}>Ton objectif</p>
               <p className="font-body" style={{ margin: "4px 0 0", color: "#fff", fontSize: 14, fontWeight: 600 }}>{ttlObjectifLabel(objectif) ?? objectif}</p>
+            </div>
+          )}
+
+          {moduleQuestionnaire && (
+            <div style={{ background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, padding: "14px 18px", marginTop: 12 }}>
+              <p className="font-body" style={{ margin: 0, color: "#fff", fontSize: 14, fontWeight: 700 }}>📝 Mon questionnaire de départ</p>
+              {reponsesQuestionnaire.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+                  {reponsesQuestionnaire.map((q) => (
+                    <div key={q.field}>
+                      <p className="font-body" style={{ margin: 0, color: ttlColors.muted, fontSize: 12 }}>{q.court}</p>
+                      <p className="font-body" style={{ margin: "2px 0 0", color: "#fff", fontSize: 14, fontWeight: 600, whiteSpace: "pre-wrap", lineHeight: 1.4 }}>
+                        {questionnaire.reponses?.[q.field]}
+                        {q.unite ? (q.unite.startsWith("/") ? q.unite : ` ${q.unite}`) : ""}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="font-body" style={{ margin: "6px 0 0", color: ttlColors.muted, fontSize: 12.5, lineHeight: 1.45 }}>
+                  Tu ne l&apos;as pas encore rempli. Il t&apos;attend dans le module 1 de ton parcours.
+                </p>
+              )}
+              {etats[0]?.debloque && (
+                <Link
+                  href={`/ttl/modules/${moduleQuestionnaire.id}`}
+                  className="font-body"
+                  style={{ display: "inline-block", marginTop: 12, color: ttlColors.redBright, fontSize: 12.5, fontWeight: 700, textDecoration: "none" }}
+                >
+                  {reponsesQuestionnaire.length > 0 ? "Modifier mes réponses ›" : "Remplir mon questionnaire ›"}
+                </Link>
+              )}
             </div>
           )}
 

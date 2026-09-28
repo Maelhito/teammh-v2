@@ -1,4 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { isMissingTableError } from "@/lib/questionnaire-missing-table";
+import type { TtlReponses } from "@/lib/ttl-questionnaire";
 
 export interface TtlModuleVideo {
   id: string;
@@ -178,6 +180,29 @@ export async function getWatchedVideoIds(userId: string): Promise<Set<string>> {
     .select("video_id")
     .eq("user_id", userId);
   return new Set((data ?? []).map((r) => r.video_id as string));
+}
+
+export interface TtlQuestionnaireEtat {
+  reponses: TtlReponses | null;
+  /** toutes les questions ont une réponse : le devoir est validé */
+  complet: boolean;
+}
+
+/**
+ * Le questionnaire de démarrage de la cliente. Tant que la table n'existe pas
+ * (sql/ttl_questionnaire.sql pas encore lancé), on le considère comme fait :
+ * personne ne reste bloquée devant un module qu'elle ne peut pas valider.
+ */
+export async function getTtlQuestionnaire(userId: string): Promise<TtlQuestionnaireEtat> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("ttl_questionnaire")
+    .select("reponses, completed_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) return { reponses: null, complet: isMissingTableError(error) };
+  const reponses = (data?.reponses ?? null) as TtlReponses | null;
+  return { reponses, complet: !!data?.completed_at };
 }
 
 /** Durée d'une période de programme sport : 4 semaines. */

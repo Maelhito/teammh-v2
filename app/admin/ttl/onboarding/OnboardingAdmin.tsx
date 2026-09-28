@@ -171,6 +171,16 @@ export default function OnboardingAdmin() {
                   <button onClick={() => handleDeleteModule(m.id)} style={btnGhost}>Supprimer le bloc</button>
                 </div>
 
+                {idx === 0 ? (
+                  <p style={{ margin: "-4px 0 12px", fontSize: 12, color: "var(--admin-text-muted)" }}>
+                    📝 Le questionnaire de départ s&apos;affiche sous les vidéos de ce bloc : le bloc suivant s&apos;ouvre quand les vidéos sont vues et le questionnaire rempli.
+                  </p>
+                ) : m.videos.length === 0 ? (
+                  <p style={{ margin: "-4px 0 12px", fontSize: 12, color: "var(--admin-text-muted)" }}>
+                    🔒 Sans vidéo, ce bloc apparaît « Bientôt disponible » et reste verrouillé chez les clientes.
+                  </p>
+                ) : null}
+
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginBottom: 14 }}>
                   {m.videos.map((v) => (
                     <VideoCard

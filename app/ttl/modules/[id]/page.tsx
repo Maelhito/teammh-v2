@@ -2,12 +2,13 @@ import { notFound, redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getEffectiveUser } from "@/lib/preview";
 import { requireTtlAccess } from "@/lib/ttl-access";
-import { getOnboardingModules, getWatchedVideoIds } from "@/lib/ttl";
-import { computeTtlModuleUnlock } from "@/lib/ttl-unlock";
+import { getOnboardingModules, getWatchedVideoIds, getTtlQuestionnaire } from "@/lib/ttl";
+import { computeTtlParcours } from "@/lib/ttl-unlock";
 import TtlHeader from "@/components/TtlHeader";
 import TtlBottomNav from "@/components/TtlBottomNav";
 import PreviewBanner from "@/components/PreviewBanner";
 import TtlModuleVideos from "./TtlModuleVideos";
+import TtlQuestionnaire from "./TtlQuestionnaire";
 
 export const dynamic = "force-dynamic";
 
@@ -24,19 +25,21 @@ export default async function TtlModulePage({ params }: PageProps) {
 
   await requireTtlAccess(userId, isPreview);
 
-  const [modules, watchedIds] = await Promise.all([
+  const [modules, watchedIds, questionnaire] = await Promise.all([
     getOnboardingModules(),
     userId ? getWatchedVideoIds(userId) : Promise.resolve(new Set<string>()),
+    userId ? getTtlQuestionnaire(userId) : Promise.resolve({ reponses: null, complet: false }),
   ]);
 
   const index = modules.findIndex((m) => m.id === id);
   if (index === -1) notFound();
   const moduleData = modules[index];
 
-  const unlocks = computeTtlModuleUnlock(modules, watchedIds);
-  if (!unlocks[index]) redirect("/ttl?locked=1#parcours");
+  const etat = computeTtlParcours(modules, watchedIds, questionnaire.complet)[index];
+  if (!etat.debloque) redirect("/ttl?locked=1#parcours");
 
   const videos = moduleData.videos.map((v) => ({ ...v, watched: watchedIds.has(v.id) }));
+  const videosVues = videos.every((v) => v.watched);
 
   return (
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 90 }}>
@@ -46,7 +49,18 @@ export default async function TtlModulePage({ params }: PageProps) {
         <TtlHeader variant="page" back backHref="/ttl" title={`Module ${index + 1}`} subtitle={moduleData.titre} />
 
         <div style={{ padding: "20px 20px 0" }}>
-          <TtlModuleVideos videos={videos} />
+          {/* Module 1 : le questionnaire vient après la vidéo de bienvenue ; sans vidéo, il est seul. */}
+          {!(etat.avecQuestionnaire && videos.length === 0) && (
+            <TtlModuleVideos videos={videos} resteQuestionnaire={etat.avecQuestionnaire && !questionnaire.complet} />
+          )}
+          {etat.avecQuestionnaire && (
+            <TtlQuestionnaire
+              initialReponses={questionnaire.reponses}
+              initialComplet={questionnaire.complet}
+              prenom={firstName ?? ""}
+              videosVues={videosVues}
+            />
+          )}
         </div>
       </div>
 
