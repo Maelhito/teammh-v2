@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ttlColors, ttlHeaderGradient } from "@/lib/ttl-theme";
 
 interface Props {
   firstName: string;
   objectifLabel: string | null;
+  /** le module 1 du parcours : le bouton y emmène directement, c'est par là qu'on comprend l'app */
+  premierModuleHref?: string | null;
 }
 
-export default function TtlWelcomePopup({ firstName, objectifLabel }: Props) {
+export default function TtlWelcomePopup({ firstName, objectifLabel, premierModuleHref }: Props) {
+  const router = useRouter();
   const flagKey = "ttl_show_welcome_new";
   const [visible, setVisible] = useState(false);
 
@@ -41,7 +45,10 @@ export default function TtlWelcomePopup({ firstName, objectifLabel }: Props) {
             Ton parcours, tes séances, tes recettes — tout est là pour t'aider à démarrer du bon pied.
           </p>
           <button
-            onClick={() => setVisible(false)}
+            onClick={() => {
+              setVisible(false);
+              if (premierModuleHref) router.push(premierModuleHref);
+            }}
             className="font-body"
             style={{ width: "100%", padding: "14px 0", background: ttlColors.red, border: "none", borderRadius: 12, color: "#fff", fontSize: 14, fontWeight: 700, letterSpacing: "0.04em", cursor: "pointer" }}
           >

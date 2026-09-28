@@ -46,14 +46,18 @@ export async function requireTtlAccess(
   opts: RequireTtlAccessOptions = {}
 ): Promise<OffreCliente | null> {
   const isDev = process.env.NODE_ENV === "development";
-  const offre = userId ? await getOffreCliente(userId) : null;
+  const verifierAbonnement = !isDev && !isPreview && !opts.skipSubscriptionCheck;
+  // Les deux lectures en parallèle : chaque aller-retour vers la base se sent à chaque clic.
+  const [offre, abonnement] = await Promise.all([
+    userId ? getOffreCliente(userId) : Promise.resolve(null),
+    userId && verifierAbonnement ? getTtlSubscription(userId) : Promise.resolve(null),
+  ]);
 
   if (!isDev && offre?.offre !== "TTL") {
     redirect("/dashboard");
   }
 
-  if (!isDev && !isPreview && !opts.skipSubscriptionCheck) {
-    const abonnement = userId ? await getTtlSubscription(userId) : null;
+  if (verifierAbonnement) {
     if (!accesTtlAccorde(offre, abonnement)) {
       redirect("/ttl/paiement");
     }

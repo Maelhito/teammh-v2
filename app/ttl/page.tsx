@@ -20,7 +20,7 @@ import { computeTtlParcours, ttlParcoursTermine } from "@/lib/ttl-unlock";
 import { ttlObjectifLabel, ttlObjectifEmoji, ttlObjectifTagline } from "@/lib/ttl-objectifs";
 import { computeTtlBadges } from "@/lib/ttl-badges";
 import { getStreak } from "@/lib/streak";
-import { ttlColors } from "@/lib/ttl-theme";
+import { ttlColors, ttlHeaderGradient } from "@/lib/ttl-theme";
 import { aujourdhuiDans, FUSEAU_PAR_DEFAUT } from "@/lib/temps";
 import { getFuseau } from "@/lib/temps-serveur";
 import { TTL_RECETTE_CATEGORIE_LABELS } from "@/lib/ttl";
@@ -51,8 +51,9 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
   const { userId, firstName, isPreview } = await getEffectiveUser(session);
 
   const offre = await requireTtlAccess(userId, isPreview);
+  const periode = offre?.date_debut ? computeCurrentPeriode(offre.date_debut) : 1;
 
-  const [modules, watchedIds, programmes, recettes, streakInfo, objectif, seancesProgress, fuseau, questionnaire] = await Promise.all([
+  const [modules, watchedIds, programmes, recettes, streakInfo, objectif, seancesProgress, fuseau, questionnaire, choixId] = await Promise.all([
     getOnboardingModules(),
     userId ? getWatchedVideoIds(userId) : Promise.resolve(new Set<string>()),
     getProgrammes(),
@@ -62,6 +63,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
     userId ? getSeancesProgress(userId) : Promise.resolve([]),
     userId ? getFuseau(userId) : Promise.resolve(undefined),
     userId ? getTtlQuestionnaire(userId) : Promise.resolve({ reponses: null, complet: false }),
+    userId ? getChoixProgramme(userId, periode) : Promise.resolve(null),
   ]);
 
   const etats = computeTtlParcours(modules, watchedIds, questionnaire.complet);
@@ -72,24 +74,24 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
   const currentModule = currentModuleIndex >= 0 ? modules[currentModuleIndex] : null;
   const onboardingDone = ttlParcoursTermine(etats);
 
-  const periode = offre?.date_debut ? computeCurrentPeriode(offre.date_debut) : 1;
   const currentSemaine = offre?.date_debut ? computeCurrentSemaine(offre.date_debut) : 1;
-  const choixId = userId ? await getChoixProgramme(userId, periode) : null;
   const currentProgramme = programmeDeLaPeriode(programmes, periode, choixId);
 
   const recetteDuJour = tirerRecetteDuJour(recettes, aujourdhuiDans(fuseau ?? FUSEAU_PAR_DEFAUT));
   const seancesValidees = seancesProgress.length;
 
-  // Mission du jour : onboarding en priorité, sinon la séance de la semaine en cours
+  // Tant que le parcours de démarrage n'est pas fini, c'est LA chose à faire : une grosse
+  // carte en haut de l'accueil qui l'y emmène. Avant les premières vidéos, la cliente ne
+  // peut pas comprendre comment l'app fonctionne.
+  const premiereVisite = completedModules === 0 && watchedIds.size === 0 && !questionnaire.reponses;
+  const etapeSuivante =
+    !onboardingDone && currentModule && etats[currentModuleIndex].debloque
+      ? { module: currentModule, numero: currentModuleIndex + 1, href: `/ttl/modules/${currentModule.id}` }
+      : null;
+
+  // Une fois le démarrage fini : le programme du mois
   let mission: { title: string; subtitle: string; progress: number; href: string } | null = null;
-  if (totalModules > 0 && !onboardingDone && currentModule) {
-    mission = {
-      title: "Ta mission du jour",
-      subtitle: currentModule.titre,
-      progress: completedModules / totalModules,
-      href: etats[currentModuleIndex].debloque ? `/ttl/modules/${currentModule.id}` : "#parcours",
-    };
-  } else if (currentProgramme && currentProgramme.videos.length > 0) {
+  if (!etapeSuivante && currentProgramme && currentProgramme.videos.length > 0) {
     const validatedThisWeek = currentProgramme.videos.filter((v) =>
       seancesProgress.some((p) => p.video_id === v.id && p.periode === periode && p.semaine === currentSemaine)
     ).length;
@@ -120,7 +122,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
     <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 100 }}>
       {isPreview && <PreviewBanner name={firstName} />}
       {!isPreview && <PushSubscriber />}
-      {!isPreview && <TtlWelcomePopup firstName={firstName || "toi"} objectifLabel={ttlObjectifLabel(objectif)} />}
+      {!isPreview && <TtlWelcomePopup firstName={firstName || "toi"} objectifLabel={ttlObjectifLabel(objectif)} premierModuleHref={premiereVisite && etapeSuivante ? etapeSuivante.href : null} />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>
         <TtlHeader
@@ -143,7 +145,53 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
             </p>
           )}
 
-          {mission ? (
+          {/* Démarrage pas fini : la carte qui fait entrer la cliente dans son parcours */}
+          {etapeSuivante && (
+            <Link href={etapeSuivante.href} style={{ textDecoration: "none", display: "block", marginBottom: 22 }}>
+              <div style={{ background: ttlHeaderGradient, borderRadius: 20, padding: "22px 20px", boxShadow: "0 10px 30px rgba(178,34,34,0.35)" }}>
+                <p className="font-body" style={{ color: "rgba(255,255,255,0.75)", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", margin: "0 0 8px" }}>
+                  {premiereVisite ? "👋 COMMENCE ICI" : `👉 TON ÉTAPE SUIVANTE · MODULE ${etapeSuivante.numero}`}
+                </p>
+                <p className="font-body" style={{ color: "#fff", fontSize: 19, fontWeight: 700, margin: "0 0 8px", lineHeight: 1.25 }}>
+                  {premiereVisite ? "Découvre comment fonctionne ton app" : etapeSuivante.module.titre}
+                </p>
+                <p className="font-body" style={{ color: "rgba(255,255,255,0.85)", fontSize: 13.5, margin: "0 0 16px", lineHeight: 1.45 }}>
+                  {premiereVisite
+                    ? "Avant tout, regarde ta vidéo de bienvenue : elle t'explique comment utiliser l'app pour atteindre ton objectif. Ça prend quelques minutes."
+                    : "Continue ton parcours de démarrage : chaque module t'explique une partie de ton app."}
+                </p>
+                <div style={{ background: "#fff", borderRadius: 12, padding: "12px 0", textAlign: "center" }}>
+                  <span className="font-body" style={{ color: ttlColors.red, fontSize: 14, fontWeight: 800, letterSpacing: "0.02em" }}>
+                    {premiereVisite ? "Je commence →" : "Continuer →"}
+                  </span>
+                </div>
+              </div>
+            </Link>
+          )}
+
+          {totalModules > 0 && (
+            <div id="parcours" style={{ scrollMarginTop: 20, marginBottom: 22 }}>
+              <TtlSectionTitle count={`${completedModules}/${totalModules}`}>Mon parcours</TtlSectionTitle>
+
+              {locked === "1" && (
+                <div className="font-body" style={{ marginBottom: 16, backgroundColor: ttlColors.card, border: "1px solid rgba(230,57,70,0.35)", borderRadius: 10, padding: "12px 16px" }}>
+                  <p style={{ fontSize: "0.8rem", color: ttlColors.redBright, margin: 0 }}>
+                    Ce module n&apos;est pas encore disponible.
+                  </p>
+                </div>
+              )}
+
+              <TtlParcoursTimeline modules={modules} etats={etats} />
+
+              <div style={{ background: "rgba(178,34,34,0.08)", border: "1px solid rgba(178,34,34,0.3)", borderRadius: 16, padding: 14, marginTop: 4 }}>
+                <p className="font-body" style={{ color: "#cbb", fontSize: 12, margin: 0 }}>
+                  Chaque module se débloque automatiquement une fois le précédent terminé.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {mission && (
             <Link href={mission.href} style={{ textDecoration: "none", display: "block" }}>
               <div style={{ background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 20, padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
                 <TtlProgressRing progress={mission.progress}>
@@ -158,10 +206,6 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
                 </div>
               </div>
             </Link>
-          ) : (
-            <p className="font-body" style={{ color: ttlColors.muted, fontSize: 13 }}>
-              Aucun contenu pour l&apos;instant — reviens bientôt.
-            </p>
           )}
 
           {recetteDuJour && (
@@ -205,28 +249,6 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
                 })}
               </div>
             </>
-          )}
-
-          {totalModules > 0 && (
-            <div id="parcours" style={{ scrollMarginTop: 20 }}>
-              <TtlSectionTitle count={`${completedModules}/${totalModules}`}>Mon parcours</TtlSectionTitle>
-
-              {locked === "1" && (
-                <div className="font-body" style={{ marginBottom: 16, backgroundColor: ttlColors.card, border: "1px solid rgba(230,57,70,0.35)", borderRadius: 10, padding: "12px 16px" }}>
-                  <p style={{ fontSize: "0.8rem", color: ttlColors.redBright, margin: 0 }}>
-                    Ce module n&apos;est pas encore disponible.
-                  </p>
-                </div>
-              )}
-
-              <TtlParcoursTimeline modules={modules} etats={etats} />
-
-              <div style={{ background: "rgba(178,34,34,0.08)", border: "1px solid rgba(178,34,34,0.3)", borderRadius: 16, padding: 14, marginTop: 4 }}>
-                <p className="font-body" style={{ color: "#cbb", fontSize: 12, margin: 0 }}>
-                  Chaque module se débloque automatiquement une fois le précédent terminé.
-                </p>
-              </div>
-            </div>
           )}
 
           <Link href="/ttl/profil" style={{ textDecoration: "none" }}>
