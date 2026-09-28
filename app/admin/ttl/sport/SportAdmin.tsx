@@ -246,6 +246,7 @@ export default function SportAdmin() {
                       key={v.id}
                       titre={v.titre}
                       coverUrl={v.cover_url}
+                      lienYoutube={v.lien_youtube}
                       onClick={() => setPreviewVideo(v)}
                       onDelete={() => handleDeleteVideo(p.id, v.id)}
                     />

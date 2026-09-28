@@ -187,6 +187,7 @@ export default function OnboardingAdmin() {
                       key={v.id}
                       titre={v.titre}
                       coverUrl={v.cover_url}
+                      lienYoutube={v.lien_youtube}
                       onClick={() => setPreviewVideo(v)}
                       onDelete={() => handleDeleteVideo(m.id, v.id)}
                     />

@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { couvertureVideo } from "@/lib/youtube";
 import { isMissingTableError } from "@/lib/questionnaire-missing-table";
 import type { TtlReponses } from "@/lib/ttl-questionnaire";
 
@@ -169,7 +170,9 @@ export async function getOnboardingModules(): Promise<TtlModule[]> {
   ]);
   return (modules ?? []).map((m) => ({
     ...m,
-    videos: (videos ?? []).filter((v) => v.module_id === m.id),
+    videos: (videos ?? [])
+      .filter((v) => v.module_id === m.id)
+      .map((v) => ({ ...v, cover_url: couvertureVideo(v.cover_url, v.lien_youtube) })),
   }));
 }
 
@@ -262,7 +265,9 @@ export async function getProgrammes(): Promise<TtlProgramme[]> {
   ]);
   return (programmes ?? []).map((p) => ({
     ...p,
-    videos: (videos ?? []).filter((v) => v.programme_id === p.id),
+    videos: (videos ?? [])
+      .filter((v) => v.programme_id === p.id)
+      .map((v) => ({ ...v, cover_url: couvertureVideo(v.cover_url, v.lien_youtube) })),
   }));
 }
 
@@ -305,7 +310,7 @@ export async function getCapsules(): Promise<TtlCapsule[]> {
     .from("ttl_capsules")
     .select("*")
     .order("created_at", { ascending: false });
-  return data ?? [];
+  return (data ?? []).map((c) => ({ ...c, cover_url: couvertureVideo(c.cover_url, c.lien_youtube) }));
 }
 
 export interface TtlSeanceProgress {

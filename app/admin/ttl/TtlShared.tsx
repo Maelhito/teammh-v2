@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { couvertureVideo } from "@/lib/youtube";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { youtubeEmbedUrl } from "@/lib/youtube";
 
@@ -138,15 +139,19 @@ export function Modal({ children, onClose, maxWidth = 420 }: { children: React.R
 
 export function VideoCard({
   titre,
-  coverUrl,
+  coverUrl: coverUpload,
+  lienYoutube,
   onClick,
   onDelete,
 }: {
   titre: string;
   coverUrl: string | null;
+  /** sans couverture téléversée, on affiche celle de YouTube */
+  lienYoutube?: string | null;
   onClick: () => void;
   onDelete: () => void;
 }) {
+  const coverUrl = couvertureVideo(coverUpload, lienYoutube);
   return (
     <div style={{ position: "relative", width: 140 }}>
       <button

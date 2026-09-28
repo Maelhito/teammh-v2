@@ -115,6 +115,7 @@ export default function CapsulesAdmin() {
               key={c.id}
               titre={c.titre}
               coverUrl={c.cover_url}
+                      lienYoutube={c.lien_youtube}
               onClick={() => setPreviewCapsule(c)}
               onDelete={() => handleDelete(c.id)}
             />

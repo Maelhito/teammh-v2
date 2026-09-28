@@ -43,3 +43,18 @@ export function youtubeEmbedUrl(url: string, options?: { autoplay?: boolean }): 
 
   return `https://www.youtube.com/embed/${id}?${params.toString()}`;
 }
+
+/**
+ * Image de couverture générée par YouTube, pour une vidéo sans couverture
+ * téléversée. `hqdefault` existe pour toutes les vidéos, Shorts compris ; pour
+ * un Short, l'image verticale est au centre, et un cadrage carré tombe dessus.
+ */
+export function youtubeThumbnailUrl(url: string | null | undefined): string | null {
+  const id = url ? youtubeVideoId(url) : null;
+  return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
+}
+
+/** La couverture choisie en admin, sinon celle de YouTube. */
+export function couvertureVideo(coverUrl: string | null | undefined, lienYoutube: string | null | undefined): string | null {
+  return coverUrl || youtubeThumbnailUrl(lienYoutube);
+}
