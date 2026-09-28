@@ -49,18 +49,26 @@ export default async function TtlModulePage({ params }: PageProps) {
         <TtlHeader variant="page" back backHref="/ttl" title={`Module ${index + 1}`} subtitle={moduleData.titre} />
 
         <div style={{ padding: "20px 20px 0" }}>
-          {/* Module 1 : le questionnaire vient après la vidéo de bienvenue ; sans vidéo, il est seul. */}
-          {!(etat.avecQuestionnaire && videos.length === 0) && (
-            <TtlModuleVideos videos={videos} resteQuestionnaire={etat.avecQuestionnaire && !questionnaire.complet} />
-          )}
-          {etat.avecQuestionnaire && (
-            <TtlQuestionnaire
-              initialReponses={questionnaire.reponses}
-              initialComplet={questionnaire.complet}
-              prenom={firstName ?? ""}
-              videosVues={videosVues}
-            />
-          )}
+          {/* Un seul chemin numéroté : les vidéos en grand, puis (module 1) le questionnaire en dernière étape */}
+          <TtlModuleVideos
+            videos={videos}
+            resteQuestionnaire={etat.avecQuestionnaire && !questionnaire.complet}
+            etapeFinale={
+              etat.avecQuestionnaire
+                ? {
+                    faite: questionnaire.complet,
+                    contenu: (
+                      <TtlQuestionnaire
+                        initialReponses={questionnaire.reponses}
+                        initialComplet={questionnaire.complet}
+                        prenom={firstName ?? ""}
+                        videosVues={videosVues}
+                      />
+                    ),
+                  }
+                : undefined
+            }
+          />
         </div>
       </div>
 
