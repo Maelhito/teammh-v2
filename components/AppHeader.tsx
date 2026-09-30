@@ -2,13 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 interface AppHeaderProps {
   back?: boolean;
   backHref?: string;
+  right?: ReactNode;
 }
 
-export default function AppHeader({ back = false, backHref = "/dashboard" }: AppHeaderProps) {
+export default function AppHeader({ back = false, backHref = "/dashboard", right }: AppHeaderProps) {
   return (
     <header
       className="sticky top-0 z-50 w-full"
@@ -46,7 +48,11 @@ export default function AppHeader({ back = false, backHref = "/dashboard" }: App
           <Image src="/logo.jpeg" alt="Time To Move" width={64} height={64} style={{ objectFit: "cover" }} priority />
         </div>
 
-        <div style={{ width: 60 }} />
+        {right ? (
+          <div style={{ width: 60, display: "flex", justifyContent: "flex-end" }}>{right}</div>
+        ) : (
+          <div style={{ width: 60 }} />
+        )}
       </div>
     </header>
   );

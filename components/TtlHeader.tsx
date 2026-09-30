@@ -1,6 +1,6 @@
 import Link from "next/link";
-import Image from "next/image";
-import { ttlColors, ttlHeaderGradient } from "@/lib/ttl-theme";
+import AppHeader from "./AppHeader";
+import { ttlColors } from "@/lib/ttl-theme";
 import TtlStreakFlame from "./TtlStreakFlame";
 
 interface HomeProps {
@@ -25,24 +25,21 @@ type TtlHeaderProps = HomeProps | PageProps;
 
 export default function TtlHeader(props: TtlHeaderProps) {
   return (
-    <div style={{ background: ttlHeaderGradient, padding: "18px 22px 26px", borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        {props.variant === "page" && props.back ? (
-          <Link href={props.backHref ?? "/ttl"} className="font-body" style={{ color: "#fff", fontSize: 14, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
-            ‹ Retour
-          </Link>
-        ) : (
-          <div style={{ width: 44, height: 44, background: "#000", borderRadius: 12, overflow: "hidden" }}>
-            <Image src="/logo.jpeg" alt="Logo" width={44} height={44} style={{ objectFit: "cover", width: "100%", height: "100%" }} priority />
-          </div>
-        )}
-        {props.variant === "page" && (
-          <Link href="/ttl/profil" style={{ color: "#fff", fontSize: 20, textDecoration: "none" }} aria-label="Profil">
-            ⚙️
-          </Link>
-        )}
-      </div>
+    <>
+      {/* Même bandeau rouge et même logo que Time To Move */}
+      <AppHeader
+        back={props.variant === "page" && !!props.back}
+        backHref={props.variant === "page" ? props.backHref ?? "/ttl" : undefined}
+        right={
+          props.variant === "page" ? (
+            <Link href="/ttl/profil" style={{ color: "#fff", fontSize: 20, textDecoration: "none" }} aria-label="Profil">
+              ⚙️
+            </Link>
+          ) : undefined
+        }
+      />
 
+      <div style={{ padding: "48px 22px 6px" }}>
       {props.variant === "home" ? (
         <>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -109,6 +106,7 @@ export default function TtlHeader(props: TtlHeaderProps) {
           )}
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }
