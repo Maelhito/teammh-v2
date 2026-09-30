@@ -28,6 +28,7 @@ export default function TtlHeader(props: TtlHeaderProps) {
     <>
       {/* Même bandeau rouge et même logo que Time To Move */}
       <AppHeader
+        logo={{ src: "/icons/ttl-512x512.png", alt: "Time To Live" }}
         back={props.variant === "page" && !!props.back}
         backHref={props.variant === "page" ? props.backHref ?? "/ttl" : undefined}
         right={

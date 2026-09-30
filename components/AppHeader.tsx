@@ -8,9 +8,10 @@ interface AppHeaderProps {
   back?: boolean;
   backHref?: string;
   right?: ReactNode;
+  logo?: { src: string; alt: string };
 }
 
-export default function AppHeader({ back = false, backHref = "/dashboard", right }: AppHeaderProps) {
+export default function AppHeader({ back = false, backHref = "/dashboard", right, logo = { src: "/logo.jpeg", alt: "Time To Move" } }: AppHeaderProps) {
   return (
     <header
       className="sticky top-0 z-50 w-full"
@@ -45,7 +46,7 @@ export default function AppHeader({ back = false, backHref = "/dashboard", right
           marginTop: 32,
           flexShrink: 0,
         }}>
-          <Image src="/logo.jpeg" alt="Time To Move" width={64} height={64} style={{ objectFit: "cover" }} priority />
+          <Image src={logo.src} alt={logo.alt} width={64} height={64} style={{ objectFit: "cover" }} priority />
         </div>
 
         {right ? (
