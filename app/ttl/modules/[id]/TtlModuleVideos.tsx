@@ -27,10 +27,9 @@ interface Props {
 }
 
 /**
- * Couverture d'une vidéo en grand. Pour un Short sans couverture téléversée,
- * on prend l'image verticale de YouTube (oar2) — l'image classique est un
- * cadre horizontal avec de grandes bandes noires ; si elle n'existe pas, repli
- * sur l'image classique.
+ * Petite couverture verticale. Pour un Short sans couverture téléversée, on
+ * prend l'image verticale de YouTube (oar2) ; si elle n'existe pas, repli sur
+ * l'image classique (recadrée au centre).
  */
 function Couverture({ video }: { video: Video }) {
   const id = youtubeVideoId(video.lien_youtube);
@@ -41,11 +40,11 @@ function Couverture({ video }: { video: Video }) {
   const [enVertical, setEnVertical] = useState(vertical);
 
   return (
-    <div style={{ position: "relative", width: "100%", aspectRatio: enVertical ? "4 / 5" : "16 / 9", background: "linear-gradient(135deg,#B22222,#3a0a0a)", overflow: "hidden" }}>
+    <div style={{ position: "relative", width: 84, aspectRatio: "4 / 5", flexShrink: 0, borderRadius: 10, background: "#1a1414", overflow: "hidden" }}>
       {src && (
         <img
           src={src}
-          alt={video.titre}
+          alt=""
           loading="lazy"
           onError={() => {
             if (enVertical && video.cover_url) {
@@ -53,20 +52,14 @@ function Couverture({ video }: { video: Video }) {
               setSrc(video.cover_url);
             } else setSrc(null);
           }}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.92 }}
         />
       )}
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55) 100%)" }} />
       <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: 64, height: 64, borderRadius: "50%", background: ttlColors.red, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 24px rgba(0,0,0,0.5)" }}>
-          <span style={{ color: "#fff", fontSize: 24, marginLeft: 4 }}>▶</span>
+        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ color: "#fff", fontSize: 11, marginLeft: 2 }}>▶</span>
         </div>
       </div>
-      {video.watched && (
-        <span className="font-body" style={{ position: "absolute", top: 12, right: 12, background: ttlColors.red, color: "#fff", fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 20 }}>
-          ✓ Vue
-        </span>
-      )}
     </div>
   );
 }
@@ -75,14 +68,14 @@ function Couverture({ video }: { video: Video }) {
  * Suivi du chemin, collé sous le logo : une pastille par étape, reliées par une
  * ligne rouge qui avance à mesure qu'on descend dans la page.
  */
-function Suivi({ total, progression, atteintes, faites }: { total: number; progression: number; atteintes: boolean[]; faites: boolean[] }) {
+function Suivi({ total, progression, faites }: { total: number; progression: number; faites: boolean[] }) {
   return (
     <div style={{ position: "sticky", top: 100, zIndex: 40, background: ttlColors.bg, padding: "8px 4px 10px" }}>
       <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", height: 26 }}>
         <div style={{ position: "absolute", left: 13, right: 13, top: "50%", height: 3, marginTop: -1.5, background: ttlColors.cardBorder, borderRadius: 3 }} />
         <div style={{ position: "absolute", left: 13, top: "50%", height: 3, marginTop: -1.5, width: `calc((100% - 26px) * ${progression})`, background: ttlColors.red, borderRadius: 3, transition: "width 0.08s linear" }} />
         {Array.from({ length: total }, (_, i) => {
-          const rouge = !!atteintes[i] || !!faites[i];
+          const rouge = progression * (total - 1) >= i - 0.001 || !!faites[i];
           return (
             <div
               key={i}
@@ -111,28 +104,42 @@ export default function TtlModuleVideos({ videos, resteQuestionnaire = false, et
   const [openId, setOpenId] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<string | null>(null);
 
-  // La ligne rouge avance avec le défilement : elle suit un repère placé au milieu de l'écran.
+  // La ligne rouge est à 0 tout en haut, arrive pile sur le point de chaque étape quand
+  // celle-ci atteint le haut de l'écran, et remplit le dernier point tout en bas de la page.
   const etapesRef = useRef<(HTMLDivElement | null)[]>([]);
   const [progression, setProgression] = useState(0);
-  const [atteintes, setAtteintes] = useState<boolean[]>([]);
 
   useEffect(() => {
     function maj() {
-      const tops = etapesRef.current.map((e) => (e ? e.getBoundingClientRect().top : Infinity));
-      if (tops.length < 2) return;
-      const repere = window.innerHeight * 0.55;
-      let k = -1;
-      tops.forEach((t, i) => { if (t <= repere) k = i; });
-      let p = 0;
-      if (k >= tops.length - 1) p = 1;
-      else if (k >= 0) p = (k + Math.max(0, Math.min(1, (repere - tops[k]) / (tops[k + 1] - tops[k])))) / (tops.length - 1);
-      setProgression(p);
-      setAtteintes(tops.map((t) => t <= repere));
+      const els = etapesRef.current.filter(Boolean) as HTMLDivElement[];
+      const n = els.length;
+      if (n < 2) return;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      if (max < 20) { setProgression(0); return; }
+      const repere = 190; // juste sous le suivi collé en haut
+      const ys = els.map((e, i) => {
+        if (i === 0) return 0;
+        if (i === n - 1) return max;
+        return Math.min(max, Math.max(0, e.getBoundingClientRect().top + window.scrollY - repere));
+      });
+      for (let i = 1; i < n; i++) ys[i] = Math.max(ys[i], ys[i - 1]);
+      const y = window.scrollY;
+      let p = 1;
+      for (let i = 0; i < n - 1; i++) {
+        if (y < ys[i + 1]) {
+          const span = ys[i + 1] - ys[i];
+          p = (i + (span > 0 ? Math.max(0, (y - ys[i]) / span) : 1)) / (n - 1);
+          break;
+        }
+      }
+      setProgression(Math.max(0, Math.min(1, p)));
     }
     maj();
     window.addEventListener("scroll", maj, { passive: true });
     window.addEventListener("resize", maj);
+    const t = setTimeout(maj, 400); // le questionnaire finit de se mettre en place
     return () => {
+      clearTimeout(t);
       window.removeEventListener("scroll", maj);
       window.removeEventListener("resize", maj);
     };
@@ -169,21 +176,24 @@ export default function TtlModuleVideos({ videos, resteQuestionnaire = false, et
       cle: v.id,
       faite: watched,
       contenu: (
-        <div style={{ background: "#111111", border: "1px solid #1a1a1a", borderRadius: 16, padding: 14 }}>
-          <p className="font-body" style={{ margin: "0 0 3px", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: ttlColors.redBright }}>
-            VIDÉO {i + 1}{watched ? " · VUE" : ""}
-          </p>
-          <p className="font-body" style={{ margin: "0 0 10px", fontSize: "0.95rem", fontWeight: 700, color: ttlColors.offWhite, lineHeight: 1.3 }}>
-            {v.titre}
-          </p>
-          <button
-            onClick={() => setOpenId(v.id)}
-            aria-label={`Regarder : ${v.titre}`}
-            style={{ display: "block", width: "100%", padding: 0, border: 0, cursor: "pointer", borderRadius: 12, overflow: "hidden", background: "none" }}
-          >
-            <Couverture video={{ ...v, watched }} />
-          </button>
-        </div>
+        <button
+          onClick={() => setOpenId(v.id)}
+          aria-label={`Regarder : ${v.titre}`}
+          style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", cursor: "pointer", background: "#111111", border: "1px solid #1a1a1a", borderRadius: 16, padding: 12, fontFamily: "inherit" }}
+        >
+          <Couverture video={v} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p className="font-body" style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: ttlColors.redBright }}>
+              VIDÉO {i + 1}{watched ? " · VUE ✓" : ""}
+            </p>
+            <p className="font-body" style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: ttlColors.offWhite, lineHeight: 1.3 }}>
+              {v.titre}
+            </p>
+            <p className="font-body" style={{ margin: "8px 0 0", fontSize: 12, color: ttlColors.muted }}>
+              {watched ? "La revoir" : "Regarder"} ›
+            </p>
+          </div>
+        </button>
       ),
     };
   });
@@ -192,7 +202,7 @@ export default function TtlModuleVideos({ videos, resteQuestionnaire = false, et
   return (
     <>
       {etapes.length > 1 && (
-        <Suivi total={etapes.length} progression={progression} atteintes={atteintes} faites={etapes.map((e) => e.faite)} />
+        <Suivi total={etapes.length} progression={progression} faites={etapes.map((e) => e.faite)} />
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 6 }}>
