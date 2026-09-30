@@ -8,6 +8,7 @@ import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import PreviewBanner from "@/components/PreviewBanner";
 import ValidateButton from "../../[slug]/ValidateButton";
+import { INTERVALLE_JOURS } from "@/lib/mesures";
 import QuestionnaireDemarrage from "./QuestionnaireDemarrage";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +61,8 @@ export default async function Module0StepPage({ params }: PageProps) {
     [dbContent?.video_url_9, dbContent?.video_title_9],
     [dbContent?.video_url_10, dbContent?.video_title_10],
   ].filter(([url]) => !!url) as [string, string | null][];
+  // Point sans vidéo configurée en admin : on montre celle prévue par défaut
+  if (videos.length === 0 && step.defaultVideos) videos.push(...step.defaultVideos);
 
   // Lien externe (questionnaire) — réutilise le champ lien externe éditable en admin
   const lienExterne = dbContent?.lien_canva_equivalences ?? null;
@@ -93,6 +96,31 @@ export default async function Module0StepPage({ params }: PageProps) {
       </div>
 
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "12px 16px 0" }}>
+        {/* Poids et mensurations : mot d'accueil, puis la vidéo juste en dessous */}
+        {step.hasMensurations && (
+          <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 16, padding: "16px 18px", marginBottom: 14 }}>
+            <p className="font-body" style={{ fontSize: "0.95rem", fontWeight: 700, color: "#F5F5F0", margin: "0 0 10px" }}>
+              Hello {firstName || ""} 👋
+            </p>
+            <p className="font-body" style={{ fontSize: "0.85rem", color: "#D1D5DB", margin: "0 0 10px", lineHeight: 1.55 }}>
+              Avant notre appel de démarrage, tu dois prendre ton <strong style={{ color: "#F5F5F0" }}>poids</strong> et
+              tes <strong style={{ color: "#F5F5F0" }}>mensurations</strong>. C&apos;est ce qui nous permet de voir où tu en es
+              vraiment, de fixer des objectifs concrets et surtout de démarrer sur de bonnes bases dès cette première
+              semaine.
+            </p>
+            <p className="font-body" style={{ fontSize: "0.85rem", color: "#D1D5DB", margin: "0 0 10px", lineHeight: 1.55 }}>
+              Pour que les chiffres soient comparables, prends-les <strong style={{ color: "#F5F5F0" }}>le matin, à jeun</strong>.
+            </p>
+            <p className="font-body" style={{ fontSize: "0.85rem", color: "#D1D5DB", margin: "0 0 10px", lineHeight: 1.55 }}>
+              Ta première prise sera ton point de départ. Ensuite, l&apos;objectif est de la refaire{" "}
+              <strong style={{ color: "#F5F5F0" }}>tous les {INTERVALLE_JOURS} jours</strong>, pour suivre ta progression.
+            </p>
+            <p className="font-body" style={{ fontSize: "0.85rem", color: "#F59E0B", margin: 0, lineHeight: 1.55, fontWeight: 600 }}>
+              Pour savoir comment faire et comment les rentrer dans l&apos;app, clique sur la vidéo juste en dessous 👇
+            </p>
+          </div>
+        )}
+
         {/* Vidéos */}
         {videos.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -112,6 +140,29 @@ export default async function Module0StepPage({ params }: PageProps) {
               </div>
             ))}
           </div>
+        )}
+
+        {step.hasMensurations && (
+          <a
+            href="/mesures"
+            className="font-body"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginTop: 14,
+              padding: "15px 20px",
+              backgroundColor: "#111111",
+              border: "1px solid #F59E0B",
+              borderRadius: 14,
+              color: "#F59E0B",
+              fontSize: "0.92rem",
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            📏 Rentrer mon poids et mes mensurations →
+          </a>
         )}
 
         {/* Lien externe (questionnaire alimentaire) */}

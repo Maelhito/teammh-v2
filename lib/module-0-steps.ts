@@ -20,6 +20,10 @@ export interface Module0Step {
   description: string;
   /** affiche le questionnaire de démarrage sous le contenu */
   hasQuestionnaire?: boolean;
+  /** vidéos utilisées tant qu'aucune vidéo n'est configurée en admin : [lien, titre] */
+  defaultVideos?: [string, string][];
+  /** affiche le texte d'accueil sur la prise de poids et de mensurations */
+  hasMensurations?: boolean;
 }
 
 export const MODULE_0_STEPS: Module0Step[] = [
@@ -35,8 +39,21 @@ export const MODULE_0_STEPS: Module0Step[] = [
     hasQuestionnaire: true,
   },
   {
-    key: "plan-alimentaire",
+    key: "mensurations",
     index: 2,
+    title: "Poids et mensurations",
+    category: "Suivi",
+    duration: "",
+    emoji: "📏",
+    type: "content",
+    description: "Avant ton appel de démarrage, prends ton poids et tes mensurations : ce sont tes points de départ.",
+    // Même vidéo que « Démarrer ton sport » (vidéo 3)
+    defaultVideos: [["https://youtube.com/shorts/C6p_pTGqDBo", "Comment rentrer mes mensurations"]],
+    hasMensurations: true,
+  },
+  {
+    key: "plan-alimentaire",
+    index: 3,
     title: "Présentation plan alimentaire",
     category: "Nutrition",
     duration: "",
@@ -46,7 +63,7 @@ export const MODULE_0_STEPS: Module0Step[] = [
   },
   {
     key: "questionnaire",
-    index: 3,
+    index: 4,
     title: "Questionnaire alimentaire",
     category: "Questionnaire",
     duration: "",
