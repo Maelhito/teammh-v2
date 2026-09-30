@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import TtlVideoModal from "@/components/TtlVideoModal";
 import TtlCelebration from "@/components/TtlCelebration";
@@ -64,86 +64,11 @@ function Couverture({ video }: { video: Video }) {
   );
 }
 
-/**
- * Suivi du chemin, collé sous le logo : une pastille par étape, reliées par une
- * ligne rouge qui avance à mesure qu'on descend dans la page.
- */
-function Suivi({ total, progression, faites }: { total: number; progression: number; faites: boolean[] }) {
-  return (
-    <div style={{ position: "sticky", top: 100, zIndex: 40, background: ttlColors.bg, padding: "8px 4px 10px" }}>
-      <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", height: 26 }}>
-        <div style={{ position: "absolute", left: 13, right: 13, top: "50%", height: 3, marginTop: -1.5, background: ttlColors.cardBorder, borderRadius: 3 }} />
-        <div style={{ position: "absolute", left: 13, top: "50%", height: 3, marginTop: -1.5, width: `calc((100% - 26px) * ${progression})`, background: ttlColors.red, borderRadius: 3, transition: "width 0.08s linear" }} />
-        {Array.from({ length: total }, (_, i) => {
-          const rouge = progression * (total - 1) >= i - 0.001 || !!faites[i];
-          return (
-            <div
-              key={i}
-              className="font-body"
-              style={{
-                width: 26, height: 26, borderRadius: "50%", position: "relative", zIndex: 1,
-                background: rouge ? ttlColors.red : ttlColors.card,
-                border: `2px solid ${rouge ? ttlColors.red : ttlColors.cardBorder}`,
-                color: rouge ? "#fff" : ttlColors.muted,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 12, fontWeight: 800, transition: "background 0.25s, border-color 0.25s",
-              }}
-            >
-              {faites[i] ? "✓" : i + 1}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export default function TtlModuleVideos({ videos, resteQuestionnaire = false, etapeFinale }: Props) {
   const router = useRouter();
   const [watchedIds, setWatchedIds] = useState(new Set(videos.filter((v) => v.watched).map((v) => v.id)));
   const [openId, setOpenId] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<string | null>(null);
-
-  // La ligne rouge est à 0 tout en haut, arrive pile sur le point de chaque étape quand
-  // celle-ci atteint le haut de l'écran, et remplit le dernier point tout en bas de la page.
-  const etapesRef = useRef<(HTMLDivElement | null)[]>([]);
-  const [progression, setProgression] = useState(0);
-
-  useEffect(() => {
-    function maj() {
-      const els = etapesRef.current.filter(Boolean) as HTMLDivElement[];
-      const n = els.length;
-      if (n < 2) return;
-      const max = document.documentElement.scrollHeight - window.innerHeight;
-      if (max < 20) { setProgression(0); return; }
-      const repere = 190; // juste sous le suivi collé en haut
-      const ys = els.map((e, i) => {
-        if (i === 0) return 0;
-        if (i === n - 1) return max;
-        return Math.min(max, Math.max(0, e.getBoundingClientRect().top + window.scrollY - repere));
-      });
-      for (let i = 1; i < n; i++) ys[i] = Math.max(ys[i], ys[i - 1]);
-      const y = window.scrollY;
-      let p = 1;
-      for (let i = 0; i < n - 1; i++) {
-        if (y < ys[i + 1]) {
-          const span = ys[i + 1] - ys[i];
-          p = (i + (span > 0 ? Math.max(0, (y - ys[i]) / span) : 1)) / (n - 1);
-          break;
-        }
-      }
-      setProgression(Math.max(0, Math.min(1, p)));
-    }
-    maj();
-    window.addEventListener("scroll", maj, { passive: true });
-    window.addEventListener("resize", maj);
-    const t = setTimeout(maj, 400); // le questionnaire finit de se mettre en place
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener("scroll", maj);
-      window.removeEventListener("resize", maj);
-    };
-  }, [videos.length, !!etapeFinale]);
 
   const openVideo = videos.find((v) => v.id === openId) ?? null;
   const allWatchedAfter = (videoId: string) => videos.every((v) => v.id === videoId || watchedIds.has(v.id));
@@ -201,13 +126,9 @@ export default function TtlModuleVideos({ videos, resteQuestionnaire = false, et
 
   return (
     <>
-      {etapes.length > 1 && (
-        <Suivi total={etapes.length} progression={progression} faites={etapes.map((e) => e.faite)} />
-      )}
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 6 }}>
-        {etapes.map((e, i) => (
-          <div key={e.cle} ref={(el) => { etapesRef.current[i] = el; }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 12 }}>
+        {etapes.map((e) => (
+          <div key={e.cle}>
             {e.contenu}
           </div>
         ))}

@@ -49,7 +49,7 @@ export default async function TtlModulePage({ params }: PageProps) {
         <TtlHeader variant="page" back backHref="/ttl" title={`Module ${index + 1}`} subtitle={moduleData.titre} />
 
         <div style={{ padding: "0 16px" }}>
-          {/* Vidéos, puis (module 1) le questionnaire ; le suivi rouge est collé sous le logo */}
+          {/* Vidéos, puis (module 1) le questionnaire  */}
           <TtlModuleVideos
             videos={videos}
             resteQuestionnaire={etat.avecQuestionnaire && !questionnaire.complet}
