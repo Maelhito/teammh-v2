@@ -5,7 +5,10 @@ import {
   QUESTIONNAIRE_GROUPS,
   ALL_FIELDS,
   countAnswered,
-  TOTAL_QUESTIONS,
+  totalQuestions,
+  questionVisible,
+  nettoyerReponsesConditionnelles,
+  ouiNon,
   type QuestionnaireField,
 } from "@/lib/questionnaire-demarrage";
 
@@ -65,7 +68,7 @@ export default function QuestionnaireDemarrage() {
       const res = await fetch("/api/questionnaire-demarrage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...answers, completed: true }),
+        body: JSON.stringify({ ...nettoyerReponsesConditionnelles(answers), completed: true }),
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -80,7 +83,8 @@ export default function QuestionnaireDemarrage() {
     }
   }
 
-  const answered = countAnswered(answers as never);
+  const answered = countAnswered(answers);
+  const total = totalQuestions(answers);
 
   if (loading) {
     return (
@@ -98,7 +102,7 @@ export default function QuestionnaireDemarrage() {
           Ce questionnaire permet de faire le point avant ton appel de démarrage.
         </p>
         <p className="font-body" style={{ fontSize: "0.78rem", color: "#6B7280", margin: "8px 0 0" }}>
-          {answered}/{TOTAL_QUESTIONS} réponses complétées
+          {answered}/{total} réponses complétées
         </p>
       </div>
 
@@ -112,7 +116,7 @@ export default function QuestionnaireDemarrage() {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {group.questions.map((q) => (
+            {group.questions.filter((q) => questionVisible(q, answers)).map((q) => (
               <div key={q.field}>
                 <label className="font-body" style={{ display: "block", fontSize: "0.78rem", color: "#9CA3AF", marginBottom: 6, lineHeight: 1.4 }}>
                   {q.label}
@@ -148,7 +152,7 @@ export default function QuestionnaireDemarrage() {
                 ) : q.kind === "ouinon" ? (
                   <div style={{ display: "flex", gap: 8 }}>
                     {["Oui", "Non"].map((opt) => {
-                      const active = (answers[q.field] ?? "").toLowerCase() === opt.toLowerCase();
+                      const active = ouiNon(answers[q.field]) === opt.toLowerCase();
                       return (
                         <button
                           key={opt}
@@ -168,6 +172,82 @@ export default function QuestionnaireDemarrage() {
                           }}
                         >
                           {opt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : q.kind === "chiffres" ? (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {Array.from({ length: q.max ?? 7 }, (_, i) => String(i + 1)).map((n) => {
+                      const active = answers[q.field] === n;
+                      return (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => set(q.field, n)}
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 10,
+                            border: `1px solid ${active ? "#B45309" : "#262626"}`,
+                            backgroundColor: active ? "rgba(180,83,9,0.15)" : "#0D0D0D",
+                            color: active ? "#F59E0B" : "#6B7280",
+                            fontSize: "0.88rem",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                          }}
+                        >
+                          {n}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : q.kind === "cases" ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {(q.options ?? []).map((opt) => {
+                      const active = answers[q.field] === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => set(q.field, opt.value)}
+                          style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 11,
+                            padding: "10px 12px",
+                            borderRadius: 10,
+                            border: `1px solid ${active ? "#B45309" : "#262626"}`,
+                            backgroundColor: active ? "rgba(180,83,9,0.15)" : "#0D0D0D",
+                            textAlign: "left",
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 18,
+                              height: 18,
+                              borderRadius: 5,
+                              flexShrink: 0,
+                              marginTop: 1,
+                              border: `2px solid ${active ? "#F59E0B" : "#404040"}`,
+                              backgroundColor: active ? "#B45309" : "transparent",
+                              color: "#fff",
+                              fontSize: 12,
+                              lineHeight: "14px",
+                              textAlign: "center",
+                            }}
+                          >
+                            {active ? "✓" : ""}
+                          </span>
+                          <span style={{ minWidth: 0 }}>
+                            <span style={{ display: "block", fontSize: "0.88rem", fontWeight: 700, color: active ? "#F59E0B" : "#F5F5F0" }}>{opt.value}</span>
+                            {opt.detail && (
+                              <span style={{ display: "block", fontSize: "0.74rem", color: "#6B7280", marginTop: 2, lineHeight: 1.4 }}>{opt.detail}</span>
+                            )}
+                          </span>
                         </button>
                       );
                     })}

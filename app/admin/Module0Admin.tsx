@@ -74,7 +74,8 @@ function QuestionnairePreview() {
                   <li key={q.field} style={{ fontSize: 11.5, color: "rgba(255,255,255,0.7)", fontFamily: "system-ui", lineHeight: 1.45 }}>
                     {q.label}
                     <span style={{ color: "#555", marginLeft: 6 }}>
-                      {q.kind === "ouinon" ? "(Oui / Non)" : q.kind === "textarea" ? "(texte long)" : "(texte court)"}
+                      {q.kind === "ouinon" ? "(Oui / Non)" : q.kind === "textarea" ? "(texte long)" : q.kind === "chiffres" ? "(de 1 à " + (q.max ?? 7) + ")" : q.kind === "cases" ? "(cases)" : q.kind === "note10" ? "(note sur 10)" : "(texte court)"}
+                      {q.siChamp ? " · seulement si elle fait du sport" : ""}
                     </span>
                   </li>
                 ))}

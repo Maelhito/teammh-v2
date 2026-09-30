@@ -5,7 +5,11 @@ import {
   QUESTIONNAIRE_GROUPS,
   ALL_FIELDS,
   countAnswered,
-  TOTAL_QUESTIONS,
+  totalQuestions,
+  questionVisible,
+  nettoyerReponsesConditionnelles,
+  ouiNon,
+  type QuestionDef,
   type QuestionnaireDemarrage,
   type QuestionnaireField,
 } from "@/lib/questionnaire-demarrage";
@@ -56,6 +60,7 @@ export default function QuestionnaireCliente({ clienteId }: { clienteId: string 
   }, [clienteId]);
 
   const answered = countAnswered(data);
+  const total = totalQuestions(data);
   // Tous les groupes sauf les objectifs (affichés à part ci-dessous)
   const autresGroupes = QUESTIONNAIRE_GROUPS.filter(
     (g) => g.title !== "Tes objectifs sur les 4 prochains mois" && g.title !== "Tes objectifs sur 12 mois"
@@ -89,11 +94,11 @@ export default function QuestionnaireCliente({ clienteId }: { clienteId: string 
       const res = await fetch(`/api/coach/clientes/${clienteId}/questionnaire`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
+        body: JSON.stringify(nettoyerReponsesConditionnelles(draft)),
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok) {
-        setData((prev) => ({ ...(prev ?? ({} as QuestionnaireDemarrage)), ...draft }));
+        setData((prev) => ({ ...(prev ?? ({} as QuestionnaireDemarrage)), ...nettoyerReponsesConditionnelles(draft) }));
         setEditing(false);
       } else {
         setSaveError(d.error ?? "Erreur : les modifications n'ont pas été enregistrées.");
@@ -167,7 +172,18 @@ export default function QuestionnaireCliente({ clienteId }: { clienteId: string 
     );
   }
 
-  function EditField({ field, label, kind, placeholder }: { field: QuestionnaireField; label: string; kind: string; placeholder?: string }) {
+  function EditField({ q }: { q: QuestionDef }) {
+    const { field, label, kind, placeholder } = q;
+    const chip = (active: boolean): React.CSSProperties => ({
+      borderRadius: 7,
+      border: `1px solid ${active ? "#B45309" : "#e0e0e0"}`,
+      backgroundColor: active ? "rgba(180,83,9,0.12)" : "#fff",
+      color: active ? "#B45309" : "#888",
+      fontSize: 12,
+      fontWeight: 700,
+      cursor: "pointer",
+      fontFamily: "system-ui",
+    });
     return (
       <div style={{ minWidth: 0 }}>
         <p style={{ fontSize: 10, color: "#bbb", margin: "0 0 4px", fontFamily: "system-ui", lineHeight: 1.3 }}>{label}</p>
@@ -198,10 +214,32 @@ export default function QuestionnaireCliente({ clienteId }: { clienteId: string 
               );
             })}
           </div>
+        ) : kind === "chiffres" ? (
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {Array.from({ length: q.max ?? 7 }, (_, i) => String(i + 1)).map((n) => (
+              <button key={n} type="button" onClick={() => setField(field, n)} style={{ ...chip(draft[field] === n), width: 28, height: 28 }}>
+                {n}
+              </button>
+            ))}
+          </div>
+        ) : kind === "cases" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {(q.options ?? []).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setField(field, opt.value)}
+                style={{ ...chip(draft[field] === opt.value), padding: "6px 10px", textAlign: "left" }}
+              >
+                {draft[field] === opt.value ? "☑" : "☐"} {opt.value}
+                {opt.detail && <span style={{ fontWeight: 400, color: "#aaa" }}> — {opt.detail}</span>}
+              </button>
+            ))}
+          </div>
         ) : kind === "ouinon" ? (
           <div style={{ display: "flex", gap: 6 }}>
             {["Oui", "Non"].map((opt) => {
-              const active = (draft[field] ?? "").toLowerCase() === opt.toLowerCase();
+              const active = ouiNon(draft[field]) === opt.toLowerCase();
               return (
                 <button
                   key={opt}
@@ -308,8 +346,8 @@ export default function QuestionnaireCliente({ clienteId }: { clienteId: string 
                 {groupe.title}
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {groupe.questions.map((q) => (
-                  <EditField key={q.field} field={q.field} label={q.label} kind={q.kind} placeholder={q.placeholder} />
+                {groupe.questions.filter((q) => questionVisible(q, draft)).map((q) => (
+                  <EditField key={q.field} q={q} />
                 ))}
               </div>
             </div>
@@ -324,8 +362,8 @@ export default function QuestionnaireCliente({ clienteId }: { clienteId: string 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
         <p style={{ ...lbl, margin: 0 }}>
           Questionnaire de démarrage
-          <span style={{ marginLeft: 8, color: answered === TOTAL_QUESTIONS ? "#10B981" : "#F59E0B", letterSpacing: 0 }}>
-            {answered}/{TOTAL_QUESTIONS}
+          <span style={{ marginLeft: 8, color: answered === total ? "#10B981" : "#F59E0B", letterSpacing: 0 }}>
+            {answered}/{total}
           </span>
         </p>
         <div style={{ display: "flex", gap: 8 }}>
@@ -371,7 +409,7 @@ export default function QuestionnaireCliente({ clienteId }: { clienteId: string 
                 {groupe.title}
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {groupe.questions.map((q) => (
+                {groupe.questions.filter((q) => questionVisible(q, data)).map((q) => (
                   <Answer key={q.field} label={q.label} value={data?.[q.field]} />
                 ))}
               </div>

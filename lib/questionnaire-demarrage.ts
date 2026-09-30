@@ -18,6 +18,9 @@ export interface QuestionnaireDemarrage {
   freins: string | null;
   aide_accompagnement: string | null;
   sport_actuel: string | null;
+  sport_frequence: string | null;
+  sport_intensite: string | null;
+  sport_duree: string | null;
   douleurs_contreindications: string | null;
   balance: string | null;
   metre_ruban: string | null;
@@ -41,6 +44,9 @@ export const ALL_FIELDS = [
   "freins",
   "aide_accompagnement",
   "sport_actuel",
+  "sport_frequence",
+  "sport_intensite",
+  "sport_duree",
   "douleurs_contreindications",
   "balance",
   "metre_ruban",
@@ -48,13 +54,26 @@ export const ALL_FIELDS = [
 
 export type QuestionnaireField = (typeof ALL_FIELDS)[number];
 
-export type FieldKind = "text" | "textarea" | "ouinon" | "note10";
+export type FieldKind = "text" | "textarea" | "ouinon" | "note10" | "chiffres" | "cases";
+
+export interface QuestionOption {
+  /** valeur enregistrée */
+  value: string;
+  /** exemples affichés en gris sous la valeur */
+  detail?: string;
+}
 
 export interface QuestionDef {
   field: QuestionnaireField;
   label: string;
   placeholder?: string;
   kind: FieldKind;
+  /** pour "cases" : les choix, l'un sous l'autre */
+  options?: QuestionOption[];
+  /** pour "chiffres" : de 1 à max */
+  max?: number;
+  /** question posée seulement si ce champ a cette valeur (ex : le sport si elle répond Oui) */
+  siChamp?: { field: QuestionnaireField; vaut: string };
 }
 
 export interface QuestionGroup {
@@ -107,7 +126,36 @@ export const QUESTIONNAIRE_GROUPS: QuestionGroup[] = [
   {
     title: "Sport",
     questions: [
-      { field: "sport_actuel", label: "Est-ce que tu fais du sport actuellement ?", placeholder: "ex : oui, 2 fois par semaine / non", kind: "textarea" },
+      { field: "sport_actuel", label: "Est-ce que tu fais du sport actuellement ?", kind: "ouinon" },
+      {
+        field: "sport_frequence",
+        label: "Combien de fois par semaine ?",
+        kind: "chiffres",
+        max: 7,
+        siChamp: { field: "sport_actuel", vaut: "oui" },
+      },
+      {
+        field: "sport_intensite",
+        label: "Quel sport fais-tu ?",
+        kind: "cases",
+        options: [
+          { value: "Léger", detail: "marche, yoga, étirements, vélo tranquille" },
+          { value: "Modéré", detail: "gymnastique, natation, jogging, sport récréatif, renforcement musculaire à la maison" },
+          { value: "Intense", detail: "HIIT, crossfit, course à pied, sport de compétition, musculation" },
+        ],
+        siChamp: { field: "sport_actuel", vaut: "oui" },
+      },
+      {
+        field: "sport_duree",
+        label: "Combien de temps durent tes séances ?",
+        kind: "cases",
+        options: [
+          { value: "Moins de 30 minutes" },
+          { value: "Entre 30 minutes et 1 heure" },
+          { value: "Plus de 1 heure" },
+        ],
+        siChamp: { field: "sport_actuel", vaut: "oui" },
+      },
       {
         field: "douleurs_contreindications",
         label: "As-tu des douleurs ou contre-indications médicales liées au sport ?",
@@ -132,19 +180,57 @@ export const EMPTY_QUESTIONNAIRE: QuestionnaireDemarrage = {
   freins: null,
   aide_accompagnement: null,
   sport_actuel: null,
+  sport_frequence: null,
+  sport_intensite: null,
+  sport_duree: null,
   douleurs_contreindications: null,
   balance: null,
   metre_ruban: null,
   completed_at: null,
 };
 
+type Reponses = Partial<Record<QuestionnaireField, string | null>>;
+
+/** « Oui » / « Non » — les anciennes réponses libres (« oui, 2 fois par semaine ») sont reconnues au premier mot */
+export function ouiNon(valeur: string | null | undefined): "oui" | "non" | null {
+  const v = (valeur ?? "").trim().toLowerCase();
+  if (v.startsWith("oui")) return "oui";
+  if (v.startsWith("non")) return "non";
+  return null;
+}
+
+/** La question est-elle posée compte tenu des réponses déjà données ? */
+export function questionVisible(q: QuestionDef, reponses: Reponses | null): boolean {
+  if (!q.siChamp) return true;
+  return ouiNon(reponses?.[q.siChamp.field]) === q.siChamp.vaut;
+}
+
+/** Les questions posées : si elle ne fait pas de sport, les détails du sport disparaissent */
+export function questionsVisibles(reponses: Reponses | null): QuestionDef[] {
+  return QUESTIONNAIRE_GROUPS.flatMap((g) => g.questions).filter((q) => questionVisible(q, reponses));
+}
+
 /** Nombre de réponses renseignées / total — pour l'indicateur de progression */
-export function countAnswered(q: Partial<QuestionnaireDemarrage> | null): number {
+export function countAnswered(q: Reponses | null): number {
   if (!q) return 0;
-  return ALL_FIELDS.filter((f) => {
-    const v = q[f];
+  return questionsVisibles(q).filter((def) => {
+    const v = q[def.field];
     return typeof v === "string" && v.trim() !== "";
   }).length;
 }
 
+export function totalQuestions(q: Reponses | null): number {
+  return questionsVisibles(q).length;
+}
+
+/** Avant d'enregistrer : efface les détails du sport si la réponse n'est pas « Oui » */
+export function nettoyerReponsesConditionnelles<T extends Reponses>(reponses: T): T {
+  const out = { ...reponses };
+  for (const def of QUESTIONNAIRE_GROUPS.flatMap((g) => g.questions)) {
+    if (!questionVisible(def, out)) out[def.field] = null as T[QuestionnaireField];
+  }
+  return out;
+}
+
+/** Nombre total de questions existantes (sans tenir compte des conditions) */
 export const TOTAL_QUESTIONS = ALL_FIELDS.length;

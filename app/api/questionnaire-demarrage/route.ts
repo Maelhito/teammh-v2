@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
-import { ALL_FIELDS, OBJECTIF_FIELDS } from "@/lib/questionnaire-demarrage";
+import { ALL_FIELDS, OBJECTIF_FIELDS, nettoyerReponsesConditionnelles } from "@/lib/questionnaire-demarrage";
 import { isMissingTableError } from "@/lib/questionnaire-missing-table";
 
 /** Réponses de la cliente connectée */
@@ -36,11 +36,13 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
 
   // On ne retient que les champs connus
-  const answers: Record<string, string | null> = {};
+  const saisies: Record<string, string | null> = {};
   for (const f of ALL_FIELDS) {
     const v = body[f];
-    answers[f] = typeof v === "string" && v.trim() !== "" ? v.trim() : null;
+    saisies[f] = typeof v === "string" && v.trim() !== "" ? v.trim() : null;
   }
+  // Si elle ne fait pas de sport, on n'enregistre pas de détails du sport
+  const answers = nettoyerReponsesConditionnelles(saisies);
 
   const admin = createSupabaseAdminClient();
 

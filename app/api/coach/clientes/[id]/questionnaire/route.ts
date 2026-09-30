@@ -4,7 +4,7 @@ import { coachPeutVoirCliente } from "@/lib/check-cliente-assignee";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { isMissingTableError } from "@/lib/questionnaire-missing-table";
 import { isAdminUser } from "@/lib/is-admin";
-import { ALL_FIELDS, OBJECTIF_FIELDS } from "@/lib/questionnaire-demarrage";
+import { ALL_FIELDS, OBJECTIF_FIELDS, nettoyerReponsesConditionnelles } from "@/lib/questionnaire-demarrage";
 
 /** Questionnaire de démarrage d'une cliente — lecture pour le coach, écriture pour les admins */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -47,11 +47,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const body = await request.json();
-  const answers: Record<string, string | null> = {};
+  const saisies: Record<string, string | null> = {};
   for (const f of ALL_FIELDS) {
     const v = body[f];
-    answers[f] = typeof v === "string" && v.trim() !== "" ? v.trim() : null;
+    saisies[f] = typeof v === "string" && v.trim() !== "" ? v.trim() : null;
   }
+  // Si elle ne fait pas de sport, on n'enregistre pas de détails du sport
+  const answers = nettoyerReponsesConditionnelles(saisies);
 
   const admin = createSupabaseAdminClient();
 
