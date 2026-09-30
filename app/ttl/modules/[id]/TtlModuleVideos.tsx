@@ -63,7 +63,7 @@ function Couverture({ video }: { video: Video }) {
         </div>
       </div>
       {video.watched && (
-        <span className="font-body" style={{ position: "absolute", top: 12, right: 12, background: "rgba(0,0,0,0.7)", color: ttlColors.green, fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 20 }}>
+        <span className="font-body" style={{ position: "absolute", top: 12, right: 12, background: ttlColors.red, color: "#fff", fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 20 }}>
           ✓ Vue
         </span>
       )}
@@ -71,21 +71,36 @@ function Couverture({ video }: { video: Video }) {
   );
 }
 
-/** Pastille numérotée du chemin : rouge une fois atteinte en défilant, ✓ une fois faite. */
-function Pastille({ numero, atteinte, faite }: { numero: number; atteinte: boolean; faite: boolean }) {
+/**
+ * Suivi du chemin, collé sous le logo : une pastille par étape, reliées par une
+ * ligne rouge qui avance à mesure qu'on descend dans la page.
+ */
+function Suivi({ total, progression, atteintes, faites }: { total: number; progression: number; atteintes: boolean[]; faites: boolean[] }) {
   return (
-    <div
-      style={{
-        width: 34, height: 34, borderRadius: "50%", flexShrink: 0, position: "relative", zIndex: 1,
-        background: faite ? ttlColors.green : atteinte ? ttlColors.red : ttlColors.card,
-        border: `2px solid ${faite ? ttlColors.green : atteinte ? ttlColors.redBright : ttlColors.cardBorder}`,
-        color: atteinte || faite ? "#fff" : ttlColors.muted,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 14, fontWeight: 800, transition: "background 0.25s, border-color 0.25s",
-      }}
-      className="font-body"
-    >
-      {faite ? "✓" : numero}
+    <div style={{ position: "sticky", top: 100, zIndex: 40, background: ttlColors.bg, padding: "8px 4px 10px" }}>
+      <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", height: 26 }}>
+        <div style={{ position: "absolute", left: 13, right: 13, top: "50%", height: 3, marginTop: -1.5, background: ttlColors.cardBorder, borderRadius: 3 }} />
+        <div style={{ position: "absolute", left: 13, top: "50%", height: 3, marginTop: -1.5, width: `calc((100% - 26px) * ${progression})`, background: ttlColors.red, borderRadius: 3, transition: "width 0.08s linear" }} />
+        {Array.from({ length: total }, (_, i) => {
+          const rouge = !!atteintes[i] || !!faites[i];
+          return (
+            <div
+              key={i}
+              className="font-body"
+              style={{
+                width: 26, height: 26, borderRadius: "50%", position: "relative", zIndex: 1,
+                background: rouge ? ttlColors.red : ttlColors.card,
+                border: `2px solid ${rouge ? ttlColors.red : ttlColors.cardBorder}`,
+                color: rouge ? "#fff" : ttlColors.muted,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, fontWeight: 800, transition: "background 0.25s, border-color 0.25s",
+              }}
+            >
+              {faites[i] ? "✓" : i + 1}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -96,20 +111,23 @@ export default function TtlModuleVideos({ videos, resteQuestionnaire = false, et
   const [openId, setOpenId] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<string | null>(null);
 
-  // La ligne rouge descend avec le défilement : elle s'arrête au niveau du milieu de l'écran.
-  const cheminRef = useRef<HTMLDivElement>(null);
-  const pastillesRef = useRef<(HTMLDivElement | null)[]>([]);
-  const [remplissage, setRemplissage] = useState(0);
+  // La ligne rouge avance avec le défilement : elle suit un repère placé au milieu de l'écran.
+  const etapesRef = useRef<(HTMLDivElement | null)[]>([]);
+  const [progression, setProgression] = useState(0);
   const [atteintes, setAtteintes] = useState<boolean[]>([]);
 
   useEffect(() => {
     function maj() {
-      const chemin = cheminRef.current;
-      if (!chemin) return;
+      const tops = etapesRef.current.map((e) => (e ? e.getBoundingClientRect().top : Infinity));
+      if (tops.length < 2) return;
       const repere = window.innerHeight * 0.55;
-      const haut = chemin.getBoundingClientRect().top;
-      setRemplissage(Math.max(0, Math.min(chemin.offsetHeight, repere - haut)));
-      setAtteintes(pastillesRef.current.map((p) => !!p && p.getBoundingClientRect().top <= repere));
+      let k = -1;
+      tops.forEach((t, i) => { if (t <= repere) k = i; });
+      let p = 0;
+      if (k >= tops.length - 1) p = 1;
+      else if (k >= 0) p = (k + Math.max(0, Math.min(1, (repere - tops[k]) / (tops[k + 1] - tops[k])))) / (tops.length - 1);
+      setProgression(p);
+      setAtteintes(tops.map((t) => t <= repere));
     }
     maj();
     window.addEventListener("scroll", maj, { passive: true });
@@ -145,33 +163,27 @@ export default function TtlModuleVideos({ videos, resteQuestionnaire = false, et
     );
   }
 
-  const etapes: { cle: string; faite: boolean; contenu: React.ReactNode }[] = videos.map((v) => {
+  const etapes: { cle: string; faite: boolean; contenu: React.ReactNode }[] = videos.map((v, i) => {
     const watched = watchedIds.has(v.id);
     return {
       cle: v.id,
       faite: watched,
       contenu: (
-        <button
-          onClick={() => setOpenId(v.id)}
-          style={{
-            display: "block", width: "100%", padding: 0, textAlign: "left", cursor: "pointer",
-            background: ttlColors.card, border: `1px solid ${watched ? "rgba(74,222,128,0.35)" : "rgba(230,57,70,0.35)"}`,
-            borderRadius: 18, overflow: "hidden",
-          }}
-        >
-          <Couverture video={{ ...v, watched }} />
-          <div style={{ padding: "14px 16px 16px" }}>
-            <p className="font-body" style={{ margin: 0, fontWeight: 800, fontSize: 18, lineHeight: 1.25, color: ttlColors.redBright }}>
-              {v.titre}
-            </p>
-            {v.description && (
-              <p className="font-body" style={{ margin: "6px 0 0", fontSize: 13, color: "#cfc8c0", lineHeight: 1.45 }}>{v.description}</p>
-            )}
-            <p className="font-body" style={{ margin: "10px 0 0", fontSize: 12.5, fontWeight: 700, color: watched ? ttlColors.green : "#fff" }}>
-              {watched ? "✓ Vidéo vue · la revoir" : "▶ Regarder la vidéo"}
-            </p>
-          </div>
-        </button>
+        <div style={{ background: "#111111", border: "1px solid #1a1a1a", borderRadius: 16, padding: 14 }}>
+          <p className="font-body" style={{ margin: "0 0 3px", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: ttlColors.redBright }}>
+            VIDÉO {i + 1}{watched ? " · VUE" : ""}
+          </p>
+          <p className="font-body" style={{ margin: "0 0 10px", fontSize: "0.95rem", fontWeight: 700, color: ttlColors.offWhite, lineHeight: 1.3 }}>
+            {v.titre}
+          </p>
+          <button
+            onClick={() => setOpenId(v.id)}
+            aria-label={`Regarder : ${v.titre}`}
+            style={{ display: "block", width: "100%", padding: 0, border: 0, cursor: "pointer", borderRadius: 12, overflow: "hidden", background: "none" }}
+          >
+            <Couverture video={{ ...v, watched }} />
+          </button>
+        </div>
       ),
     };
   });
@@ -179,19 +191,14 @@ export default function TtlModuleVideos({ videos, resteQuestionnaire = false, et
 
   return (
     <>
-      <div ref={cheminRef} style={{ position: "relative", paddingBottom: 8 }}>
-        {/* Rail gris, et la ligne rouge qui le remplit en défilant */}
-        <div style={{ position: "absolute", left: 16, top: 17, bottom: 24, width: 3, background: ttlColors.cardBorder, borderRadius: 3 }} />
-        <div style={{ position: "absolute", left: 16, top: 17, width: 3, height: Math.max(0, remplissage - 17), maxHeight: "calc(100% - 41px)", background: `linear-gradient(180deg, ${ttlColors.red}, ${ttlColors.redBright})`, borderRadius: 3, transition: "height 0.08s linear" }} />
+      {etapes.length > 1 && (
+        <Suivi total={etapes.length} progression={progression} atteintes={atteintes} faites={etapes.map((e) => e.faite)} />
+      )}
 
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 6 }}>
         {etapes.map((e, i) => (
-          <div key={e.cle} style={{ display: "flex", gap: 12, marginBottom: 22 }}>
-            <div ref={(el) => { pastillesRef.current[i] = el; }} style={{ width: 35, display: "flex", justifyContent: "center", flexShrink: 0 }}>
-              <Pastille numero={i + 1} atteinte={!!atteintes[i]} faite={e.faite} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {e.contenu}
-            </div>
+          <div key={e.cle} ref={(el) => { etapesRef.current[i] = el; }}>
+            {e.contenu}
           </div>
         ))}
       </div>

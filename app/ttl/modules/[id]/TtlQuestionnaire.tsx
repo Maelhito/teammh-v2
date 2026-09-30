@@ -23,7 +23,7 @@ interface Props {
 const inputStyle: React.CSSProperties = {
   width: "100%",
   backgroundColor: ttlColors.bg,
-  border: `1px solid ${ttlColors.cardBorder}`,
+  border: "1px solid #262626",
   borderRadius: 10,
   padding: "11px 13px",
   color: ttlColors.offWhite,
@@ -98,7 +98,7 @@ export default function TtlQuestionnaire({ initialReponses, initialComplet, pren
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ background: ttlColors.card, border: `1px solid ${complet ? "rgba(74,222,128,0.35)" : "rgba(230,57,70,0.35)"}`, borderRadius: 16, padding: "16px 18px" }}>
+      <div style={{ background: "#111111", border: "1px solid #1a1a1a", borderRadius: 16, padding: "16px 18px" }}>
         <p className="font-body" style={{ color: ttlColors.redBright, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", margin: "0 0 4px" }}>
           TON PREMIER DEVOIR
         </p>
@@ -108,13 +108,13 @@ export default function TtlQuestionnaire({ initialReponses, initialComplet, pren
         <p className="font-body" style={{ fontSize: 12.5, color: ttlColors.muted, margin: "6px 0 0", lineHeight: 1.45 }}>
           Quelques questions pour faire le point sur où tu en es aujourd&apos;hui. Tu retrouveras tes réponses dans ton profil pour mesurer ton chemin.
         </p>
-        <p className="font-body" style={{ fontSize: 12, color: complet ? ttlColors.green : ttlColors.muted, margin: "10px 0 0", fontWeight: 600 }}>
+        <p className="font-body" style={{ fontSize: 12, color: complet ? "#fff" : ttlColors.muted, margin: "10px 0 0", fontWeight: 600 }}>
           {complet ? "✓ Devoir validé" : `${answered}/${TTL_QUESTIONNAIRE_TOTAL} réponses`}
         </p>
       </div>
 
       {TTL_QUESTIONNAIRE_GROUPS.map((group) => (
-        <div key={group.title} style={{ background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, padding: "16px 18px" }}>
+        <div key={group.title} style={{ background: "#111111", border: "1px solid #1a1a1a", borderRadius: 16, padding: "16px 18px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
             <span style={{ width: 3, height: 15, backgroundColor: ttlColors.red, borderRadius: 2, flexShrink: 0 }} />
             <h2 className="font-body" style={{ fontSize: 12.5, fontWeight: 700, color: "#fff", letterSpacing: "0.05em", textTransform: "uppercase", margin: 0 }}>

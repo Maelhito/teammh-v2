@@ -48,8 +48,8 @@ export default async function TtlModulePage({ params }: PageProps) {
       <div className="mx-auto" style={{ maxWidth: 480 }}>
         <TtlHeader variant="page" back backHref="/ttl" title={`Module ${index + 1}`} subtitle={moduleData.titre} />
 
-        <div style={{ padding: "20px 20px 0" }}>
-          {/* Un seul chemin numéroté : les vidéos en grand, puis (module 1) le questionnaire en dernière étape */}
+        <div style={{ padding: "0 16px" }}>
+          {/* Vidéos, puis (module 1) le questionnaire ; le suivi rouge est collé sous le logo */}
           <TtlModuleVideos
             videos={videos}
             resteQuestionnaire={etat.avecQuestionnaire && !questionnaire.complet}
