@@ -37,12 +37,16 @@ export async function POST(req: NextRequest) {
   const terminees: string[] = Array.isArray(gridData.seances_terminees)
     ? (gridData.seances_terminees as string[])
     : [];
-  if (gridKey && !terminees.includes(gridKey)) {
+  const dejaValidee = !!gridKey && terminees.includes(gridKey);
+  if (gridKey && !dejaValidee) {
     terminees.push(gridKey);
   }
   gridData.seances_terminees = terminees;
 
-  const effectuees = (assignment.seances_effectuees ?? 0) + 1;
+  // Une séance refaite le même jour ne compte qu'une fois : sinon le compteur
+  // rejoint le total avant la dernière séance et le programme se clôt tout
+  // seul, ce qui fait disparaître sa dernière séance du calendrier.
+  const effectuees = (assignment.seances_effectuees ?? 0) + (dejaValidee ? 0 : 1);
 
   // Toutes les séances prévues validées → le programme se clôt tout seul. Sans
   // ça il restait « en cours » pour toujours, et la coach devait le terminer à
