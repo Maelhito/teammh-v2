@@ -12,6 +12,7 @@ import TtlHeader from "@/components/TtlHeader";
 import TtlBottomNav from "@/components/TtlBottomNav";
 import PreviewBanner from "@/components/PreviewBanner";
 import TtlSignOutButton from "./TtlSignOutButton";
+import ChangerMotDePasse from "@/components/ChangerMotDePasse";
 import TtlManageSubscriptionButton from "./TtlManageSubscriptionButton";
 import TtlStreakFlame from "@/components/TtlStreakFlame";
 import TtlJoursEntrainement from "./TtlJoursEntrainement";
@@ -228,6 +229,11 @@ export default async function TtlProfilPage() {
               l'offre a été attribuée. Une cliente que le coach a abonnée à la
               main dans Stripe doit pouvoir le résilier elle-même. */}
           {abonnement && <TtlManageSubscriptionButton />}
+
+          <div style={{ background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, padding: "14px 18px", marginTop: 24 }}>
+            <p className="font-body" style={{ margin: "0 0 14px", color: "#fff", fontSize: 14, fontWeight: 700 }}>🔒 Changer mon mot de passe</p>
+            <ChangerMotDePasse />
+          </div>
           <TtlSignOutButton />
         </div>
       </div>

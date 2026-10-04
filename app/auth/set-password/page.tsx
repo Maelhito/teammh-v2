@@ -57,7 +57,7 @@ export default function SetPasswordPage() {
               margin: 0,
             }}
           >
-            TIME TO MOVE
+            TEAM MJ
           </h1>
           <p style={{ color: "rgba(255,255,255,0.4)", marginTop: 8, fontSize: 14 }}>
             Choisis ton mot de passe
