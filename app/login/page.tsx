@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
-type Mode = "login" | "forgot" | "sent";
+type Mode = "login" | "forgot";
+
+// wa = numéro international sans « + » ni espaces (format des liens wa.me).
+// Chaque cliente ne voit que le numéro de son pays, d'après le fuseau de son appareil.
+const CONTACT_NC = { affiche: "+687 93 33 32", wa: "687933332" };
+const CONTACT_FR = { affiche: "06 58 63 00 59", wa: "33658630059" };
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -46,6 +51,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [enCaledonie, setEnCaledonie] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setEnCaledonie(Intl.DateTimeFormat().resolvedOptions().timeZone === "Pacific/Noumea");
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,22 +73,6 @@ export default function LoginPage() {
     }
 
     window.location.href = "/dashboard";
-  }
-
-  async function handleForgotSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    const supabase = createSupabaseBrowserClient();
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/confirm`,
-    });
-
-    // Toujours le même message, qu'un compte existe ou non — évite de révéler
-    // quels emails sont inscrits.
-    setLoading(false);
-    setMode("sent");
   }
 
   return (
@@ -109,7 +103,6 @@ export default function LoginPage() {
           <p style={{ color: "rgba(255,255,255,0.4)", marginTop: 8, fontSize: 14 }}>
             {mode === "login" && "Connexion à ton espace coaching"}
             {mode === "forgot" && "Réinitialiser ton mot de passe"}
-            {mode === "sent" && "Vérifie ta boîte mail"}
           </p>
         </div>
 
@@ -160,52 +153,44 @@ export default function LoginPage() {
         )}
 
         {mode === "forgot" && (
-          <form onSubmit={handleForgotSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, lineHeight: 1.5, margin: 0 }}>
-              Indique ton email, on t&apos;envoie un lien pour choisir un nouveau mot de passe.
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, lineHeight: 1.6, margin: 0, textAlign: "center" }}>
+              Demande à Maël ou Julie sur WhatsApp pour réinitialiser ton mot de passe.
             </p>
 
-            <div>
-              <label style={labelStyle}>EMAIL</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="ton@email.com"
-                style={inputStyle}
-              />
-            </div>
+            {enCaledonie !== null && (() => {
+              const contact = enCaledonie ? CONTACT_NC : CONTACT_FR;
+              return (
+                <a
+                  href={`https://wa.me/${contact.wa}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "block",
+                    backgroundColor: "#B22222",
+                    borderRadius: 12,
+                    padding: "16px",
+                    textDecoration: "none",
+                    textAlign: "center",
+                    color: "#FFFFFF",
+                    fontSize: 15,
+                    fontWeight: 700,
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  WHATSAPP · {contact.affiche}
+                </a>
+              );
+            })()}
 
-            {error && (
-              <p style={{ color: "#FF4444", fontSize: 13, margin: 0, textAlign: "center" }}>
-                {error}
-              </p>
-            )}
-
-            <button type="submit" disabled={loading} style={buttonStyle(loading)}>
-              {loading ? "ENVOI..." : "ENVOYER LE LIEN"}
-            </button>
+            <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, lineHeight: 1.5, margin: 0, textAlign: "center" }}>
+              À contacter uniquement sur WhatsApp. Une fois connectée, tu peux changer ton mot de passe toi-même depuis ton profil.
+            </p>
 
             <button
               type="button"
               onClick={() => { setMode("login"); setError(""); }}
-              style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontSize: 13, cursor: "pointer", textAlign: "center", padding: 0 }}
-            >
-              ‹ Retour à la connexion
-            </button>
-          </form>
-        )}
-
-        {mode === "sent" && (
-          <div style={{ textAlign: "center" }}>
-            <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, lineHeight: 1.6, margin: "0 0 24px" }}>
-              Si un compte existe avec <strong style={{ color: "#FFFFFF" }}>{email}</strong>, tu vas recevoir un email avec un lien pour choisir un nouveau mot de passe.
-            </p>
-            <button
-              type="button"
-              onClick={() => { setMode("login"); setError(""); }}
-              style={{ background: "none", border: "none", color: "#B22222", fontSize: 14, fontWeight: 700, cursor: "pointer", padding: 0 }}
+              style={{ background: "none", border: "none", color: "#B22222", fontSize: 14, fontWeight: 700, cursor: "pointer", textAlign: "center", padding: 0 }}
             >
               ‹ Retour à la connexion
             </button>
