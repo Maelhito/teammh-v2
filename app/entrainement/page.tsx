@@ -5,7 +5,7 @@ import BottomNav from "@/components/BottomNav";
 import EntrainementClient from "./EntrainementClient";
 import PreviewBanner from "@/components/PreviewBanner";
 import { getEffectiveUser } from "@/lib/preview";
-import { decodeAssignments, semaineCourante } from "@/lib/programme-planning";
+import { decodeAssignments, gridKeyToDate, parseLocalDate, semaineCourante, toLocalDateStr } from "@/lib/programme-planning";
 import { FUSEAU_PAR_DEFAUT, aujourdhuiDans } from "@/lib/temps";
 import { getFuseau } from "@/lib/temps-serveur";
 
@@ -32,6 +32,7 @@ export default async function EntrainementPage({
   // Une cliente peut avoir plusieurs programmes en cours simultanément
   // (programmation à l'avance) — on les charge tous et on les empile.
   let programmes: object[] = [];
+  let rattrapages: object[] = [];
   let calendarEvents: object[] = [];
 
   if (userId) {
@@ -42,7 +43,7 @@ export default async function EntrainementPage({
         .from("client_programmes")
         .select("*, programme:programmes(id, nom, niveau, duree_semaines, description)")
         .eq("user_id", userId)
-        .eq("statut", "en_cours")
+        .in("statut", ["en_cours", "termine"])
         .order("date_debut", { ascending: true }),
       admin
         .from("calendar_events")
@@ -53,10 +54,35 @@ export default async function EntrainementPage({
 
     calendarEvents = eventsResult.data ?? [];
 
-    programmes = decodeAssignments(assignmentsResult.data).map((p) => ({
-      ...p,
-      semaine_courante: semaineCourante(p),
-    }));
+    const decodes = decodeAssignments(assignmentsResult.data);
+    const statuts = new Map((assignmentsResult.data ?? []).map((r: { id: string; statut: string }) => [r.id, r.statut]));
+
+    programmes = decodes
+      .filter((p) => statuts.get(p.id) === "en_cours")
+      .map((p) => ({ ...p, semaine_courante: semaineCourante(p) }));
+
+    // Séances jamais validées d'un programme clos (récent) : le programme peut
+    // se fermer avant que la cliente ait tout fait, et ses séances manquées
+    // disparaissaient alors du calendrier sans qu'elle puisse les décaler.
+    const limite = new Date(`${todayIso}T00:00:00`);
+    limite.setDate(limite.getDate() - 28);
+    rattrapages = decodes
+      .filter((p) => statuts.get(p.id) === "termine" && p.date_debut)
+      .flatMap((p) => {
+        const fin = parseLocalDate(p.date_debut as string);
+        fin.setDate(fin.getDate() + p.duree_semaines * 7);
+        if (fin < limite) return [];
+        return Object.entries(p.grid)
+          .filter(([key, items]) => (items ?? []).length > 0 && !p.seancesTerminees.includes(key))
+          .map(([gridKey, items]) => ({
+            assignmentId: p.id,
+            gridKey,
+            programmeNom: p.nom,
+            prevueLe: (() => { const d = gridKeyToDate(gridKey, parseLocalDate(p.date_debut as string)); return d ? toLocalDateStr(d) : null; })(),
+            items,
+          }))
+          .sort((a, b) => (a.prevueLe ?? "").localeCompare(b.prevueLe ?? ""));
+      });
   }
 
   return (
@@ -72,7 +98,7 @@ export default async function EntrainementPage({
         </div>
       </div>
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <EntrainementClient programmes={programmes as any} initialEvents={calendarEvents as any} abandonedKey={abandonedKey} todayIso={todayIso} />
+      <EntrainementClient programmes={programmes as any} initialEvents={calendarEvents as any} rattrapages={rattrapages as any} abandonedKey={abandonedKey} todayIso={todayIso} />
       <BottomNav />
     </div>
   );

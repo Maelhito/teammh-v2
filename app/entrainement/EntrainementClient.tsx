@@ -35,6 +35,14 @@ interface CalendarEvent {
   target_user_id: string | null;
 }
 
+interface Rattrapage {
+  assignmentId: string;
+  gridKey: string;
+  programmeNom: string;
+  prevueLe: string | null;
+  items: CellItem[];
+}
+
 type Programme = DecodedProgramme & { semaine_courante: number };
 type DayItem = PlannedItem<CellItem>;
 
@@ -71,11 +79,14 @@ function toLocalDate(d: Date): string {
 export default function EntrainementClient({
   programmes,
   initialEvents,
+  rattrapages = [],
   abandonedKey,
   todayIso,
 }: {
   programmes: Programme[];
   initialEvents: CalendarEvent[];
+  /** Séances non validées d'un programme déjà clos, à replacer dans un programme en cours. */
+  rattrapages?: Rattrapage[];
   /** format "assignmentId:gridKey" (ancien format : gridKey seul) */
   abandonedKey?: string | null;
   todayIso: string;
@@ -110,7 +121,7 @@ export default function EntrainementClient({
   const [decalerMode, setDecalerMode] = useState(false);
   // Décaler s'applique à une case d'un programme précis (plusieurs peuvent
   // proposer une séance le même jour).
-  const [decalerFrom, setDecalerFrom] = useState<{ assignmentId: string; gridKey: string } | null>(null);
+  const [decalerFrom, setDecalerFrom] = useState<{ assignmentId: string; gridKey: string; rattrapage?: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Modal ajout event
@@ -167,16 +178,29 @@ export default function EntrainementClient({
 
   async function handleDecaler(targetDate: Date) {
     if (!decalerFrom) return;
-    const prog = programmes.find((p) => p.id === decalerFrom.assignmentId);
-    // La cible doit tomber dans la fenêtre du programme concerné.
-    const toKey = prog ? gridKeyFor(prog, targetDate) : null;
-    if (!toKey || toKey === decalerFrom.gridKey) { setDecalerMode(false); setDecalerFrom(null); return; }
+    // Rattrapage : la cible est n'importe quel programme en cours dont la fenêtre
+    // couvre le jour choisi. Sinon, le programme d'origine.
+    const cible = decalerFrom.rattrapage
+      ? programmes.map((p) => ({ prog: p, key: gridKeyFor(p, targetDate) })).find((c) => c.key)
+      : (() => {
+          const prog = programmes.find((p) => p.id === decalerFrom.assignmentId);
+          return prog ? { prog, key: gridKeyFor(prog, targetDate) } : undefined;
+        })();
+    const toKey = cible?.key ?? null;
+    if (!cible || !toKey || (!decalerFrom.rattrapage && toKey === decalerFrom.gridKey)) {
+      setDecalerMode(false); setDecalerFrom(null); return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/entrainement/decaler", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignmentId: decalerFrom.assignmentId, fromKey: decalerFrom.gridKey, toKey }),
+        body: JSON.stringify({
+          assignmentId: decalerFrom.assignmentId,
+          fromKey: decalerFrom.gridKey,
+          toKey,
+          ...(decalerFrom.rattrapage ? { toAssignmentId: cible.prog.id } : {}),
+        }),
       });
       if (res.ok) window.location.reload();
     } finally {
@@ -345,11 +369,42 @@ export default function EntrainementClient({
           <p className="font-body" style={{ fontSize: "0.78rem", color: "#FCD34D", fontWeight: 600, margin: 0 }}>
             {saving
               ? "Déplacement en cours…"
+              : decalerFrom?.rattrapage
+              ? "Sélectionne le jour où tu feras cette séance"
               : `Sélectionne le nouveau jour${decalerFrom ? ` — ${programmes.find((p) => p.id === decalerFrom.assignmentId)?.nom ?? ""}` : ""}`}
           </p>
           <button onClick={() => { setDecalerMode(false); setDecalerFrom(null); }} style={{ background: "none", border: "none", color: "#FCD34D", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700 }}>
             Annuler
           </button>
+        </div>
+      )}
+
+      {/* Séances manquées d'un programme clos */}
+      {rattrapages.length > 0 && (
+        <div style={{ backgroundColor: "#111111", border: "1px solid #1a1a1a", borderRadius: 14, padding: "14px 16px", marginBottom: 16 }}>
+          <p className="font-body" style={{ fontSize: "0.65rem", fontWeight: 700, color: "#B22222", letterSpacing: "0.08em", margin: "0 0 10px" }}>
+            SÉANCES À RATTRAPER
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {rattrapages.map((r) => (
+              <div key={`${r.assignmentId}-${r.gridKey}`} style={{ backgroundColor: "#0D0D0D", borderRadius: 10, padding: "10px 12px", border: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="font-body" style={{ fontWeight: 700, fontSize: "0.84rem", color: "#F5F5F0", margin: 0 }}>
+                    {r.items.map(itemNom).join(" + ")}
+                  </p>
+                  <p className="font-body" style={{ fontSize: "0.7rem", color: "#555", margin: "2px 0 0" }}>
+                    {r.programmeNom}{r.prevueLe ? ` · prévue le ${new Date(`${r.prevueLe}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : ""}
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setDecalerFrom({ assignmentId: r.assignmentId, gridKey: r.gridKey, rattrapage: true }); setDecalerMode(true); setSelectedDay(null); }}
+                  style={{ padding: "7px 12px", backgroundColor: "#B22222", border: "none", borderRadius: 8, color: "#FFF", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+                >
+                  Placer →
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -508,6 +563,8 @@ export default function EntrainementClient({
                     </div>
                   ))}
                 </div>
+                {/* Pas de limite de date : une séance non validée se décale à tout moment, même passée. */}
+                {!isTerm && (
                 <button
                   onClick={() => {
                     setDecalerFrom({ assignmentId: programme.id, gridKey });
@@ -518,6 +575,7 @@ export default function EntrainementClient({
                 >
                   Décaler {groupItems.length > 1 ? "ces séances" : "cette séance"} →
                 </button>
+                )}
               </div>
             );
           })}
