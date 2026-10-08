@@ -281,7 +281,7 @@ async function envoyerNotifsDuMatin(
 
   // RDV coach sans heure précise (ceux qui en ont une sont annoncés 1h avant)
   if (await tryMarkSent(admin, userId, "rdv_matin", dateStr)) {
-    n += await checkAndSendRdvDuJour(admin, userId, dateStr, logs);
+    n += await checkAndSendRdvDuJour(admin, userId, dateStr, logs, timezone);
   }
 
   // Tâches du jour sans heure précise (celles qui en ont une sonnent à leur heure)
@@ -428,19 +428,22 @@ async function checkAndSendVisioDuJour(
 ): Promise<number> {
   const { data: events } = await admin
     .from("calendar_events")
-    .select("id, titre, heure, starts_at")
+    .select("id, titre, heure, starts_at, date, timezone, recurrence, recurrence_intervalle")
     .or(`target_user_id.is.null,target_user_id.eq.${userId},user_id.eq.${userId}`)
     .eq("event_type", "coaching_groupe")
-    .eq("date", dateStr)
-    .limit(1);
+    .lte("date", dateStr);
 
-  if (!events?.length) return 0;
+  // Une visio récurrente garde sa date de départ en base : c'est la récurrence
+  // qui dit si elle tombe aujourd'hui.
+  const duJour = (events ?? []).filter((e) => occurrenceLe(e, dateStr, timezone).tombe);
+  if (!duJour.length) return 0;
 
-  const ev = events[0];
+  const ev = duJour[0];
   // Une visio de groupe est le cas d'école : une seule ligne en base, un seul
   // instant, mais une heure différente pour chaque cliente selon son pays.
-  const heureLue = ev.starts_at
-    ? formatHeureDans(ev.starts_at as string, timezone)
+  const instantDuJour = occurrenceLe(ev, dateStr, timezone).instant;
+  const heureLue = instantDuJour
+    ? formatHeureDans(instantDuJour, timezone)
     : (ev.heure ? (ev.heure as string).slice(0, 5) : null);
   const heureStr = heureLue ? ` à ${heureLue}` : "";
 
@@ -458,21 +461,22 @@ async function checkAndSendRdvDuJour(
   admin: Admin,
   userId: string,
   dateStr: string,
-  logs: string[]
+  logs: string[],
+  timezone: string
 ): Promise<number> {
   // On envoie ici seulement pour les RDV sans heure (ou avec heure mais on informe le matin quand même)
   const { data: events } = await admin
     .from("calendar_events")
-    .select("id, titre, heure")
+    .select("id, titre, heure, date, recurrence, recurrence_intervalle")
     .or(`target_user_id.is.null,target_user_id.eq.${userId},user_id.eq.${userId}`)
     .eq("event_type", "coach")
-    .eq("date", dateStr)
-    .is("heure", null)     // sans heure → notif matin seulement
-    .limit(1);
+    .lte("date", dateStr)
+    .is("heure", null);    // sans heure → notif matin seulement
 
-  if (!events?.length) return 0;
+  const duJour = (events ?? []).filter((e) => occurrenceLe(e, dateStr, timezone).tombe);
+  if (!duJour.length) return 0;
 
-  const ev = events[0];
+  const ev = duJour[0];
   await sendPushToUser(userId, {
     title: "📅 RDV coach aujourd'hui",
     body: `${ev.titre ?? "Rendez-vous avec ton coach"} — prépare-toi !`,
@@ -547,52 +551,59 @@ async function sendRdvCoachAvant(
   // n'est pas le même selon le fuseau, et un RDV du 23 à 8h à Nouméa se joue
   // encore le 22 pour quelqu'un à Paris. Filtrer sur la seule date locale en
   // raterait une partie.
-  const veille = new Date(utcNow.getTime() - 86400000).toISOString().slice(0, 10);
   const lendemain = new Date(utcNow.getTime() + 86400000).toISOString().slice(0, 10);
 
+  // Pas de borne basse sur la date : un rendez-vous récurrent garde sa date de
+  // départ en base, et c'est la récurrence qui dit s'il tombe aujourd'hui.
   const { data: events } = await admin
     .from("calendar_events")
-    .select("id, titre, heure, starts_at, date")
+    .select("id, titre, heure, starts_at, date, timezone, recurrence, recurrence_intervalle")
     .or(`target_user_id.is.null,target_user_id.eq.${userId},user_id.eq.${userId}`)
     .eq("event_type", "coach")
-    .gte("date", veille)
     .lte("date", lendemain)
     .not("heure", "is", null);
 
-  for (const ev of events ?? []) {
-    let diffMin: number;
+  // La veille, le jour et le lendemain LOCAUX : « le jour du rendez-vous »
+  // n'est pas le même selon le fuseau.
+  const jours = [decalerJour(dateStr, -1), dateStr, decalerJour(dateStr, 1)];
 
+  for (const ev of events ?? []) {
+    // Le cas normal : l'écart se mesure entre deux instants, sans fuseau qui
+    // s'en mêle. Ligne héritée sans instant : ancienne comparaison d'heures
+    // murales, valable seulement le jour local de la cliente.
+    const occurrences: { jour: string; diffMin: number; instant: Date | null }[] = [];
     if (ev.starts_at) {
-      // Le cas normal : l'écart se mesure entre deux instants, sans fuseau qui
-      // s'en mêle. C'est juste où que soit la cliente, où que soit le coach.
-      diffMin = (new Date(ev.starts_at as string).getTime() - utcNow.getTime()) / 60000;
-    } else {
-      // Ligne héritée jamais migrée : on retombe sur l'ancienne comparaison
-      // d'heures murales, valable seulement le jour local de la cliente.
-      if (ev.date !== dateStr) continue;
+      for (const jour of jours) {
+        const occ = occurrenceLe(ev, jour, timezone);
+        if (occ.tombe && occ.instant) {
+          occurrences.push({ jour, diffMin: (occ.instant.getTime() - utcNow.getTime()) / 60000, instant: occ.instant });
+        }
+      }
+    } else if (ev.date === dateStr) {
       const [hh, mm] = (ev.heure as string).split(":").map(Number);
-      diffMin = hh * 60 + mm - minuteTotal;
+      occurrences.push({ jour: dateStr, diffMin: hh * 60 + mm - minuteTotal, instant: null });
     }
 
-    // Fenêtre : 50 à 70 min avant le RDV
-    if (diffMin < 50 || diffMin > 70) continue;
+    for (const { jour, diffMin, instant } of occurrences) {
+      // Fenêtre : 50 à 70 min avant le RDV
+      if (diffMin < 50 || diffMin > 70) continue;
 
-    const notifType = `rdv_1h_${ev.id}`;
-    const done = await tryMarkSent(admin, userId, notifType, dateStr);
-    if (!done) continue;
+      // Un envoi par occurrence : sans la date dans le verrou, un rendez-vous
+      // hebdomadaire ne sonnerait que la première semaine.
+      const done = await tryMarkSent(admin, userId, `rdv_1h_${ev.id}`, jour);
+      if (!done) continue;
 
-    // L'heure annoncée est celle que la cliente lit sur son propre calendrier.
-    const heureLue = ev.starts_at
-      ? formatHeureDans(ev.starts_at as string, timezone)
-      : (ev.heure as string).slice(0, 5);
+      // L'heure annoncée est celle que la cliente lit sur son propre calendrier.
+      const heureLue = instant ? formatHeureDans(instant, timezone) : (ev.heure as string).slice(0, 5);
 
-    await sendPushToUser(userId, {
-      title: "📅 RDV coach dans 1h",
-      body: `${ev.titre ?? "Rendez-vous avec ton coach"} à ${heureLue} — prépare-toi !`,
-      url: `/calendrier`,
-    });
-    logs.push(`[rdv-1h] notif envoyée → ${userId} (${heureLue} chez elle)`);
-    n += 1;
+      await sendPushToUser(userId, {
+        title: "📅 RDV coach dans 1h",
+        body: `${ev.titre ?? "Rendez-vous avec ton coach"} à ${heureLue} — prépare-toi !`,
+        url: `/calendrier`,
+      });
+      logs.push(`[rdv-1h] notif envoyée → ${userId} (${heureLue} chez elle)`);
+      n += 1;
+    }
   }
   return n;
 }

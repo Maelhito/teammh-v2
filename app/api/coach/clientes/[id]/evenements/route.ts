@@ -51,21 +51,12 @@ export async function POST(req: NextRequest, { params }: Params) {
   const { titre, date, heure, recurrence, message, lien, rappel, rappel_minutes, event_type } = body;
   if (!titre || !date) return NextResponse.json({ error: "Titre et date requis" }, { status: 400 });
 
-  const validRecurrences = ["none", "daily", "weekly", "monthly"];
   const validEventTypes  = ["coach", "nutrition", "coaching_groupe", "tache", "seance"];
   const resolvedEventType = validEventTypes.includes(event_type) ? event_type : "coach";
 
-  // Une tâche se répète « tous les N jours / semaines / mois » ; les autres
-  // événements gardent les quatre motifs simples.
-  let rythme: { recurrence: string; intervalle: number } = {
-    recurrence: validRecurrences.includes(recurrence) ? recurrence : "none",
-    intervalle: 1,
-  };
-  if (resolvedEventType === "tache") {
-    const lu = lireRythme(recurrence ?? "none", body.recurrence_intervalle ?? 1);
-    if (!lu) return NextResponse.json({ error: "Rythme de répétition invalide" }, { status: 400 });
-    rythme = lu;
-  }
+  // Tâches et événements se répètent pareil : « tous les N jours / semaines / mois ».
+  const rythme = lireRythme(recurrence ?? "none", body.recurrence_intervalle ?? 1);
+  if (!rythme) return NextResponse.json({ error: "Rythme de répétition invalide" }, { status: 400 });
 
   // Un rendez-vous sans heure ne dit rien à la cliente : son calendrier et son
   // accueil n'affichaient qu'un titre. L'heure est donc exigée ici, pas
@@ -169,7 +160,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
   const estTache = existant?.event_type === "tache";
   let rythme: { recurrence: string; intervalle: number } | null = null;
-  if (estTache && body.recurrence !== undefined) {
+  if (body.recurrence !== undefined) {
     rythme = lireRythme(body.recurrence, body.recurrence_intervalle ?? 1);
     if (!rythme) return NextResponse.json({ error: "Rythme de répétition invalide" }, { status: 400 });
   }

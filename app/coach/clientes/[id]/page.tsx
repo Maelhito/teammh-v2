@@ -325,7 +325,7 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
 
   const [evForm, setEvForm] = useState({
     titre: "", date: defaultDate, heure: "",
-    recurrence: "none", event_type: "coach",
+    rythme: "none", event_type: "coach",
     message: "", lien: "", rappel: false, rappel_minutes: 0,
   });
   const [tacheForm, setTacheForm] = useState({ titre: "", date: defaultDate, heure: "", rythme: "none", description: "" });
@@ -369,7 +369,11 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
     const rythme = RYTHMES_TACHE.find(r => r.key === tacheForm.rythme) ?? RYTHMES_TACHE[0];
     const body = tab === "tache"
       ? { titre: tacheForm.titre, date: tacheForm.date, message: tacheForm.description || null, heure: tacheForm.heure || null, recurrence: rythme.recurrence, recurrence_intervalle: rythme.intervalle, event_type: "tache", rappel: false, rappel_minutes: 0, lien: null }
-      : { ...evForm, heure: evForm.heure || null, timezone: fuseauSaisie };
+      : (() => {
+          const { rythme: cle, ...reste } = evForm;
+          const r = RYTHMES_TACHE.find(x => x.key === cle) ?? RYTHMES_TACHE[0];
+          return { ...reste, recurrence: r.recurrence, recurrence_intervalle: r.intervalle, heure: evForm.heure || null, timezone: fuseauSaisie };
+        })();
 
     if (!body.titre) { setError("Titre requis"); return; }
     // Sans heure, la cliente ne voit qu'un titre sur son calendrier et son
@@ -462,12 +466,14 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
               </div>
             </div>
             <div><label style={lbl}>Récurrence</label>
-              <select style={{ ...inp, cursor: "pointer" }} value={evForm.recurrence} onChange={e => setEvForm(f => ({ ...f, recurrence: e.target.value }))}>
-                <option value="none">Sans récurrence</option>
-                <option value="weekly">Hebdomadaire</option>
-                <option value="monthly">Mensuelle</option>
-                <option value="daily">Quotidienne</option>
+              <select style={{ ...inp, cursor: "pointer" }} value={evForm.rythme} onChange={e => setEvForm(f => ({ ...f, rythme: e.target.value }))}>
+                {RYTHMES_TACHE.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
               </select>
+              {evForm.rythme !== "none" && (
+                <p style={{ fontSize: 11, color: "#888", margin: "5px 0 0", fontFamily: "system-ui", lineHeight: 1.45 }}>
+                  La date ci-dessus est la date de départ.{evForm.rythme.startsWith("monthly") && " Pour « le 1er du mois », choisis un 1er."}
+                </p>
+              )}
             </div>
             <div><label style={lbl}>Message</label>
               <textarea style={{ ...inp, minHeight: 72, resize: "none" }} placeholder="Optionnel" value={evForm.message} onChange={e => setEvForm(f => ({ ...f, message: e.target.value }))} />
@@ -1395,7 +1401,7 @@ function EventEditModal({ ev, clienteId, onClose, onUpdated }: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         titre, date, heure: heure || null, timezone: fuseauSaisie, message: message || null, lien: lien || null,
-        ...(isTache ? (() => { const r = RYTHMES_TACHE.find(x => x.key === rythme) ?? RYTHMES_TACHE[0]; return { recurrence: r.recurrence, recurrence_intervalle: r.intervalle }; })() : {}),
+        ...(() => { const r = RYTHMES_TACHE.find(x => x.key === rythme) ?? RYTHMES_TACHE[0]; return { recurrence: r.recurrence, recurrence_intervalle: r.intervalle }; })(),
       }),
     });
     if (res.ok) { onUpdated(); }
@@ -1439,15 +1445,13 @@ function EventEditModal({ ev, clienteId, onClose, onUpdated }: {
           <div><label style={lbl}>Titre *</label>
             <input style={inp} value={titre} onChange={e => setTitre(e.target.value)} />
           </div>
-          {isTache && (
             <div><label style={lbl}>Se répète</label>
               <select style={{ ...inp, cursor: "pointer" }} value={rythme} onChange={e => setRythme(e.target.value)}>
                 {RYTHMES_TACHE.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
               </select>
             </div>
-          )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div><label style={lbl}>{isTache && rythme !== "none" ? "À partir du *" : "Date *"}</label>
+            <div><label style={lbl}>{rythme !== "none" ? "À partir du *" : "Date *"}</label>
               <input type="date" style={inp} value={date} onChange={e => setDate(e.target.value)} />
             </div>
             <div><label style={lbl}>Heure {estRendezVous(ev.event_type) ? "*" : isTache ? "(heure de la cliente)" : ""}</label>
