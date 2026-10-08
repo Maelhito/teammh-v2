@@ -18,6 +18,8 @@ interface CalendarEvent {
   /** L'instant du rendez-vous. Fait foi ; `heure` n'est qu'un repli hérité. */
   starts_at: string | null;
   recurrence: "none" | "daily" | "weekly" | "monthly";
+  recurrence_intervalle?: number | null;
+  timezone?: string | null;
   message: string | null;
   lien: string | null;
   created_by: "admin" | "cliente";

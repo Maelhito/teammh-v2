@@ -5,7 +5,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { estRendezVous } from "@/lib/couleurs-calendrier";
 import { estFuseauValide, instantDepuis } from "@/lib/temps";
 import { getFuseau } from "@/lib/temps-serveur";
-import { MAX_TACHES_EN_COURS, limiteDeVieTache } from "@/lib/taches";
+import { MAX_TACHES_EN_COURS, MAX_TACHES_RECURRENTES, limiteDeVieTache, lireRythme } from "@/lib/taches";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -55,6 +55,18 @@ export async function POST(req: NextRequest, { params }: Params) {
   const validEventTypes  = ["coach", "nutrition", "coaching_groupe", "tache", "seance"];
   const resolvedEventType = validEventTypes.includes(event_type) ? event_type : "coach";
 
+  // Une tâche se répète « tous les N jours / semaines / mois » ; les autres
+  // événements gardent les quatre motifs simples.
+  let rythme: { recurrence: string; intervalle: number } = {
+    recurrence: validRecurrences.includes(recurrence) ? recurrence : "none",
+    intervalle: 1,
+  };
+  if (resolvedEventType === "tache") {
+    const lu = lireRythme(recurrence ?? "none", body.recurrence_intervalle ?? 1);
+    if (!lu) return NextResponse.json({ error: "Rythme de répétition invalide" }, { status: 400 });
+    rythme = lu;
+  }
+
   // Un rendez-vous sans heure ne dit rien à la cliente : son calendrier et son
   // accueil n'affichaient qu'un titre. L'heure est donc exigée ici, pas
   // seulement suggérée par le formulaire. Tâches et séances n'en ont pas.
@@ -62,16 +74,26 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Heure requise pour un rendez-vous" }, { status: 400 });
   }
 
-  // Pas plus de 5 tâches en vie en même temps (moins de 7 jours, validées ou non).
+  // Pas plus de 5 tâches uniques en vie en même temps (moins de 7 jours, validées
+  // ou non). Les tâches récurrentes ne s'éteignent pas : plafond à part.
   if (resolvedEventType === "tache") {
-    const { count, error: countError } = await admin
+    const recurrente = rythme.recurrence !== "none";
+    let compte = admin
       .from("calendar_events")
       .select("id", { count: "exact", head: true })
       .eq("target_user_id", clientId)
-      .eq("event_type", "tache")
-      .gte("created_at", limiteDeVieTache());
+      .eq("event_type", "tache");
+    compte = recurrente
+      ? compte.neq("recurrence", "none")
+      : compte.or("recurrence.is.null,recurrence.eq.none").gte("created_at", limiteDeVieTache());
+    const { count, error: countError } = await compte;
     if (countError) return NextResponse.json({ error: countError.message }, { status: 500 });
-    if ((count ?? 0) >= MAX_TACHES_EN_COURS) {
+    if (recurrente && (count ?? 0) >= MAX_TACHES_RECURRENTES) {
+      return NextResponse.json({
+        error: `Cette cliente a déjà ${MAX_TACHES_RECURRENTES} tâches récurrentes. Supprime-en une avant d'en ajouter.`,
+      }, { status: 400 });
+    }
+    if (!recurrente && (count ?? 0) >= MAX_TACHES_EN_COURS) {
       return NextResponse.json({
         error: `Cette cliente a déjà ${MAX_TACHES_EN_COURS} tâches en cours. Une place se libère 7 jours après la création de la plus ancienne (ou supprime-en une).`,
       }, { status: 400 });
@@ -82,7 +104,11 @@ export async function POST(req: NextRequest, { params }: Params) {
   // défaut ; le formulaire peut passer celui de la cliente s'il a choisi de
   // raisonner à son heure à elle. Sans cette information, « 9:00 » ne désigne
   // aucun moment précis — c'est toute l'origine du rendez-vous manqué.
-  const fuseauSaisie = estFuseauValide(body.timezone) ? body.timezone : await getFuseau(user.id);
+  // Une tâche, elle, a toujours l'heure de la cliente : « 8h » veut dire 8h chez
+  // elle, et le rappel doit sonner à ce moment-là chez elle.
+  const fuseauSaisie = resolvedEventType === "tache"
+    ? await getFuseau(clientId)
+    : estFuseauValide(body.timezone) ? body.timezone : await getFuseau(user.id);
   const instant = heure ? instantDepuis(date, heure, fuseauSaisie) : null;
   if (heure && !instant) {
     return NextResponse.json({ error: "Date ou heure invalide" }, { status: 400 });
@@ -98,7 +124,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       heure:          heure || null,
       starts_at:      instant ? instant.toISOString() : null,
       timezone:       instant ? fuseauSaisie : null,
-      recurrence:     validRecurrences.includes(recurrence) ? recurrence : "none",
+      recurrence:     rythme.recurrence,
+      recurrence_intervalle: rythme.intervalle,
       message:        message ? String(message).slice(0, 1000) : null,
       lien:           lien ? String(lien).slice(0, 500) : null,
       rappel:         rappel === true,
@@ -140,7 +167,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (estRendezVous(existant?.event_type) && !heure) {
     return NextResponse.json({ error: "Heure requise pour un rendez-vous" }, { status: 400 });
   }
-  const fuseauSaisie = estFuseauValide(body.timezone) ? body.timezone : await getFuseau(user.id);
+  const estTache = existant?.event_type === "tache";
+  let rythme: { recurrence: string; intervalle: number } | null = null;
+  if (estTache && body.recurrence !== undefined) {
+    rythme = lireRythme(body.recurrence, body.recurrence_intervalle ?? 1);
+    if (!rythme) return NextResponse.json({ error: "Rythme de répétition invalide" }, { status: 400 });
+  }
+  const fuseauSaisie = estTache
+    ? await getFuseau(clientId)
+    : estFuseauValide(body.timezone) ? body.timezone : await getFuseau(user.id);
   const instant = heure ? instantDepuis(date, heure, fuseauSaisie) : null;
   if (heure && !instant) {
     return NextResponse.json({ error: "Date ou heure invalide" }, { status: 400 });
@@ -156,6 +191,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       timezone:  instant ? fuseauSaisie : null,
       message: message ? String(message).slice(0, 1000) : null,
       lien:    lien ? String(lien).slice(0, 500) : null,
+      ...(rythme ? { recurrence: rythme.recurrence, recurrence_intervalle: rythme.intervalle } : {}),
     })
     .eq("id", eventId)
     .eq("target_user_id", clientId)

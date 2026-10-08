@@ -7,6 +7,10 @@ interface Tache {
   titre: string;
   message: string | null;
   done: boolean;
+  /** HH:MM chez la cliente, quand la tâche a une heure. */
+  heure?: string | null;
+  /** « Tous les jours »… ; absent pour une tâche unique. */
+  rythme?: string | null;
 }
 
 export default function TachesSection() {
@@ -145,8 +149,16 @@ export default function TachesSection() {
                     transition: "color 0.15s ease",
                   }}
                 >
+                  {tache.heure && (
+                    <span style={{ color: tache.done ? "#444" : "#B22222", fontWeight: 700, marginRight: 6 }}>{tache.heure}</span>
+                  )}
                   {tache.titre}
                 </p>
+                {tache.rythme && !tache.done && (
+                  <p className="font-body" style={{ fontSize: "0.66rem", color: "#555", margin: "2px 0 0" }}>
+                    🔁 {tache.rythme}
+                  </p>
+                )}
                 {tache.message && !tache.done && (
                   <p className="font-body" style={{ fontSize: "0.72rem", color: "#555", margin: "2px 0 0", lineHeight: 1.4 }}>
                     {tache.message}

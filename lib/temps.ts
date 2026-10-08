@@ -334,6 +334,8 @@ export interface EvenementCalendrier extends EvenementHoraire {
   /** Fuseau dans lequel l'heure a été tapée. */
   timezone?: string | null;
   recurrence?: string | null;
+  /** « Tous les N » jours / semaines / mois. Absent ou invalide = 1. */
+  recurrence_intervalle?: number | null;
 }
 
 /**
@@ -364,7 +366,7 @@ export function occurrenceLe(
   // hydratation), on raisonne sur la date murale : c'est le comportement
   // historique, et il reste juste pour un « jour local ».
   if (!evt.starts_at || !fuseauLecteur) {
-    return { tombe: tombeSurMotif(evt.date, jour, recurrence), instant: null };
+    return { tombe: tombeSurMotif(evt.date, jour, recurrence, evt.recurrence_intervalle), instant: null };
   }
 
   const fuseauSaisie = fuseauOuDefaut(evt.timezone, fuseauLecteur);
@@ -381,7 +383,7 @@ export function occurrenceLe(
   // loin, l'écart entre deux fuseaux ne dépassant pas 26 heures.
   for (const decalage of [-1, 0, 1]) {
     const candidat = decalerJour(jour, decalage);
-    if (!tombeSurMotif(ancrageSaisie, candidat, recurrence)) continue;
+    if (!tombeSurMotif(ancrageSaisie, candidat, recurrence, evt.recurrence_intervalle)) continue;
 
     const instant = instantDepuis(candidat, heureMurale, fuseauSaisie);
     if (instant && formatDateDans(instant, fuseauLecteur) === jour) {
@@ -401,27 +403,45 @@ export function decalerJour(dateStr: string, jours: number): string {
 }
 
 /** Le motif de récurrence, comparé sur deux dates nues du même référentiel. */
-function tombeSurMotif(ancrage: string, jour: string, recurrence: string): boolean {
+function tombeSurMotif(ancrage: string, jour: string, recurrence: string, intervalle?: number | null): boolean {
   if (!ancrage || !jour) return false;
   if (jour < ancrage) return false; // une récurrence ne remonte pas le temps
+
+  const n = Number.isInteger(intervalle) && (intervalle as number) > 1 ? (intervalle as number) : 1;
+  const ecartJours = joursEntre(ancrage, jour);
 
   switch (recurrence) {
     case "none":
       return jour === ancrage;
     case "daily":
-      return true;
+      return ecartJours % n === 0;
     case "weekly":
-      return jourDeSemaine(ancrage) === jourDeSemaine(jour);
-    case "monthly":
-      return ancrage.slice(8, 10) === jour.slice(8, 10);
+      // « Toutes les 2 semaines » : même jour de semaine, et un nombre de
+      // semaines entières multiple de 2 depuis la date de départ.
+      return ecartJours % (7 * n) === 0;
+    case "monthly": {
+      const mois = (Number(jour.slice(0, 4)) - Number(ancrage.slice(0, 4))) * 12
+        + (Number(jour.slice(5, 7)) - Number(ancrage.slice(5, 7)));
+      if (mois % n !== 0) return false;
+      // Une tâche du 31 tombe le dernier jour des mois plus courts plutôt que
+      // de sauter février, avril, juin…
+      const voulu = Math.min(Number(ancrage.slice(8, 10)), joursDansLeMois(jour));
+      return Number(jour.slice(8, 10)) === voulu;
+    }
     default:
       return false;
   }
 }
 
-/** 0 = dimanche … 6 = samedi, pour une date nue. */
-function jourDeSemaine(dateStr: string): number {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
-  if (!m) return -1;
-  return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay();
+/** Nombre de jours entiers entre deux dates nues. */
+function joursEntre(a: string, b: string): number {
+  const pa = /^(\d{4})-(\d{2})-(\d{2})$/.exec(a);
+  const pb = /^(\d{4})-(\d{2})-(\d{2})$/.exec(b);
+  if (!pa || !pb) return -1;
+  const ms = Date.UTC(+pb[1], +pb[2] - 1, +pb[3]) - Date.UTC(+pa[1], +pa[2] - 1, +pa[3]);
+  return Math.round(ms / 86400000);
+}
+
+function joursDansLeMois(dateStr: string): number {
+  return new Date(Date.UTC(Number(dateStr.slice(0, 4)), Number(dateStr.slice(5, 7)), 0)).getUTCDate();
 }

@@ -27,7 +27,8 @@
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { sendPushToUser } from "@/lib/push";
 import { decodeAssignments } from "@/lib/programme-planning";
-import { formatHeureDans, partiesDans, aujourdhuiDans } from "@/lib/temps";
+import { formatHeureDans, partiesDans, aujourdhuiDans, decalerJour, occurrenceLe } from "@/lib/temps";
+import { estRecurrente, lireTachesBrutes, lireValidations } from "@/lib/taches-serveur";
 import { getFuseaux } from "@/lib/temps-serveur";
 import { calculerSerie } from "@/lib/serie";
 import type { Offre } from "@/lib/offers/types";
@@ -243,6 +244,9 @@ export async function executerCronNotifications(options: OptionsCron = {}): Prom
     // Pas d'heure locale à respecter : la fenêtre se mesure entre deux
     // instants, donc ce test vaut à chaque passage.
     envoyees += await sendRdvCoachAvant(admin, userId, timezone, dateStr, minuteTotal, logs, utcNow);
+
+    // ── 4. Une tâche à son heure ──────────────────────────────────────────
+    envoyees += await envoyerTachesALHeure(admin, userId, timezone, dateStr, logs, utcNow);
   }
 
   if (options.simuler) {
@@ -280,6 +284,92 @@ async function envoyerNotifsDuMatin(
     n += await checkAndSendRdvDuJour(admin, userId, dateStr, logs);
   }
 
+  // Tâches du jour sans heure précise (celles qui en ont une sonnent à leur heure)
+  if (await tryMarkSent(admin, userId, "taches_matin", dateStr)) {
+    n += await envoyerTachesDuMatin(admin, userId, timezone, dateStr, logs);
+  }
+
+  return n;
+}
+
+// ─── Tâches ───────────────────────────────────────────────────────────────────
+/**
+ * Le matin : les tâches de ce jour qui n'ont PAS d'heure et ne sont pas déjà
+ * faites. Une tâche « tombe » ce jour-là si c'est sa date (tâche unique) ou si
+ * sa récurrence la place ici (tous les jours, toutes les 2 semaines…).
+ */
+async function envoyerTachesDuMatin(
+  admin: Admin,
+  userId: string,
+  timezone: string,
+  dateStr: string,
+  logs: string[]
+): Promise<number> {
+  const sansHeure = (await lireTachesBrutes(admin, userId))
+    .filter((t) => !t.starts_at && !t.heure)
+    .filter((t) => occurrenceLe(t, dateStr, timezone).tombe);
+  if (!sansHeure.length) return 0;
+
+  const valides = await lireValidations(admin, sansHeure.filter(estRecurrente).map((t) => t.id), [dateStr]);
+  const restantes = sansHeure.filter((t) => !(estRecurrente(t) ? valides.has(`${t.id}|${dateStr}`) : t.fait_le !== null));
+  if (!restantes.length) return 0;
+
+  await sendPushToUser(userId, {
+    title: restantes.length > 1 ? "📝 Tes tâches du jour" : "📝 Ta tâche du jour",
+    body: restantes.length === 1
+      ? restantes[0].titre
+      : `${restantes.length} tâches aujourd'hui : ${restantes.map((t) => t.titre).join(", ")}`,
+    url: `/dashboard`,
+  });
+  logs.push(`[taches-matin] notif envoyée → ${userId} (${restantes.length})`);
+  return 1;
+}
+
+/**
+ * Une tâche qui a une heure sonne à cette heure, chez la cliente. Le cron passe
+ * toutes les 15 minutes : la fenêtre (de 15 min avant à 5 min après l'heure
+ * dite) est assez large pour qu'un passage tombe toujours dedans, et `notif_log`
+ * empêche l'envoi en double si plusieurs y tombent.
+ *
+ * On regarde la veille, le jour et le lendemain locaux : une tâche à 00:05 ou
+ * 23:55 est du jour d'à côté pour le cron qui passe juste avant ou après minuit.
+ */
+async function envoyerTachesALHeure(
+  admin: Admin,
+  userId: string,
+  timezone: string,
+  dateStr: string,
+  logs: string[],
+  utcNow: Date
+): Promise<number> {
+  const horaires = (await lireTachesBrutes(admin, userId)).filter((t) => t.starts_at);
+  if (!horaires.length) return 0;
+
+  const jours = [decalerJour(dateStr, -1), dateStr, decalerJour(dateStr, 1)];
+  const valides = await lireValidations(admin, horaires.filter(estRecurrente).map((t) => t.id), jours);
+  let n = 0;
+
+  for (const t of horaires) {
+    for (const jour of jours) {
+      const occ = occurrenceLe(t, jour, timezone);
+      if (!occ.tombe || !occ.instant) continue;
+
+      const diffMin = (occ.instant.getTime() - utcNow.getTime()) / 60000;
+      if (diffMin < -15 || diffMin > 5) continue;
+
+      const faite = estRecurrente(t) ? valides.has(`${t.id}|${jour}`) : t.fait_le !== null;
+      if (faite) continue;
+      if (!(await tryMarkSent(admin, userId, `tache_${t.id}`, jour))) continue;
+
+      await sendPushToUser(userId, {
+        title: `📝 ${t.titre}`,
+        body: t.message ? t.message.slice(0, 140) : `C'est l'heure — ${formatHeureDans(occ.instant, timezone)}`,
+        url: `/dashboard`,
+      });
+      logs.push(`[tache-heure] notif envoyée → ${userId} (${t.titre}, ${formatHeureDans(occ.instant, timezone)} chez elle)`);
+      n += 1;
+    }
+  }
   return n;
 }
 

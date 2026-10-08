@@ -33,6 +33,8 @@ interface CalendarEvent {
   /** L'instant du rendez-vous. Fait foi ; `heure` n'est qu'un repli hérité. */
   starts_at: string | null;
   recurrence: "none" | "daily" | "weekly" | "monthly";
+  recurrence_intervalle?: number | null;
+  timezone?: string | null;
   message: string | null;
   event_type: "coach" | "nutrition" | "coaching_groupe" | "tache" | "seance" | null;
   target_user_id: string | null;
@@ -100,7 +102,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     userId
       ? admin
           .from("calendar_events")
-          .select("id, titre, date, heure, starts_at, recurrence, message, event_type, target_user_id")
+          .select("id, titre, date, heure, starts_at, timezone, recurrence, recurrence_intervalle, message, event_type, target_user_id")
           .or(`target_user_id.is.null,target_user_id.eq.${userId},user_id.eq.${userId}`)
           .lte("date", weekEndStr)
           .order("date", { ascending: true })

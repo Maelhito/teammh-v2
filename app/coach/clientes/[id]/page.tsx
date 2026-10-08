@@ -15,6 +15,7 @@ import { estSeanceValidee, type SeanceValidee } from "@/lib/seances-validees";
 import { FiltresProgrammes, avancementDe, correspondAuxFiltres, FILTRES_TOUS, type Filtres } from "../../programmes/FiltresProgrammes";
 import { progCatLabel, avancementComplet, normaliseProgCategorie } from "../../programmes/constantes";
 import ApercuFuseauRdv from "@/components/ApercuFuseauRdv";
+import { RYTHMES_TACHE, cleRythme } from "@/lib/taches";
 import { aujourdhuiDans, dateLisible, decalageLisible, formatDateDans, formatHeureDans, fuseauAppareil, heureAffichee, nomLisible, occurrenceLe } from "@/lib/temps";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,6 +28,8 @@ interface CalendarEvent {
   /** Le fuseau dans lequel l'heure a été tapée. */
   timezone?: string | null;
   recurrence: "none" | "daily" | "weekly" | "monthly";
+  /** « Tous les N » jours / semaines / mois (tâches). */
+  recurrence_intervalle?: number | null;
   message: string | null; lien: string | null; rappel: boolean;
   created_by: "admin" | "cliente";
   event_type: "coach" | "nutrition" | "coaching_groupe" | "seance" | "tache" | null;
@@ -325,7 +328,7 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
     recurrence: "none", event_type: "coach",
     message: "", lien: "", rappel: false, rappel_minutes: 0,
   });
-  const [tacheForm, setTacheForm] = useState({ titre: "", date: defaultDate, description: "" });
+  const [tacheForm, setTacheForm] = useState({ titre: "", date: defaultDate, heure: "", rythme: "none", description: "" });
 
   // Charge les coachs assignés à cette cliente + leur lien Zoom
   useEffect(() => {
@@ -363,8 +366,9 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
   const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#888", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5, fontFamily: "system-ui" };
 
   async function handleSave() {
+    const rythme = RYTHMES_TACHE.find(r => r.key === tacheForm.rythme) ?? RYTHMES_TACHE[0];
     const body = tab === "tache"
-      ? { titre: tacheForm.titre, date: tacheForm.date, message: tacheForm.description || null, heure: null, recurrence: "none", event_type: "tache", rappel: false, rappel_minutes: 0, lien: null }
+      ? { titre: tacheForm.titre, date: tacheForm.date, message: tacheForm.description || null, heure: tacheForm.heure || null, recurrence: rythme.recurrence, recurrence_intervalle: rythme.intervalle, event_type: "tache", rappel: false, rappel_minutes: 0, lien: null }
       : { ...evForm, heure: evForm.heure || null, timezone: fuseauSaisie };
 
     if (!body.titre) { setError("Titre requis"); return; }
@@ -483,9 +487,25 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
             <div><label style={lbl}>Titre *</label>
               <input style={inp} placeholder="Ex : Préparer son bilan" value={tacheForm.titre} onChange={e => setTacheForm(f => ({ ...f, titre: e.target.value }))} />
             </div>
-            <div><label style={lbl}>Date *</label>
-              <input type="date" style={inp} value={tacheForm.date} onChange={e => setTacheForm(f => ({ ...f, date: e.target.value }))} />
+            <div><label style={lbl}>Se répète</label>
+              <select style={{ ...inp, cursor: "pointer" }} value={tacheForm.rythme} onChange={e => setTacheForm(f => ({ ...f, rythme: e.target.value }))}>
+                {RYTHMES_TACHE.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+              </select>
             </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div><label style={lbl}>{tacheForm.rythme === "none" ? "Date *" : "À partir du *"}</label>
+                <input type="date" style={inp} value={tacheForm.date} onChange={e => setTacheForm(f => ({ ...f, date: e.target.value }))} />
+              </div>
+              <div><label style={lbl}>Heure</label>
+                <input type="time" style={inp} value={tacheForm.heure} onChange={e => setTacheForm(f => ({ ...f, heure: e.target.value }))} />
+              </div>
+            </div>
+            <p style={{ fontSize: 11, color: "#888", margin: "-4px 0 0", fontFamily: "system-ui", lineHeight: 1.45 }}>
+              {tacheForm.heure
+                ? "Heure de la cliente : elle reçoit une notification à ce moment-là."
+                : "Sans heure, elle reçoit une notification le matin (7h) les jours où la tâche tombe."}
+              {tacheForm.rythme.startsWith("monthly") && " Pour « le 1er du mois », choisis un 1er comme date de départ."}
+            </p>
             <div><label style={lbl}>Description</label>
               <textarea style={{ ...inp, minHeight: 90, resize: "none" }} placeholder="Optionnel" value={tacheForm.description} onChange={e => setTacheForm(f => ({ ...f, description: e.target.value }))} />
             </div>
@@ -1353,6 +1373,7 @@ function EventEditModal({ ev, clienteId, onClose, onUpdated }: {
   );
   const [message, setMessage] = useState(ev.message ?? "");
   const [lien, setLien] = useState(ev.lien ?? "");
+  const [rythme, setRythme] = useState(cleRythme(ev.recurrence, ev.recurrence_intervalle));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -1372,7 +1393,10 @@ function EventEditModal({ ev, clienteId, onClose, onUpdated }: {
     const res = await fetch(`/api/coach/clientes/${clienteId}/evenements?event_id=${ev.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ titre, date, heure: heure || null, timezone: fuseauSaisie, message: message || null, lien: lien || null }),
+      body: JSON.stringify({
+        titre, date, heure: heure || null, timezone: fuseauSaisie, message: message || null, lien: lien || null,
+        ...(isTache ? (() => { const r = RYTHMES_TACHE.find(x => x.key === rythme) ?? RYTHMES_TACHE[0]; return { recurrence: r.recurrence, recurrence_intervalle: r.intervalle }; })() : {}),
+      }),
     });
     if (res.ok) { onUpdated(); }
     else { const d = await res.json().catch(() => ({})); setError(d.error ?? "Erreur"); setSaving(false); }
@@ -1397,9 +1421,14 @@ function EventEditModal({ ev, clienteId, onClose, onUpdated }: {
           <div>
             <p style={{ fontSize: 9, fontWeight: 700, color: typeColor, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 3px", fontFamily: "system-ui" }}>{typeLabel}</p>
             <h3 style={{ fontSize: "1rem", fontWeight: 800, margin: 0, color: "#F5F5F0", fontFamily: "system-ui" }}>Modifier l'événement</h3>
-            {isTache && (
+            {isTache && (!ev.recurrence || ev.recurrence === "none") && (
               <p style={{ fontSize: 11, fontWeight: 700, margin: "4px 0 0", color: ev.fait_le ? "#4ADE80" : "#666", fontFamily: "system-ui" }}>
                 {ev.fait_le ? "✓ Validée par la cliente" : "Pas encore validée"}
+              </p>
+            )}
+            {isTache && ev.recurrence && ev.recurrence !== "none" && (
+              <p style={{ fontSize: 11, fontWeight: 700, margin: "4px 0 0", color: "#666", fontFamily: "system-ui" }}>
+                🔁 {RYTHMES_TACHE.find(r => r.key === cleRythme(ev.recurrence, ev.recurrence_intervalle))?.label ?? "Récurrente"} — validée jour par jour par la cliente
               </p>
             )}
           </div>
@@ -1410,15 +1439,20 @@ function EventEditModal({ ev, clienteId, onClose, onUpdated }: {
           <div><label style={lbl}>Titre *</label>
             <input style={inp} value={titre} onChange={e => setTitre(e.target.value)} />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: isTache ? "1fr" : "1fr 1fr", gap: 8 }}>
-            <div><label style={lbl}>Date *</label>
+          {isTache && (
+            <div><label style={lbl}>Se répète</label>
+              <select style={{ ...inp, cursor: "pointer" }} value={rythme} onChange={e => setRythme(e.target.value)}>
+                {RYTHMES_TACHE.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+              </select>
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div><label style={lbl}>{isTache && rythme !== "none" ? "À partir du *" : "Date *"}</label>
               <input type="date" style={inp} value={date} onChange={e => setDate(e.target.value)} />
             </div>
-            {!isTache && (
-              <div><label style={lbl}>Heure {estRendezVous(ev.event_type) ? "*" : ""}</label>
-                <input type="time" style={{ ...inp, borderColor: (!estRendezVous(ev.event_type) || heure) ? "#2a2a2a" : "#7A3B3B" }} value={heure} onChange={e => setHeure(e.target.value)} />
-              </div>
-            )}
+            <div><label style={lbl}>Heure {estRendezVous(ev.event_type) ? "*" : isTache ? "(heure de la cliente)" : ""}</label>
+              <input type="time" style={{ ...inp, borderColor: (!estRendezVous(ev.event_type) || heure) ? "#2a2a2a" : "#7A3B3B" }} value={heure} onChange={e => setHeure(e.target.value)} />
+            </div>
           </div>
           {!isTache && (
             <ApercuFuseauRdv
