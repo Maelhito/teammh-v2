@@ -472,11 +472,37 @@ function useSignalFinDeBloc(fini: boolean, onFini?: () => void) {
   }, [fini]);
 }
 
+/** Compte à rebours de préparation avant le vrai départ d'un chrono de bloc :
+ *  la cliente appuie sur « Démarrer » puis a quelques secondes pour se placer.
+ *  Sans ça, sur un tabata 20/20 elle perdait les 5-10 premières secondes. */
+const DUREE_PREPARATION = 5;
+function usePreparation(onGo: () => void) {
+  const [prep, setPrep] = useState<number | null>(null);
+  const onGoRef = useRef(onGo);
+  onGoRef.current = onGo;
+  useEffect(() => {
+    if (prep === null) return;
+    const id = setTimeout(() => {
+      const next = prep - 1;
+      if (next <= 0) { setPrep(null); annoncer("lets-go"); onGoRef.current(); return; }
+      if (next <= 3) playBip();
+      setPrep(next);
+    }, 1000);
+    return () => clearTimeout(id);
+  }, [prep]);
+  return {
+    prep,
+    lancerPrep: () => setPrep(DUREE_PREPARATION),
+    annulerPrep: () => setPrep(null),
+  };
+}
+
 /* ---- Compte à rebours avec auto-start + bips ---- */
 function Countdown({ totalSeconds, label, onFini }: { totalSeconds: number; label: string; onFini?: () => void }) {
   const [remaining, setRemaining] = useState(totalSeconds);
   const [running, setRunning] = useState(false); // démarrage manuel
   const [fini, setFini] = useState(false);
+  const { prep, lancerPrep, annulerPrep } = usePreparation(() => setRunning(true));
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
   // Mi-parcours : on ne le signale que s'il tombe au-dela des 3 dernieres
   // secondes, sinon il se confondrait avec le decompte. -1 = jamais atteint.
@@ -506,15 +532,15 @@ function Countdown({ totalSeconds, label, onFini }: { totalSeconds: number; labe
 
   return (
     <div style={{ textAlign: "center", padding: "16px 0" }}>
-      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.1em", margin: "0 0 8px" }}>{label}</p>
-      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: fini ? "#4ADE80" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
-        {formatTime(remaining)}
+      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.1em", margin: "0 0 8px" }}>{prep !== null ? "PRÉPAREZ-VOUS…" : label}</p>
+      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: fini ? "#4ADE80" : prep !== null ? "#3B82F6" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
+        {prep !== null ? prep : formatTime(remaining)}
       </p>
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-        <button onClick={() => { initAudio(); setRunning((r) => !r); }} disabled={fini} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: fini ? "#4ADE80" : running ? "#333" : "#B22222", color: fini ? "#000" : "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: fini ? "default" : "pointer" }}>
-          {fini ? "✓ Terminé" : running ? "⏸ Pause" : remaining === totalSeconds ? "▶ Démarrer" : "▶ Reprendre"}
+        <button onClick={() => { initAudio(); if (running) setRunning(false); else if (prep !== null) annulerPrep(); else if (remaining === totalSeconds) lancerPrep(); else setRunning(true); }} disabled={fini} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: fini ? "#4ADE80" : running ? "#333" : "#B22222", color: fini ? "#000" : "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: fini ? "default" : "pointer" }}>
+          {fini ? "✓ Terminé" : prep !== null ? "✕ Annuler" : running ? "⏸ Pause" : remaining === totalSeconds ? "▶ Démarrer" : "▶ Reprendre"}
         </button>
-        <button onClick={() => { setRemaining(totalSeconds); setRunning(false); setFini(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
+        <button onClick={() => { annulerPrep(); setRemaining(totalSeconds); setRunning(false); setFini(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
       </div>
     </div>
   );
@@ -526,6 +552,7 @@ function EmomTimer({ intervalSec, rounds, onFini }: { intervalSec: number; round
   const [remaining, setRemaining] = useState(intervalSec);
   const [running, setRunning] = useState(false); // démarrage manuel
   const [fini, setFini] = useState(false);
+  const { prep, lancerPrep, annulerPrep } = usePreparation(() => setRunning(true));
   // Le tick a besoin du round courant sans le prendre en dépendance : sinon
   // l'intervalle serait recréé à chaque round et le tic-tac dériverait.
   const roundRef = useRef(1);
@@ -562,15 +589,15 @@ function EmomTimer({ intervalSec, rounds, onFini }: { intervalSec: number; round
 
   return (
     <div style={{ textAlign: "center", padding: "16px 0" }}>
-      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.1em", margin: "0 0 4px" }}>EMOM — ROUND {currentRound}/{rounds}</p>
-      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: fini ? "#4ADE80" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
-        {formatTime(remaining)}
+      <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.1em", margin: "0 0 4px" }}>{prep !== null ? "PRÉPAREZ-VOUS…" : `EMOM — ROUND ${currentRound}/${rounds}`}</p>
+      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: fini ? "#4ADE80" : prep !== null ? "#3B82F6" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
+        {prep !== null ? prep : formatTime(remaining)}
       </p>
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-        <button onClick={() => { initAudio(); setRunning((r) => !r); }} disabled={fini} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: fini ? "#4ADE80" : running ? "#333" : "#B22222", color: fini ? "#000" : "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: fini ? "default" : "pointer" }}>
-          {fini ? "✓ Terminé" : running ? "⏸ Pause" : currentRound === 1 && remaining === intervalSec ? "▶ Démarrer" : "▶ Reprendre"}
+        <button onClick={() => { initAudio(); if (running) setRunning(false); else if (prep !== null) annulerPrep(); else if (currentRound === 1 && remaining === intervalSec) lancerPrep(); else setRunning(true); }} disabled={fini} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: fini ? "#4ADE80" : running ? "#333" : "#B22222", color: fini ? "#000" : "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: fini ? "default" : "pointer" }}>
+          {fini ? "✓ Terminé" : prep !== null ? "✕ Annuler" : running ? "⏸ Pause" : currentRound === 1 && remaining === intervalSec ? "▶ Démarrer" : "▶ Reprendre"}
         </button>
-        <button onClick={() => { roundRef.current = 1; setCurrentRound(1); setRemaining(intervalSec); setRunning(false); setFini(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
+        <button onClick={() => { annulerPrep(); roundRef.current = 1; setCurrentRound(1); setRemaining(intervalSec); setRunning(false); setFini(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
       </div>
     </div>
   );
@@ -583,6 +610,7 @@ function TabataTimer({ workSec, restSec, tours, onFini }: { workSec: number; res
   const [remaining, setRemaining] = useState(workSec);
   const [running, setRunning] = useState(false); // démarrage manuel
   const [fini, setFini] = useState(false);
+  const { prep, lancerPrep, annulerPrep } = usePreparation(() => setRunning(true));
   // Phase et tour vivent aussi dans des refs : le tick les lit sans les prendre
   // en dépendance, donc l'intervalle n'est plus recréé à chaque bascule.
   const phaseRef = useRef<"work" | "rest">("work");
@@ -629,16 +657,16 @@ function TabataTimer({ workSec, restSec, tours, onFini }: { workSec: number; res
   return (
     <div style={{ textAlign: "center", padding: "16px 0" }}>
       <p className="font-body" style={{ fontSize: "0.63rem", fontWeight: 700, color: fini ? "#4ADE80" : phaseColor, letterSpacing: "0.1em", margin: "0 0 4px" }}>
-        {fini ? "TABATA — TERMINÉ" : `TABATA — ${phase === "work" ? "TRAVAIL" : "REPOS"} · TOUR ${currentTour}/${tours}`}
+        {fini ? "TABATA — TERMINÉ" : prep !== null ? "PRÉPAREZ-VOUS…" : `TABATA — ${phase === "work" ? "TRAVAIL" : "REPOS"} · TOUR ${currentTour}/${tours}`}
       </p>
-      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: fini ? "#4ADE80" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
-        {formatTime(remaining)}
+      <p style={{ fontFamily: "monospace", fontSize: "3.2rem", fontWeight: 700, color: fini ? "#4ADE80" : prep !== null ? "#3B82F6" : isAlert ? "#EF4444" : "#FFFFFF", lineHeight: 1, margin: "0 0 16px", transition: "color 0.2s" }}>
+        {prep !== null ? prep : formatTime(remaining)}
       </p>
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-        <button onClick={() => { initAudio(); setRunning((r) => !r); }} disabled={fini} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: fini ? "#4ADE80" : running ? "#333" : phaseColor, color: fini ? "#000" : "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: fini ? "default" : "pointer" }}>
-          {fini ? "✓ Terminé" : running ? "⏸ Pause" : currentTour === 1 && phase === "work" && remaining === workSec ? "▶ Démarrer" : "▶ Reprendre"}
+        <button onClick={() => { initAudio(); if (running) setRunning(false); else if (prep !== null) annulerPrep(); else if (currentTour === 1 && phase === "work" && remaining === workSec) lancerPrep(); else setRunning(true); }} disabled={fini} style={{ padding: "10px 24px", borderRadius: 10, border: "none", backgroundColor: fini ? "#4ADE80" : running ? "#333" : phaseColor, color: fini ? "#000" : "#fff", fontSize: "0.88rem", fontWeight: 700, cursor: fini ? "default" : "pointer" }}>
+          {fini ? "✓ Terminé" : prep !== null ? "✕ Annuler" : running ? "⏸ Pause" : currentTour === 1 && phase === "work" && remaining === workSec ? "▶ Démarrer" : "▶ Reprendre"}
         </button>
-        <button onClick={() => { phaseRef.current = "work"; tourRef.current = 1; setPhase("work"); setCurrentTour(1); setRemaining(workSec); setRunning(false); setFini(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
+        <button onClick={() => { annulerPrep(); phaseRef.current = "work"; tourRef.current = 1; setPhase("work"); setCurrentTour(1); setRemaining(workSec); setRunning(false); setFini(false); }} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #2a2a2a", backgroundColor: "transparent", color: "#FFFFFF", fontSize: "0.9rem", cursor: "pointer" }}>↺</button>
       </div>
     </div>
   );
