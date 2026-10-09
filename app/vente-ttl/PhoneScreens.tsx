@@ -281,7 +281,7 @@ function EcranProfil() {
           <div className="v-line-ico">💳</div>
           <div className="v-line-txt">
             <b>Mon abonnement</b>
-            <span>6 000 XPF / mois · actif</span>
+            <span>3 000 XPF / mois · actif</span>
           </div>
           <span style={{ fontSize: 10, color: "#545049" }}>›</span>
         </div>

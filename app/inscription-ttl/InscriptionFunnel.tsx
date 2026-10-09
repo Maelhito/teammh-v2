@@ -280,7 +280,7 @@ export default function InscriptionFunnel() {
                 {loading ? "Un instant..." : "Continuer vers le paiement →"}
               </button>
               <p className="vq-skip" style={{ textDecoration: "none", cursor: "default" }}>
-                6 000 XPF/mois, sans engagement. Ton compte se crée juste après.
+                3 000 XPF/mois, sans engagement. Ton compte se crée juste après.
               </p>
             </>
           )}
