@@ -8,7 +8,7 @@ import { RESULTATS, TEMOIGNAGES, VIDEOS, Courbe } from "./Preuves";
 export const metadata: Metadata = {
   title: "Time To Live — l'app qui ne te lâche pas",
   description:
-    "Sport, nutrition et motivation dans une seule application. 3 000 XPF par mois, sans engagement.",
+    "Sport, nutrition et motivation dans une seule application. 4 000 XPF par mois, sans engagement.",
 };
 
 const MARQUEE = RESULTATS.map((r) => `${r.prenom} −${r.kg} kg`);
@@ -120,7 +120,7 @@ export default function VenteTtlPage() {
             </div>
             <div className="v-hero-stats">
               <div className="v-stat">
-                <span className="v-stat-num v-flame">3 000</span>
+                <span className="v-stat-num v-flame">4 000</span>
                 <span className="v-stat-lbl">XPF / mois</span>
               </div>
               <div className="v-stat">
@@ -351,10 +351,10 @@ export default function VenteTtlPage() {
               <h3>Time To Live</h3>
               <p className="v-price-sub">Accès complet à l&apos;application.</p>
               <div className="v-price-amount">
-                <b className="v-flame">3 000</b>
+                <b className="v-flame">4 000</b>
                 <i>XPF / mois</i>
               </div>
-              <p className="v-price-note">Soit environ 100 XPF par jour.</p>
+              <p className="v-price-note">Soit environ 133 XPF par jour.</p>
               <ul className="v-price-feats">
                 <li><em>✓</em> Accès à tous les espaces de l&apos;app</li>
                 <li><em>✓</em> Nouveaux contenus chaque mois</li>
@@ -406,7 +406,7 @@ export default function VenteTtlPage() {
       <div className="v-sticky-cta">
         <div>
           <span className="v-sticky-lbl">Sans engagement</span>
-          <span className="v-sticky-price v-flame">3 000 XPF / mois</span>
+          <span className="v-sticky-price v-flame">4 000 XPF / mois</span>
         </div>
         <Link href="/inscription-ttl" className="v-btn v-btn-primary">Je rejoins</Link>
       </div>
