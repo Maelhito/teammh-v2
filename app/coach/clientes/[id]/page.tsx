@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { decodeProgData, type Grid, type CellItem } from "../../programmes/ProgrammeBuilder";
 import SeanceBuildComp, { type SeanceData } from "../../seances/SeanceBuilder";
 import QuestionnaireCliente from "./QuestionnaireCliente";
-import { adapterCles, adapterGrille, dateToGridKey, joursDeLaGrille, parseLocalDate, type MappingJours } from "@/lib/programme-planning";
+import { adapterGrille, dateToGridKey, joursDeLaGrille, parseLocalDate, type MappingJours } from "@/lib/programme-planning";
 import MesuresCliente from "./MesuresCliente";
 import {
   COULEURS_EVENEMENT, COULEUR_AUJOURDHUI, COULEUR_SEANCE_VALIDEE, COULEUR_VIDEO, ORDRE_LEGENDE,
@@ -844,7 +844,8 @@ function HistoriqueAccordion({ assignments, clienteId, onDeleted }: {
   async function handleDelete(assignId: string, nom: string) {
     if (!confirm(`Supprimer "${nom}" pour cette cliente ?`)) return;
     setDeleting(assignId);
-    await fetch(`/api/coach/clientes/${clienteId}/programmes/${assignId}`, { method: "DELETE" });
+    const res = await fetch(`/api/coach/clientes/${clienteId}/programmes/${assignId}`, { method: "DELETE" }).catch(() => null);
+    if (!res?.ok) alert("❌ Suppression impossible, réessaie.");
     setDeleting(null);
     onDeleted();
   }
@@ -1125,27 +1126,29 @@ function AdjustModal({ clienteId, assignment, grid, onSaved, onClose }: {
     if (!lignes.some(l => l.garde)) { setError("Garde au moins une séance."); return; }
     setSaving(true); setError("");
 
-    const src = assignment.grid_data?.startsWith("{") ? assignment.grid_data : assignment.programme?.description ?? "{}";
-    let parsed: Record<string, unknown> = {};
-    try { parsed = JSON.parse(src); } catch {}
-
     const mapping = mappingDepuisLignes(lignes);
-    const terminees = Array.isArray(parsed.seances_terminees) ? (parsed.seances_terminees as string[]) : [];
 
+    // Les séances déjà validées sont réagencées côté serveur, à partir de ce
+    // qui est en base au moment de l'enregistrement (`jours_mapping`).
     const res = await fetch(`/api/coach/clientes/${clienteId}/programmes/${assignment.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        grid_data: JSON.stringify({
-          ...parsed,
-          grid: adapterGrille(grid, mapping),
-          duree_semaines: duree,
-          seances_terminees: adapterCles(terminees, mapping),
-        }),
+        grid_data: { grid: adapterGrille(grid, mapping), duree_semaines: duree },
+        grid_base: grid,
+        jours_mapping: mapping,
       }),
     });
 
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
+      if (d.conflit) {
+        // La cliente a décalé une séance : on recharge la fiche, le réglage
+        // est à refaire sur la grille à jour.
+        alert(`❌ ${d.error}`);
+        onSaved();
+        onClose();
+        return;
+      }
       setError(d.error ?? "Erreur");
       setSaving(false);
       return;
@@ -1582,15 +1585,20 @@ export default function ClienteFichePage() {
   }
 
   async function patchGrid(assignId: string, newGrid: Grid) {
-    const target = actifs.find(a => a.id === assignId);
-    if (!target) return;
-    const src = target.grid_data?.startsWith("{") ? target.grid_data : target.programme?.description ?? "{}";
-    const parsed = JSON.parse(src);
-    const newGridData = JSON.stringify({ ...parsed, grid: newGrid });
-    await fetch(`/api/coach/clientes/${id}/programmes/${assignId}`, {
+    if (!actifs.some(a => a.id === assignId)) return;
+    // Seule la grille part : le serveur la fusionne dans le grid_data en base,
+    // sans toucher à la progression de la cliente. `grid_base` lui permet de
+    // refuser si elle a décalé une séance depuis l'ouverture de la fiche.
+    const res = await fetch(`/api/coach/clientes/${id}/programmes/${assignId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ grid_data: newGridData }),
-    });
+      body: JSON.stringify({ grid_data: { grid: newGrid }, grid_base: gridsByAssignment[assignId] ?? {} }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      const d = await res?.json().catch(() => ({})) ?? {};
+      alert(`❌ Modification non enregistrée — ${d.error ?? "erreur réseau, réessaie."}`);
+      loadAssignments();
+      return;
+    }
     setGridsByAssignment(prev => ({ ...prev, [assignId]: newGrid }));
   }
 
@@ -1644,15 +1652,22 @@ export default function ClienteFichePage() {
     setEditTarget(null);
   }
 
-  async function handleTerminer(assignId: string) {
-    if (!confirm("Marquer ce programme comme terminé ?")) return;
-    await fetch(`/api/coach/clientes/${id}/programmes/${assignId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ statut: "termine" }) });
+  async function patchAssignment(assignId: string, champs: Record<string, unknown>) {
+    const res = await fetch(`/api/coach/clientes/${id}/programmes/${assignId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(champs) }).catch(() => null);
+    if (!res?.ok) {
+      const d = await res?.json().catch(() => ({})) ?? {};
+      alert(`❌ Modification non enregistrée — ${d.error ?? "erreur réseau, réessaie."}`);
+    }
     loadAssignments();
   }
 
+  async function handleTerminer(assignId: string) {
+    if (!confirm("Marquer ce programme comme terminé ?")) return;
+    await patchAssignment(assignId, { statut: "termine" });
+  }
+
   async function handleSeanceFaite(assignId: string, current: number) {
-    await fetch(`/api/coach/clientes/${id}/programmes/${assignId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seances_effectuees: current + 1 }) });
-    loadAssignments();
+    await patchAssignment(assignId, { seances_effectuees: current + 1 });
   }
 
   function displayName(c: Cliente) {

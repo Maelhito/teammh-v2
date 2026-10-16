@@ -9,9 +9,11 @@ export default function EditAssignmentPage() {
   const router = useRouter();
   const { id: clienteId, pid } = useParams() as { id: string; pid: string };
   const [data, setData] = useState<ProgrammeData | null>(null);
-  // grid_data brut à l'ouverture : il porte aussi la progression de la cliente
-  // (seances_terminees, taches_done) qu'il ne faut pas écraser en sauvegardant.
-  const [gridDataBrut, setGridDataBrut] = useState<Record<string, unknown>>({});
+  // Grille telle qu'à l'ouverture : envoyée avec la sauvegarde pour que le
+  // serveur refuse si la cliente a décalé une séance entre-temps. Sa
+  // progression (seances_terminees…), elle, n'est plus envoyée du tout : le
+  // serveur la relit en base.
+  const [gridOuverture, setGridOuverture] = useState<unknown>({});
   const [nomCliente, setNomCliente] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -41,8 +43,8 @@ export default function EditAssignmentPage() {
       setData(decodeProgData(src));
 
       try {
-        setGridDataBrut(assignment.grid_data?.startsWith("{") ? JSON.parse(assignment.grid_data) : {});
-      } catch { setGridDataBrut({}); }
+        setGridOuverture(assignment.grid_data?.startsWith("{") ? JSON.parse(assignment.grid_data).grid ?? {} : {});
+      } catch { setGridOuverture({}); }
 
       const cliente = (clientes ?? []).find((c: { id: string; prenom: string | null; nom: string | null; email: string }) => c.id === clienteId);
       if (cliente) setNomCliente([cliente.prenom, cliente.nom].filter(Boolean).join(" ") || cliente.email);
@@ -60,12 +62,11 @@ export default function EditAssignmentPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        grid_data: JSON.stringify({
-          ...gridDataBrut,
-          ...JSON.parse(encodeProgData(data)),
-        }),
+        grid_data: JSON.parse(encodeProgData(data)),
+        grid_base: gridOuverture,
       }),
-    });
+    }).catch(() => null);
+    if (!res) { setError("Erreur réseau, réessaie."); setSaving(false); return; }
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
       setError(d.error ?? "Erreur");

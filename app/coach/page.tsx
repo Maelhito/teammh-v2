@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { redirect } from "next/navigation";
 import DashboardCoach from "./DashboardCoach";
-import { FUSEAU_PAR_DEFAUT, aujourdhuiDans, decalerJour, semaineDans } from "@/lib/temps";
+import { FUSEAU_PAR_DEFAUT, aujourdhuiDans, decalerJour, instantDepuis, semaineDans } from "@/lib/temps";
 import { getFuseau } from "@/lib/temps-serveur";
 import { isAdminUser } from "@/lib/is-admin";
 
@@ -79,15 +79,17 @@ export default async function CoachPage() {
   const todayStr = aujourdhuiDans(timezone);
   const { lundi: mondayStr, dimanche: sundayStr } = semaineDans(timezone);
 
-  // Séances effectuées cette semaine (event_type seance, date <= today)
-  const { count: seancesCount } = activeIds.length
+  // Séances validées cette semaine par les clientes du coach. La source est
+  // seances_log, celle de l'app cliente : les `calendar_events` de type
+  // « seance » ne sont plus écrits depuis juin, le compteur restait à 0.
+  // La semaine commence le lundi à 0h dans le fuseau du coach.
+  const debutSemaine = instantDepuis(mondayStr, "00:00", timezone);
+  const { count: seancesCount } = activeIds.length && debutSemaine
     ? await admin
-        .from("calendar_events")
+        .from("seances_log")
         .select("id", { count: "exact", head: true })
-        .in("target_user_id", activeIds)
-        .eq("event_type", "seance")
-        .gte("date", mondayStr)
-        .lte("date", todayStr)
+        .in("user_id", activeIds)
+        .gte("completed_at", debutSemaine.toISOString())
     : { count: 0 };
 
   // ── Événements de la semaine ──────────────────────────────────────────────

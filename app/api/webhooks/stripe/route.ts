@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { getTtlStripeOffers } from "@/lib/ttl-stripe-offers";
 
 /**
  * À quelle cliente appartient cet abonnement ?
@@ -56,6 +57,50 @@ async function trouverUserId(
   }
 }
 
+const STATUTS_ACTIFS = new Set(["active", "trialing"]);
+
+/** Produits Stripe des prix TTL configurés — lus une fois par instance. */
+let produitsTtl: Promise<Set<string>> | null = null;
+
+function chargerProduitsTtl(stripe: Stripe): Promise<Set<string>> {
+  produitsTtl ??= Promise.all(
+    getTtlStripeOffers()
+      .map((o) => o.priceId)
+      .filter((id): id is string => !!id)
+      .map((id) => stripe.prices.retrieve(id).then((p) => String(typeof p.product === "string" ? p.product : p.product.id)).catch(() => null))
+  ).then((ids) => {
+    const set = new Set(ids.filter((id): id is string => !!id));
+    // Échec de lecture : on retentera au prochain événement plutôt que de
+    // mémoriser « aucun produit TTL ».
+    if (!set.size) produitsTtl = null;
+    return set;
+  });
+  return produitsTtl;
+}
+
+/**
+ * Cet abonnement est-il un abonnement TTL ?
+ *
+ * Oui s'il vient de nos tunnels (métadonnée `offer_slug`), ou si l'un de ses
+ * prix est un prix TTL — ou appartient au même produit Stripe qu'un prix TTL.
+ * Le produit couvre les abonnements créés à la main par le coach et les
+ * anciens tarifs : changer le prix ne change pas le produit.
+ */
+async function estAbonnementTtl(stripe: Stripe, subscription: Stripe.Subscription): Promise<boolean> {
+  if (subscription.metadata?.offer_slug) return true;
+
+  const prixTtl = new Set(getTtlStripeOffers().map((o) => o.priceId).filter(Boolean));
+  const items = subscription.items?.data ?? [];
+  if (items.some((i) => prixTtl.has(i.price?.id))) return true;
+
+  const produits = await chargerProduitsTtl(stripe);
+  return items.some((i) => {
+    const produit = i.price?.product;
+    if (!produit) return false;
+    return produits.has(typeof produit === "string" ? produit : produit.id);
+  });
+}
+
 export async function POST(request: NextRequest) {
   const stripe = getStripe();
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -80,6 +125,9 @@ export async function POST(request: NextRequest) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+      // Seuls nos tunnels TTL posent `offer_slug` : tout autre paiement (TTM,
+      // lien de paiement…) n'a rien à faire dans ttl_subscriptions.
+      if (session.mode !== "subscription" || !session.metadata?.offer_slug) break;
       const userId = session.client_reference_id ?? session.metadata?.user_id;
       if (!userId || !session.customer) break;
       await admin.from("ttl_subscriptions").upsert({
@@ -99,9 +147,29 @@ export async function POST(request: NextRequest) {
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
+      // Les abonnements TTM passent aussi par ce webhook : sans ce filtre, ils
+      // étaient rangés comme abonnements TTL (repêchage par email), et la
+      // résiliation de l'ancien abonnement TTM d'une cliente passée en TTL lui
+      // fermait l'accès TTL.
+      if (!(await estAbonnementTtl(stripe, subscription))) break;
       const customerId = String(subscription.customer);
       const userId = await trouverUserId(admin, stripe, customerId, subscription.metadata?.user_id);
       if (!userId) break;
+
+      // Une seule ligne par cliente : un vieil abonnement qui se termine ne doit
+      // pas écraser celui, différent, qui la fait vivre aujourd'hui.
+      const { data: actuel } = await admin
+        .from("ttl_subscriptions")
+        .select("stripe_subscription_id, status")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (
+        actuel?.stripe_subscription_id &&
+        actuel.stripe_subscription_id !== subscription.id &&
+        STATUTS_ACTIFS.has(actuel.status) &&
+        !STATUTS_ACTIFS.has(subscription.status)
+      ) break;
+
       await admin.from("ttl_subscriptions").upsert({
         user_id: userId,
         stripe_customer_id: customerId,
