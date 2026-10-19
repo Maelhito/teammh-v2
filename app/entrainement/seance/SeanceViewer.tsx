@@ -274,9 +274,54 @@ function signalerMoitie() {
 
 let ecouteursAudioPoses = false;
 
+/* ---- Son malgré le mode silencieux de l'iPhone ----
+ *
+ * Par défaut, Safari range les sons d'une page web avec les sonneries : le
+ * bouton silencieux les coupe, alors que la vidéo YouTube, elle, s'entend. La
+ * cliente avait donc l'échauffement avec le son puis un décompte muet.
+ * On déclare la page comme lecteur (« playback ») : les bips passent même en
+ * silencieux. Choix assumé : comme toute app de lecture, ça met en pause la
+ * musique d'une autre app. */
+let silencePourIOS: HTMLAudioElement | null = null;
+
+/** Un fichier son vide d'une seconde, fabriqué sur place (aucun téléchargement). */
+function urlSilence(): string {
+  const n = 8000;
+  const buf = new ArrayBuffer(44 + n);
+  const v = new DataView(buf);
+  const ecrire = (o: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  ecrire(0, "RIFF"); v.setUint32(4, 36 + n, true); ecrire(8, "WAVE");
+  ecrire(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, n, true); v.setUint32(28, n, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  ecrire(36, "data"); v.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+  return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+}
+
+function ignorerModeSilencieux() {
+  try {
+    // iOS 16.4 et plus : la voie officielle.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const session = (navigator as any).audioSession;
+    if (session && "type" in session) {
+      if (session.type !== "playback") session.type = "playback";
+      return;
+    }
+    // iPhones plus anciens : un son vide joué en boucle fait passer la page
+    // en mode lecteur, et le Web Audio en profite.
+    if (!silencePourIOS) {
+      silencePourIOS = new Audio(urlSilence());
+      silencePourIOS.loop = true;
+      silencePourIOS.setAttribute("playsinline", "");
+    }
+    if (silencePourIOS.paused) silencePourIOS.play().catch(() => {});
+  } catch { /* navigateur sans ces réglages : rien à faire */ }
+}
+
 /** À appeler sur chaque geste de la cliente : c'est le seul moment où iOS
  *  accepte de (re)démarrer le son. */
 function initAudio() {
+  ignorerModeSilencieux();
   const ctx = getAudioCtx();
   if (ctx && ctx.state !== "running") ctx.resume().catch(() => {});
   precharger();
@@ -346,6 +391,13 @@ async function requestWakeLock() {
 }
 
 function releaseWakeLock() {
+  // Fin de séance : on rend la main à la musique de la cliente.
+  silencePourIOS?.pause();
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const session = (navigator as any).audioSession;
+    if (session && "type" in session) session.type = "auto";
+  } catch { /* rien à rendre */ }
   wakeLockVoulu = false;
   wakeLock?.release().catch(() => {});
   wakeLock = null;
