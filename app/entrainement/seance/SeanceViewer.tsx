@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import FinDeSeance from "@/components/FinDeSeance";
+import { youtubeEmbedUrl } from "@/lib/youtube";
 
 interface RichExercise {
   _key: string;
@@ -69,6 +70,8 @@ let audioCtx: AudioContext | null = null;
 
 function getAudioCtx(): AudioContext | null {
   try {
+    // Un contexte fermé ne rejouera plus jamais rien : on en recrée un.
+    if (audioCtx?.state === "closed") { audioCtx = null; reverbBuf = null; voix.clear(); prechargeFaite = false; }
     if (!audioCtx) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const AC = window.AudioContext ?? (window as any).webkitAudioContext;
@@ -76,6 +79,18 @@ function getAudioCtx(): AudioContext | null {
     }
     return audioCtx;
   } catch { return null; }
+}
+
+/** Joue dès que le contexte audio tourne.
+ *
+ * Sur iPhone, le contexte ne passe pas seulement par « suspended » : après une
+ * vidéo YouTube, un appel, une notification ou l'écran verrouillé, Safari le
+ * met en « interrupted » — un état que l'ancien code ignorait. Le décompte
+ * partait alors dans le vide pour tout le reste de la séance. On relance donc
+ * dès qu'il ne tourne pas, quelle qu'en soit la raison. */
+function reveiller(ctx: AudioContext, jouer: () => void) {
+  if (ctx.state === "running") { jouer(); return; }
+  ctx.resume().then(jouer).catch(() => {});
 }
 
 /** Confirmation de changement de bloc / fin de séance : deux impulsions du
@@ -153,8 +168,7 @@ function playBip(quand?: number, volume = BIP.volume) {
       osc.start(t); osc.stop(t + BIP.montee + BIP.maintien + BIP.descente + 0.05);
     });
   };
-  if (ctx.state === "suspended") ctx.resume().then(jouer).catch(() => {});
-  else jouer();
+  reveiller(ctx, jouer);
 }
 
 function precharger() {
@@ -193,8 +207,7 @@ function direVoix(mot: FinDeChrono): boolean {
     g.gain.linearRampToValueAtTime(0, t + buf.duration);
     src.start(t);
   };
-  if (ctx.state === "suspended") ctx.resume().then(jouer).catch(() => {});
-  else jouer();
+  reveiller(ctx, jouer);
   return true;
 }
 
@@ -243,8 +256,7 @@ function playFinBloc() {
       osc.start(t); osc.stop(t + duree + 0.05);
     });
   };
-  if (ctx.state === "suspended") ctx.resume().then(jouer).catch(() => {});
-  else jouer();
+  reveiller(ctx, jouer);
 }
 
 /** Le signal complet de fin de bloc : son distinct + vibration longue. */
@@ -260,10 +272,30 @@ function signalerMoitie() {
   playBip();
 }
 
+let ecouteursAudioPoses = false;
+
+/** À appeler sur chaque geste de la cliente : c'est le seul moment où iOS
+ *  accepte de (re)démarrer le son. */
 function initAudio() {
   const ctx = getAudioCtx();
-  if (ctx?.state === "suspended") ctx.resume().catch(() => {});
+  if (ctx && ctx.state !== "running") ctx.resume().catch(() => {});
   precharger();
+  if (!ecouteursAudioPoses && typeof document !== "undefined") {
+    ecouteursAudioPoses = true;
+    // Retour dans l'app (écran rallumé, appel terminé) : on relance le son
+    // sans attendre que la cliente touche un bouton.
+    const relancer = () => {
+      if (document.visibilityState !== "visible") return;
+      const c = getAudioCtx();
+      if (c && c.state !== "running") c.resume().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", relancer);
+    window.addEventListener("pageshow", relancer);
+    // Tout toucher de l'écran pendant la séance est une occasion de rattraper
+    // un contexte interrompu, avant que le prochain décompte ne tombe.
+    document.addEventListener("touchend", relancer, { passive: true });
+    document.addEventListener("click", relancer);
+  }
 }
 
 /* ---- Wake Lock — empêche l'écran de s'éteindre pendant la séance ----
@@ -319,34 +351,48 @@ function releaseWakeLock() {
   wakeLock = null;
 }
 
-function getYoutubeId(url: string): string | null {
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/]+)/);
-  return m ? m[1] : null;
+/** Les exercices cités dans le texte d'un bloc sont des spans rouges portant
+ *  `data-ex-video` (même format que l'éditeur du coach). Ils ont l'air de
+ *  liens, et le texte d'échauffement dit « CLIC SUR LA VIDÉO 👇 » juste
+ *  au-dessus : sans ce gestionnaire, la cliente tapait dessus et rien ne se
+ *  passait. Un seul écouteur sur le conteneur suffit pour tous les spans. */
+function ouvrirVideoDepuisTexte(e: React.MouseEvent<HTMLDivElement>, ouvrir: (url: string) => void) {
+  const span = (e.target as HTMLElement).closest<HTMLElement>("[data-ex-video]");
+  const url = span?.dataset.exVideo;
+  if (!url) return;
+  e.preventDefault();
+  ouvrir(url);
 }
 
 /* ---- Popup vidéo ---- */
 function VideoModal({ url, onClose }: { url: string; onClose: () => void }) {
-  const ytId = getYoutubeId(url);
+  // Même lecteur que partout ailleurs dans l'app (lib/youtube) : lecture dans
+  // la page sur iPhone (playsinline) et toutes les permissions dont YouTube a
+  // besoin. L'ancien lecteur maison n'avait ni l'un ni l'autre.
+  const embed = youtubeEmbedUrl(url, { autoplay: true });
+  const fermer = () => { initAudio(); onClose(); };
   return (
     <div
       style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) fermer(); }}
     >
       <div style={{ width: "100%", maxWidth: 480, backgroundColor: "#111", borderRadius: 16, overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #1a1a1a" }}>
           <p className="font-body" style={{ fontSize: "0.8rem", color: "#FFFFFF", margin: 0 }}>Vidéo exercice</p>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#FFFFFF", fontSize: "1.3rem", cursor: "pointer", lineHeight: 1 }}>✕</button>
+          <button onClick={fermer} style={{ background: "none", border: "none", color: "#FFFFFF", fontSize: "1.3rem", cursor: "pointer", lineHeight: 1 }}>✕</button>
         </div>
-        {ytId ? (
+        {embed ? (
           <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
             <iframe
-              src={`https://www.youtube.com/embed/${ytId}?autoplay=1`}
+              src={embed}
+              title="Vidéo exercice"
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }}
-              allow="autoplay; fullscreen"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+              allowFullScreen
             />
           </div>
         ) : (
-          <video src={url} controls autoPlay style={{ width: "100%", display: "block", maxHeight: "60vh" }} />
+          <video src={url} controls autoPlay playsInline style={{ width: "100%", display: "block", maxHeight: "60vh" }} />
         )}
       </div>
     </div>
@@ -888,6 +934,7 @@ export default function SeanceViewer({
           {/* Instructions */}
           {currentBloc.instructions && (
             <div className="font-body seance-instructions" style={{ fontSize: "0.82rem", color: "#FFFFFF", lineHeight: 1.6, marginBottom: 16, padding: "12px 14px", backgroundColor: "#111", borderRadius: 10, border: "1px solid #1a1a1a" }}
+              onClick={(e) => ouvrirVideoDepuisTexte(e, setVideoUrl)}
               dangerouslySetInnerHTML={{ __html: currentBloc.instructions }} />
           )}
 
@@ -1011,6 +1058,7 @@ export default function SeanceViewer({
                   <div style={{ padding: "0 16px 16px" }}>
                     {bloc.instructions && (
                       <div className="font-body seance-instructions" style={{ fontSize: "0.82rem", color: "#FFFFFF", lineHeight: 1.6, marginBottom: 12, padding: "10px 12px", backgroundColor: "#0D0D0D", borderRadius: 10 }}
+                        onClick={(e) => ouvrirVideoDepuisTexte(e, setVideoUrl)}
                         dangerouslySetInnerHTML={{ __html: bloc.instructions }} />
                     )}
                     {getBlocExs(bloc).length > 0 && (
