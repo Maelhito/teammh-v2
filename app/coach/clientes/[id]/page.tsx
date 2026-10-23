@@ -305,7 +305,8 @@ function SeanceEditPanel({ item, cellKey, dureeSemaines, otherInstancesCount, on
 }
 
 // ─── Modal ajout événement / tâche ────────────────────────────────────────────
-type EvTab = "evenement" | "tache";
+type EvTab = "evenement" | "seance" | "tache";
+interface SeanceOption { id: string; nom: string; type_format: string | null; duree_estimee: number | null; exercices_count: number; }
 interface TeamInfo {
   coach:     { id: string; nom: string; titre: string; lien_zoom: string | null } | null;
   nutrition: { id: string; nom: string; titre: string; lien_zoom: string | null } | null;
@@ -329,6 +330,19 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
     message: "", lien: "", rappel: false, rappel_minutes: 0,
   });
   const [tacheForm, setTacheForm] = useState({ titre: "", date: defaultDate, heure: "", rythme: "none", description: "" });
+  // Séance libre : on ne peut choisir que parmi les séances déjà créées (pas les programmes)
+  const [seances, setSeances] = useState<SeanceOption[]>([]);
+  const [seancesLoaded, setSeancesLoaded] = useState(false);
+  const [seanceSearch, setSeanceSearch] = useState("");
+  const [seanceForm, setSeanceForm] = useState({ seanceId: "", date: defaultDate, heure: "", message: "" });
+
+  useEffect(() => {
+    fetch("/api/coach/seances")
+      .then(r => r.json())
+      .then(d => setSeances(d.seances ?? []))
+      .catch(() => {})
+      .finally(() => setSeancesLoaded(true));
+  }, []);
 
   // Charge les coachs assignés à cette cliente + leur lien Zoom
   useEffect(() => {
@@ -366,15 +380,19 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
   const lbl: React.CSSProperties = { display: "block", fontSize: 10, fontWeight: 700, color: "#888", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5, fontFamily: "system-ui" };
 
   async function handleSave() {
+    const chosenSeance = seances.find(s => s.id === seanceForm.seanceId);
     const rythme = RYTHMES_TACHE.find(r => r.key === tacheForm.rythme) ?? RYTHMES_TACHE[0];
     const body = tab === "tache"
       ? { titre: tacheForm.titre, date: tacheForm.date, message: tacheForm.description || null, heure: tacheForm.heure || null, recurrence: rythme.recurrence, recurrence_intervalle: rythme.intervalle, event_type: "tache", rappel: false, rappel_minutes: 0, lien: null }
+      : tab === "seance"
+      ? { titre: chosenSeance?.nom ?? "", date: seanceForm.date, message: seanceForm.message || null, heure: seanceForm.heure || null, recurrence: "none", recurrence_intervalle: 1, event_type: "seance", rappel: false, rappel_minutes: 0, lien: null }
       : (() => {
           const { rythme: cle, ...reste } = evForm;
           const r = RYTHMES_TACHE.find(x => x.key === cle) ?? RYTHMES_TACHE[0];
           return { ...reste, recurrence: r.recurrence, recurrence_intervalle: r.intervalle, heure: evForm.heure || null, timezone: fuseauSaisie };
         })();
 
+    if (tab === "seance" && !chosenSeance) { setError("Choisis une séance"); return; }
     if (!body.titre) { setError("Titre requis"); return; }
     // Sans heure, la cliente ne voit qu'un titre sur son calendrier et son
     // accueil : c'est précisément ce qu'elle vient y chercher.
@@ -400,6 +418,7 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
 
   const TABS: { key: EvTab; label: string }[] = [
     { key: "evenement", label: "Événement" },
+    { key: "seance",    label: "Séance" },
     { key: "tache",     label: "Tâche" },
   ];
 
@@ -488,6 +507,46 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
           </div>
         )}
 
+        {tab === "seance" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <label style={lbl}>Séance *</label>
+              <input style={{ ...inp, marginBottom: 6 }} placeholder="Rechercher une séance…" value={seanceSearch} onChange={e => setSeanceSearch(e.target.value)} />
+              <div style={{ maxHeight: 200, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+                {!seancesLoaded && <p style={{ fontSize: 12, color: "#aaa", margin: 0, fontFamily: "system-ui" }}>Chargement…</p>}
+                {seancesLoaded && seances.length === 0 && (
+                  <p style={{ fontSize: 12, color: "#aaa", margin: 0, fontFamily: "system-ui" }}>Aucune séance créée pour le moment.</p>
+                )}
+                {seances
+                  .filter(s => s.nom.toLowerCase().includes(seanceSearch.trim().toLowerCase()))
+                  .map(s => {
+                    const active = seanceForm.seanceId === s.id;
+                    return (
+                      <button key={s.id} type="button" onClick={() => setSeanceForm(f => ({ ...f, seanceId: s.id }))}
+                        style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: `2px solid ${active ? EV_COLORS.seance : "#e8e8e8"}`, backgroundColor: active ? `${EV_COLORS.seance}10` : "#fafafa", cursor: "pointer", textAlign: "left" }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: active ? EV_COLORS.seance : "#555", margin: "0 0 2px", fontFamily: "system-ui" }}>{s.nom}</p>
+                        <p style={{ fontSize: 11, color: "#aaa", margin: 0, fontFamily: "system-ui" }}>
+                          {[s.type_format, s.duree_estimee ? `${s.duree_estimee} min` : null, `${s.exercices_count} exercice${s.exercices_count > 1 ? "s" : ""}`].filter(Boolean).join(" · ")}
+                        </p>
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div><label style={lbl}>Date *</label>
+                <input type="date" style={inp} value={seanceForm.date} onChange={e => setSeanceForm(f => ({ ...f, date: e.target.value }))} />
+              </div>
+              <div><label style={lbl}>Heure</label>
+                <input type="time" style={{ ...inp, color: seanceForm.heure ? "#1a1a1a" : "#bbb" }} value={seanceForm.heure} onChange={e => setSeanceForm(f => ({ ...f, heure: e.target.value }))} />
+              </div>
+            </div>
+            <div><label style={lbl}>Message</label>
+              <textarea style={{ ...inp, minHeight: 72, resize: "none" }} placeholder="Optionnel" value={seanceForm.message} onChange={e => setSeanceForm(f => ({ ...f, message: e.target.value }))} />
+            </div>
+          </div>
+        )}
+
         {tab === "tache" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div><label style={lbl}>Titre *</label>
@@ -523,7 +582,7 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
         <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
           <button onClick={onClose} style={{ flex: 1, padding: "11px", borderRadius: 8, border: "1px solid #eee", background: "#fafafa", fontSize: 13, color: "#555", cursor: "pointer", fontFamily: "system-ui" }}>Annuler</button>
           <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: "11px", borderRadius: 8, border: "none", backgroundColor: saving ? "#eee" : "#B22222", color: saving ? "#aaa" : "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "system-ui" }}>
-            {saving ? "Enregistrement…" : tab === "tache" ? "✅ Ajouter la tâche" : "✅ Créer l'événement"}
+            {saving ? "Enregistrement…" : tab === "tache" ? "✅ Ajouter la tâche" : tab === "seance" ? "✅ Ajouter la séance" : "✅ Créer l'événement"}
           </button>
         </div>
       </div>
