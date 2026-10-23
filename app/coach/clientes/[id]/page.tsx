@@ -523,8 +523,8 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
                     const active = seanceForm.seanceId === s.id;
                     return (
                       <button key={s.id} type="button" onClick={() => setSeanceForm(f => ({ ...f, seanceId: s.id }))}
-                        style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: `2px solid ${active ? EV_COLORS.seance : "#e8e8e8"}`, backgroundColor: active ? `${EV_COLORS.seance}10` : "#fafafa", cursor: "pointer", textAlign: "left" }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: active ? EV_COLORS.seance : "#555", margin: "0 0 2px", fontFamily: "system-ui" }}>{s.nom}</p>
+                        style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: `2px solid ${active ? couleurEvenement("seance") : "#e8e8e8"}`, backgroundColor: active ? `${couleurEvenement("seance")}10` : "#fafafa", cursor: "pointer", textAlign: "left" }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: active ? couleurEvenement("seance") : "#555", margin: "0 0 2px", fontFamily: "system-ui" }}>{s.nom}</p>
                         <p style={{ fontSize: 11, color: "#aaa", margin: 0, fontFamily: "system-ui" }}>
                           {[s.type_format, s.duree_estimee ? `${s.duree_estimee} min` : null, `${s.exercices_count} exercice${s.exercices_count > 1 ? "s" : ""}`].filter(Boolean).join(" · ")}
                         </p>
