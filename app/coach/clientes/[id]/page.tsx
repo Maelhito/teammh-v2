@@ -222,10 +222,10 @@ function SeanceEditPanel({ item, cellKey, dureeSemaines, otherInstancesCount, le
 
         {/* Contenu */}
         <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
-          {/* En lecture seule, tout le contenu est inerte : on regarde sans
-              risquer de croire qu'une modification a été enregistrée. */}
-          <div style={lectureSeule ? { pointerEvents: "none", opacity: 0.85 } : undefined}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+          {/* En lecture seule, les champs du haut sont inertes. L'éditeur de
+              blocs, lui, reste cliquable (défilement, onglets des blocs) : ce
+              sont ses modifications qui sont ignorées, plus bas. */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20, ...(lectureSeule ? { pointerEvents: "none", opacity: 0.85 } : {}) }}>
             {/* Nom */}
             <div style={{ gridColumn: "1 / -1" }}>
               <label style={lbl}>Nom</label>
@@ -267,7 +267,7 @@ function SeanceEditPanel({ item, cellKey, dureeSemaines, otherInstancesCount, le
           {item.type === "seance_locale" && seanceData && (
             <div>
               <p style={{ fontSize: 10, fontWeight: 700, color: "#555", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, fontFamily: "system-ui" }}>Exercices & blocs</p>
-              <SeanceBuildComp data={seanceData} onChange={setSeanceData} />
+              <SeanceBuildComp data={seanceData} onChange={lectureSeule ? () => {} : setSeanceData} />
             </div>
           )}
           {item.type === "seance" && (
@@ -277,7 +277,6 @@ function SeanceEditPanel({ item, cellKey, dureeSemaines, otherInstancesCount, le
               </p>
             </div>
           )}
-          </div>
         </div>
 
         {/* Footer */}
