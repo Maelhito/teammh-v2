@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkCoachAccess } from "@/lib/check-coach-access";
 import { coachPeutVoirCliente } from "@/lib/check-cliente-assignee";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { templateSeancesLibres } from "@/lib/seances-libres";
 import { adapterGrille, decodeAssignment, joursDeLaGrille, mappingIdentite, type AssignmentRow, type MappingJours } from "@/lib/programme-planning";
 import { programmeAcheve, totalSeancesPrevues } from "@/lib/programme-acheve";
 
@@ -118,7 +119,11 @@ export async function POST(req: NextRequest, { params }: Params) {
   // l'avance : chaque assignation a sa propre date_debut, donc sa propre fenêtre).
   // On ne met les autres en pause que si le coach le demande explicitement.
   if (mettre_en_pause_les_autres) {
-    await admin.from("client_programmes").update({ statut: "pause" }).eq("user_id", id).eq("statut", "en_cours");
+    // Les séances libres ne sont pas un programme concurrent : elles restent.
+    const libres = await templateSeancesLibres(admin);
+    let pause = admin.from("client_programmes").update({ statut: "pause" }).eq("user_id", id).eq("statut", "en_cours");
+    if (libres) pause = pause.neq("programme_id", libres);
+    await pause;
   }
 
   const { data, error } = await admin

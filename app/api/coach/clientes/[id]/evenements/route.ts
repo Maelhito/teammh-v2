@@ -5,6 +5,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { estRendezVous } from "@/lib/couleurs-calendrier";
 import { estFuseauValide, instantDepuis } from "@/lib/temps";
 import { getFuseau } from "@/lib/temps-serveur";
+import { ajouterSeanceLibre } from "@/lib/seances-libres";
+import { decodeSeance } from "@/lib/seance-format";
 import { MAX_TACHES_EN_COURS, MAX_TACHES_RECURRENTES, limiteDeVieTache, lireRythme } from "@/lib/taches";
 
 type Params = { params: Promise<{ id: string }> };
@@ -46,6 +48,36 @@ export async function POST(req: NextRequest, { params }: Params) {
   // écartent explicitement les `event_type = "seance"`. Elle datait en plus ses
   // séances avec « début + (jour - 1) », la convention erronée qu'on vient de
   // corriger dans le calendrier — un piège en attente pour la prochaine fois.
+
+  // ── Séance libre ──────────────────────────────────────────────────────────
+  // Pas une ligne calendar_events : la séance part dans la grille « Séances
+  // libres » de la cliente, pour qu'elle puisse l'ouvrir, la faire et la valider
+  // comme une séance de programme (voir lib/seances-libres).
+  if (body.event_type === "seance") {
+    const { seance_id, date } = body;
+    if (!seance_id || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return NextResponse.json({ error: "Séance et date requises" }, { status: 400 });
+    }
+    const [{ data: seance }, { data: exercices }] = await Promise.all([
+      admin.from("seances").select("*").eq("id", seance_id).single(),
+      admin
+        .from("seance_exercices")
+        .select("*, exercise:exercises(id,nom,groupe_musculaire,materiel,video_url,miniature_url)")
+        .eq("seance_id", seance_id)
+        .order("ordre"),
+    ]);
+    if (!seance) return NextResponse.json({ error: "Séance introuvable" }, { status: 404 });
+    try {
+      const placee = await ajouterSeanceLibre(admin, clientId, {
+        nom: seance.nom,
+        duree: seance.duree_estimee ?? null,
+        seanceData: decodeSeance(seance, exercices ?? []),
+      }, date);
+      return NextResponse.json({ seanceLibre: placee });
+    } catch (e) {
+      return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    }
+  }
 
   // ── Événement ou tâche unique ─────────────────────────────────────────────
   const { titre, date, heure, recurrence, message, lien, rappel, rappel_minutes, event_type } = body;

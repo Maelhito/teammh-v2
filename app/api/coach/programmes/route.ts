@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkCoachAccess, refusSiCoach } from "@/lib/check-coach-access";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { CATEGORIE_SEANCES_LIBRES } from "@/lib/seances-libres";
 
 export async function GET() {
   const user = await checkCoachAccess();
@@ -10,6 +11,8 @@ export async function GET() {
   const { data, error } = await admin
     .from("programmes")
     .select("*")
+    // Le conteneur caché des séances libres n'est pas un programme à assigner.
+    .or(`categorie.is.null,categorie.neq.${CATEGORIE_SEANCES_LIBRES}`)
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

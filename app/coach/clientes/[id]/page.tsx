@@ -312,8 +312,11 @@ interface TeamInfo {
   nutrition: { id: string; nom: string; titre: string; lien_zoom: string | null } | null;
 }
 
-function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
-  clienteId: string; defaultDate: string; onAdded: (ev: CalendarEvent) => void; onClose: () => void;
+function AddEvenementModal({ clienteId, defaultDate, onAdded, onSeanceAdded, onClose }: {
+  clienteId: string; defaultDate: string; onAdded: (ev: CalendarEvent) => void;
+  /** Une séance libre part dans la grille « Séances libres », pas dans les événements. */
+  onSeanceAdded: () => void;
+  onClose: () => void;
 }) {
   const [tab, setTab] = useState<EvTab>("evenement");
   const [saving, setSaving] = useState(false);
@@ -334,7 +337,7 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
   const [seances, setSeances] = useState<SeanceOption[]>([]);
   const [seancesLoaded, setSeancesLoaded] = useState(false);
   const [seanceSearch, setSeanceSearch] = useState("");
-  const [seanceForm, setSeanceForm] = useState({ seanceId: "", date: defaultDate, heure: "", message: "" });
+  const [seanceForm, setSeanceForm] = useState({ seanceId: "", date: defaultDate });
 
   useEffect(() => {
     fetch("/api/coach/seances")
@@ -385,7 +388,7 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
     const body = tab === "tache"
       ? { titre: tacheForm.titre, date: tacheForm.date, message: tacheForm.description || null, heure: tacheForm.heure || null, recurrence: rythme.recurrence, recurrence_intervalle: rythme.intervalle, event_type: "tache", rappel: false, rappel_minutes: 0, lien: null }
       : tab === "seance"
-      ? { titre: chosenSeance?.nom ?? "", date: seanceForm.date, message: seanceForm.message || null, heure: seanceForm.heure || null, recurrence: "none", recurrence_intervalle: 1, event_type: "seance", rappel: false, rappel_minutes: 0, lien: null }
+      ? { titre: chosenSeance?.nom ?? "", date: seanceForm.date, event_type: "seance", seance_id: chosenSeance?.id, heure: null }
       : (() => {
           const { rythme: cle, ...reste } = evForm;
           const r = RYTHMES_TACHE.find(x => x.key === cle) ?? RYTHMES_TACHE[0];
@@ -407,7 +410,8 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
     });
     if (res.ok) {
       const { event } = await res.json();
-      onAdded(event);
+      if (tab === "seance") onSeanceAdded();
+      else onAdded(event);
       onClose();
     } else {
       const d = await res.json().catch(() => ({}));
@@ -533,17 +537,12 @@ function AddEvenementModal({ clienteId, defaultDate, onAdded, onClose }: {
                   })}
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <div><label style={lbl}>Date *</label>
-                <input type="date" style={inp} value={seanceForm.date} onChange={e => setSeanceForm(f => ({ ...f, date: e.target.value }))} />
-              </div>
-              <div><label style={lbl}>Heure</label>
-                <input type="time" style={{ ...inp, color: seanceForm.heure ? "#1a1a1a" : "#bbb" }} value={seanceForm.heure} onChange={e => setSeanceForm(f => ({ ...f, heure: e.target.value }))} />
-              </div>
+            <div><label style={lbl}>Date *</label>
+              <input type="date" style={inp} value={seanceForm.date} onChange={e => setSeanceForm(f => ({ ...f, date: e.target.value }))} />
             </div>
-            <div><label style={lbl}>Message</label>
-              <textarea style={{ ...inp, minHeight: 72, resize: "none" }} placeholder="Optionnel" value={seanceForm.message} onChange={e => setSeanceForm(f => ({ ...f, message: e.target.value }))} />
-            </div>
+            <p style={{ fontSize: 11, color: "#aaa", margin: 0, fontFamily: "system-ui" }}>
+              Rangée dans « Séances libres » : la cliente la lance depuis son app, et tu peux en modifier les exercices pour elle seule.
+            </p>
           </div>
         )}
 
@@ -1934,6 +1933,7 @@ export default function ClienteFichePage() {
           clienteId={id}
           defaultDate={addEvDate}
           onAdded={(ev) => setCalEvents(prev => [...prev, ev])}
+          onSeanceAdded={loadAssignments}
           onClose={() => setShowAddEv(false)}
         />
       )}
