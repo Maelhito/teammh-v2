@@ -154,8 +154,16 @@ function buildLayers(assignments: Assignment[], gridsByAssignment: Record<string
 }
 
 // ─── Edit panel ───────────────────────────────────────────────────────────────
-function SeanceEditPanel({ item, cellKey, dureeSemaines, otherInstancesCount, onSave, onDelete, onClose }: {
+/** Programme en cours dans lequel on peut recopier une séance d'un programme terminé. */
+interface CibleCopie { assignmentId: string; nom: string; occurrences: number }
+
+function SeanceEditPanel({ item, cellKey, dureeSemaines, otherInstancesCount, lectureSeule, ciblesCopie, onCopier, onSave, onDelete, onClose }: {
   item: CellItem; cellKey: string; dureeSemaines: number; otherInstancesCount: number;
+  /** Séance d'un programme terminé : on la consulte, on ne la modifie plus. */
+  lectureSeule?: boolean;
+  /** Programmes en cours contenant une séance du même nom. */
+  ciblesCopie?: CibleCopie[];
+  onCopier?: (assignmentId: string) => void;
   onSave: (updatedItem: CellItem, newCellKey: string, applyToAll: boolean) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -202,17 +210,21 @@ function SeanceEditPanel({ item, cellKey, dureeSemaines, otherInstancesCount, on
             <p style={{ fontSize: 10, color: "#B22222", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 2px", fontFamily: "system-ui" }}>
               {item.type === "video" ? "Vidéo" : item.type === "seance" ? "Séance bibliothèque" : "Séance locale"}
               {" — "}Sem. {initSem} · {JOURS_LONG[initJour]}
+              {lectureSeule && " · programme terminé (lecture seule)"}
             </p>
             <h2 style={{ fontSize: "1.05rem", fontWeight: 800, color: "#F5F5F0", margin: 0, fontFamily: "system-ui" }}>{nom || "Sans nom"}</h2>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={onDelete} style={{ padding: "6px 12px", borderRadius: 7, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#EF4444", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>🗑 Supprimer</button>
+            {!lectureSeule && <button onClick={onDelete} style={{ padding: "6px 12px", borderRadius: 7, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#EF4444", fontSize: 11, cursor: "pointer", fontFamily: "system-ui" }}>🗑 Supprimer</button>}
             <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 7, color: "#888", fontSize: 16, cursor: "pointer", padding: "6px 12px", fontFamily: "system-ui" }}>✕</button>
           </div>
         </div>
 
         {/* Contenu */}
         <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
+          {/* En lecture seule, tout le contenu est inerte : on regarde sans
+              risquer de croire qu'une modification a été enregistrée. */}
+          <div style={lectureSeule ? { pointerEvents: "none", opacity: 0.85 } : undefined}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
             {/* Nom */}
             <div style={{ gridColumn: "1 / -1" }}>
@@ -265,11 +277,38 @@ function SeanceEditPanel({ item, cellKey, dureeSemaines, otherInstancesCount, on
               </p>
             </div>
           )}
+          </div>
         </div>
 
         {/* Footer */}
         <div style={{ padding: "14px 20px", borderTop: "1px solid #1a1a1a", flexShrink: 0 }}>
-          {otherInstancesCount > 0 ? (
+          {lectureSeule ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {item.type === "seance_locale" && (ciblesCopie ?? []).length > 0 ? (
+                <>
+                  <p style={{ fontSize: 10, color: "#888", margin: 0, fontFamily: "system-ui", textAlign: "center" }}>
+                    Reprendre ces exercices pour les séances « {nom} » d&apos;un programme en cours :
+                  </p>
+                  {ciblesCopie!.map(c => (
+                    <button key={c.assignmentId} onClick={() => onCopier?.(c.assignmentId)}
+                      style={{ width: "100%", padding: "12px", borderRadius: 9, border: "none", backgroundColor: "#B22222", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "system-ui" }}>
+                      📋 Copier dans « {c.nom} » ({c.occurrences} séance{c.occurrences > 1 ? "s" : ""})
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <p style={{ fontSize: 11, color: "#666", margin: 0, fontFamily: "system-ui", textAlign: "center" }}>
+                  {item.type === "seance_locale"
+                    ? `Aucune séance « ${nom} » dans un programme en cours : rien à recopier.`
+                    : "Programme terminé : consultation uniquement."}
+                </p>
+              )}
+              <button onClick={onClose}
+                style={{ width: "100%", padding: "11px", borderRadius: 9, border: "1px solid #2a2a2a", backgroundColor: "#161616", color: "#F5F5F0", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "system-ui" }}>
+                Fermer
+              </button>
+            </div>
+          ) : otherInstancesCount > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <p style={{ fontSize: 10, color: "#555", margin: 0, fontFamily: "system-ui", textAlign: "center" }}>
                 {otherInstancesCount} autre{otherInstancesCount > 1 ? "s" : ""} séance{otherInstancesCount > 1 ? "s" : ""} "{nom}" trouvée{otherInstancesCount > 1 ? "s" : ""} dans le programme
@@ -774,16 +813,16 @@ function MonthCalendar({ layers, today, events, seancesValidees, fuseauCliente, 
                       draggable={!layer.archive}
                       onDragStart={() => { if (cellKey && !layer.archive) dragRef.current = { assignmentId: layer.id, cellKey, itemKey: item._key }; }}
                       onDragEnd={() => setDragOver(null)}
-                      onClick={() => { if (cellKey && !layer.archive) onEditItem(layer.id, cellKey, item); }}
+                      onClick={() => { if (cellKey) onEditItem(layer.id, cellKey, item); }}
                       title={layer.nom + (validee ? " · ✓ validée par la cliente" : "") + (layer.archive
-                        ? " · Programme terminé — historique figé"
+                        ? " · Programme terminé — cliquer pour consulter"
                         : " · Cliquer pour modifier · Glisser pour déplacer")}
                       style={validee
                         // Séance validée : fond blanc cerclé de vert. Le vert du
                         // « fait » est universel, et le contour plein la distingue
                         // des séances à venir, qui n'ont qu'un liseré à gauche.
-                        ? { padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: layer.archive ? "default" : "grab", userSelect: "none", backgroundColor: "#fff", border: `1.5px solid ${COULEUR_SEANCE_VALIDEE}`, transition: "opacity 0.1s" }
-                        : { padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: layer.archive ? "default" : "grab", userSelect: "none", backgroundColor: isPast ? "#f5f5f5" : `${color}0f`, borderLeft: `2px solid ${isPast ? "#ddd" : color}`, transition: "opacity 0.1s" }}
+                        ? { padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: layer.archive ? "pointer" : "grab", userSelect: "none", backgroundColor: "#fff", border: `1.5px solid ${COULEUR_SEANCE_VALIDEE}`, transition: "opacity 0.1s" }
+                        : { padding: "3px 5px", borderRadius: 4, marginBottom: 2, cursor: layer.archive ? "pointer" : "grab", userSelect: "none", backgroundColor: isPast ? "#f5f5f5" : `${color}0f`, borderLeft: `2px solid ${isPast ? "#ddd" : color}`, transition: "opacity 0.1s" }}
                       onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.opacity = "0.75"}
                       onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.opacity = "1"}
                     >
@@ -1700,6 +1739,30 @@ export default function ClienteFichePage() {
     setEditTarget(null);
   }
 
+  /**
+   * Recopie le contenu (exercices, blocs, durée) d'une séance d'un programme
+   * terminé dans toutes les séances du même nom d'un programme en cours. Chaque
+   * séance garde sa place ; seul son contenu change.
+   */
+  function handleCopierVers(cibleId: string) {
+    if (!editTarget || editTarget.item.type !== "seance_locale") return;
+    const source = editTarget.item;
+    const name = getItemName(source);
+    const grid = gridsByAssignment[cibleId] ?? {};
+    const n = Object.values(grid).reduce((acc, items) => acc + items.filter(i => i.type === "seance_locale" && getItemName(i) === name).length, 0);
+    if (!confirm(`Remplacer les exercices des ${n} séance${n > 1 ? "s" : ""} « ${name} » par ceux de cette séance ?`)) return;
+    const newGrid: Grid = {};
+    for (const [key, items] of Object.entries(grid)) {
+      newGrid[key] = items.map(i =>
+        i.type === "seance_locale" && getItemName(i) === name
+          ? { ...i, duree: source.duree, seanceData: structuredClone(source.seanceData) }
+          : i,
+      );
+    }
+    patchGrid(cibleId, newGrid);
+    setEditTarget(null);
+  }
+
   function handleDeleteItem() {
     if (!editTarget) return;
     const { assignmentId, cellKey, item } = editTarget;
@@ -1897,6 +1960,16 @@ export default function ClienteFichePage() {
         <SeanceEditPanel
           item={editTarget.item}
           cellKey={editTarget.cellKey}
+          lectureSeule={!actifs.some(a => a.id === editTarget.assignmentId)}
+          ciblesCopie={actifs
+            .map(a => ({
+              assignmentId: a.id,
+              nom: a.programme?.nom ?? "Programme",
+              occurrences: Object.values(gridsByAssignment[a.id] ?? {}).reduce(
+                (acc, items) => acc + items.filter(i => i.type === "seance_locale" && getItemName(i) === getItemName(editTarget.item)).length, 0),
+            }))
+            .filter(c => c.occurrences > 0)}
+          onCopier={handleCopierVers}
           dureeSemaines={(() => { const a = actifs.find(a => a.id === editTarget.assignmentId); return a ? dureeAssignment(a) : 0; })()}
           otherInstancesCount={Object.entries(gridsByAssignment[editTarget.assignmentId] ?? {})
             .filter(([k]) => k !== editTarget.cellKey)
