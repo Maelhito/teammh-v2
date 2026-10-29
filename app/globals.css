@@ -28,6 +28,9 @@
   --ttl-chip: rgba(0,0,0,0.35);
   --ttl-chip-border: rgba(255,255,255,0.25);
   --ttl-veil: rgba(255,255,255,0.06);
+  --ttl-photo-border: #3A3030;
+  --ttl-photo-shadow: 0 8px 22px rgba(0,0,0,0.55);
+  --ttl-control: rgba(255,255,255,0.16);
 }
 
 /* Time To Live — mode jour, choisi par la cliente dans son profil.
@@ -49,6 +52,9 @@ html[data-ttl-theme="light"] {
   --ttl-chip: #FFFFFF;
   --ttl-chip-border: #E4DDD5;
   --ttl-veil: rgba(0,0,0,0.05);
+  --ttl-photo-border: #1A1A1A;
+  --ttl-photo-shadow: 0 6px 18px rgba(0,0,0,0.28);
+  --ttl-control: rgba(0,0,0,0.07);
   color-scheme: light;
 }
 html[data-ttl-theme="light"] body {

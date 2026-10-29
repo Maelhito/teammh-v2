@@ -294,7 +294,7 @@ function Eventail({ miniatures, onOpen }: { miniatures: string[] | null; onOpen:
                 opacity: distance > 3.5 ? Math.max(0, 4.5 - distance) : 1,
                 transition: enGeste ? "none" : `transform 0.55s cubic-bezier(.2,.9,.25,1.15) ${deploye ? 0 : distance * 45}ms, opacity 0.3s`,
                 borderRadius: 12, overflow: "hidden", background: miniatures ? "#fff" : ttlColors.card,
-                border: `1px solid ${miniatures ? "rgba(0,0,0,0.08)" : ttlColors.cardBorder}`,
+                border: `1.5px solid ${miniatures ? ttlColors.photoBorder : ttlColors.cardBorder}`,
                 boxShadow: `0 ${10 + distance * 4}px ${24 + distance * 6}px rgba(0,0,0,${0.55 - Math.min(distance, 3) * 0.08})`,
               }}
             >
@@ -346,8 +346,8 @@ type Geste =
  * Lecteur plein écran des pages de plan et des recettes, pensé pour le téléphone :
  * on pince à deux doigts pour zoomer exactement où l'on veut, on touche deux fois
  * pour zoomer / dézoomer, on se déplace d'un doigt dans la photo zoomée, et on
- * glisse pour passer à la suivante quand on n'est pas zoomé. Fond toujours noir,
- * quel que soit le mode jour / nuit : c'est une visionneuse photo.
+ * glisse pour passer à la suivante quand on n'est pas zoomé. Le fond suit le mode
+ * jour / nuit ; un contour et une ombre détachent la photo du fond.
  */
 function LecteurPages({ titre, libelle = "Page", pages, depart, onClose }: { titre: string; libelle?: string; pages: string[]; depart: number; onClose: () => void }) {
   const [page, setPage] = useState(depart);
@@ -532,13 +532,13 @@ function LecteurPages({ titre, libelle = "Page", pages, depart, onClose }: { tit
   const zoome = vue.s > 1.01;
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "#000", display: "flex", flexDirection: "column", ...protegeStyle }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 300, background: ttlColors.bg, display: "flex", flexDirection: "column", ...protegeStyle }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "14px 16px", paddingTop: "max(14px, env(safe-area-inset-top))" }}>
         <div style={{ minWidth: 0 }}>
-          <p className="font-body" style={{ color: "#fff", fontSize: 15, fontWeight: 700, margin: 0 }}>{titre}</p>
-          <p className="font-body" style={{ color: "rgba(255,255,255,0.65)", fontSize: 12, margin: 0 }}>{libelle} {page + 1} / {pages.length}</p>
+          <p className="font-body" style={{ color: ttlColors.text, fontSize: 15, fontWeight: 700, margin: 0 }}>{titre}</p>
+          <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: 0 }}>{libelle} {page + 1} / {pages.length}</p>
         </div>
-        <button onClick={onClose} aria-label="Fermer" style={{ width: 44, height: 44, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.16)", color: "#fff", fontSize: 18, cursor: "pointer", flexShrink: 0 }}>✕</button>
+        <button onClick={onClose} aria-label="Fermer" style={{ width: 44, height: 44, borderRadius: "50%", border: "none", background: ttlColors.control, color: ttlColors.text, fontSize: 18, cursor: "pointer", flexShrink: 0 }}>✕</button>
       </div>
 
       <div
@@ -561,7 +561,7 @@ function LecteurPages({ titre, libelle = "Page", pages, depart, onClose }: { tit
               {Math.abs(i - page) <= 1 && (
                 <div
                   style={{
-                    position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                    position: "absolute", inset: 0, padding: 14, display: "flex", alignItems: "center", justifyContent: "center",
                     transform: i === page ? `translate(${vue.x}px, ${vue.y}px) scale(${vue.s})` : undefined,
                     transition: anime ? "transform 0.25s ease" : "none",
                     willChange: "transform",
@@ -572,7 +572,7 @@ function LecteurPages({ titre, libelle = "Page", pages, depart, onClose }: { tit
                     alt={`${libelle} ${i + 1}`}
                     onLoad={(e) => { const im = e.currentTarget; tailles.current.set(i, { w: im.naturalWidth, h: im.naturalHeight }); }}
                     {...protegeImage}
-                    style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", pointerEvents: "none", ...protegeStyle }}
+                    style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", border: `1.5px solid ${ttlColors.photoBorder}`, borderRadius: 8, boxShadow: ttlColors.photoShadow, pointerEvents: "none", ...protegeStyle }}
                   />
                 </div>
               )}
@@ -582,14 +582,14 @@ function LecteurPages({ titre, libelle = "Page", pages, depart, onClose }: { tit
       </div>
 
       <div style={{ padding: "10px 16px", paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-        <p className="font-body" style={{ color: "rgba(255,255,255,0.75)", fontSize: 12.5, margin: "0 0 10px", textAlign: "center" }}>
+        <p className="font-body" style={{ color: ttlColors.textSoft, fontSize: 12.5, margin: "0 0 10px", textAlign: "center" }}>
           {zoome ? "Déplace-toi avec un doigt · touche 2 fois pour revenir" : "Pince avec 2 doigts ou touche 2 fois pour zoomer"}
         </p>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
           <button onClick={() => changerPage(page - 1)} disabled={page === 0} aria-label="Précédente" style={{ ...flecheStyle, opacity: page === 0 ? 0.3 : 1 }}>‹</button>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button onClick={() => zoomBouton(1 / 1.6)} disabled={!zoome} aria-label="Dézoomer" style={{ ...flecheStyle, opacity: zoome ? 1 : 0.3 }}>−</button>
-            <span className="font-body" style={{ color: "#fff", fontSize: 13, fontWeight: 700, minWidth: 48, textAlign: "center" }}>{Math.round(vue.s * 100)} %</span>
+            <span className="font-body" style={{ color: ttlColors.text, fontSize: 13, fontWeight: 700, minWidth: 48, textAlign: "center" }}>{Math.round(vue.s * 100)} %</span>
             <button onClick={() => zoomBouton(1.6)} disabled={vue.s >= ZOOM_MAX} aria-label="Zoomer" style={{ ...flecheStyle, opacity: vue.s >= ZOOM_MAX ? 0.3 : 1 }}>+</button>
           </div>
           <button onClick={() => changerPage(page + 1)} disabled={page === pages.length - 1} aria-label="Suivante" style={{ ...flecheStyle, opacity: page === pages.length - 1 ? 0.3 : 1 }}>›</button>
@@ -600,7 +600,7 @@ function LecteurPages({ titre, libelle = "Page", pages, depart, onClose }: { tit
 }
 
 const flecheStyle: React.CSSProperties = {
-  width: 44, height: 44, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.16)", color: "#fff", fontSize: 24, lineHeight: 1, cursor: "pointer", flexShrink: 0,
+  width: 44, height: 44, borderRadius: "50%", border: "none", background: ttlColors.control, color: ttlColors.text, fontSize: 24, lineHeight: 1, cursor: "pointer", flexShrink: 0,
 };
 
 /* ------------------------------------------------------------------ */
@@ -668,7 +668,7 @@ function PanneauRecettes({ recettes, recetteInitiale }: { recettes: TtlRecette[]
             key={r.id}
             onClick={() => setOuverte(i)}
             aria-label={r.titre}
-            style={{ position: "relative", display: "block", width: "100%", padding: 0, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 14, overflow: "hidden", background: ttlColors.card, cursor: "zoom-in", aspectRatio: "1500 / 1054" }}
+            style={{ position: "relative", display: "block", width: "100%", padding: 0, border: `1.5px solid ${ttlColors.photoBorder}`, boxShadow: ttlColors.photoShadow, borderRadius: 14, overflow: "hidden", background: ttlColors.card, cursor: "zoom-in", aspectRatio: "1500 / 1054" }}
           >
             <img
               src={r.miniature_url ?? r.photo_url}

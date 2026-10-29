@@ -31,6 +31,11 @@ export const ttlColors = {
   chipBorder: "var(--ttl-chip-border)",
   /** Voile léger pour un élément « déjà fait ». */
   veil: "var(--ttl-veil)",
+  /** Contour et ombre des photos de recettes et des pages de plan, pour qu'elles ressortent du fond. */
+  photoBorder: "var(--ttl-photo-border)",
+  photoShadow: "var(--ttl-photo-shadow)",
+  /** Fond des boutons ronds de la visionneuse. */
+  control: "var(--ttl-control)",
 };
 
 export const ttlHeaderGradient = `linear-gradient(135deg, ${ttlColors.red} 0%, ${ttlColors.redDark} 100%)`;

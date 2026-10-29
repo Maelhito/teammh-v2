@@ -6,6 +6,7 @@ import TtlHeader from "@/components/TtlHeader";
 import TtlBottomNav from "@/components/TtlBottomNav";
 import PreviewBanner from "@/components/PreviewBanner";
 import TtlAlimentation from "./TtlAlimentation";
+import { ttlColors } from "@/lib/ttl-theme";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function TtlAlimentationPage({ searchParams }: { searchPara
   const [plans, recettes] = await Promise.all([getPlansAlimentaires(), getRecettes()]);
 
   return (
-    <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 100 }}>
+    <div style={{ backgroundColor: ttlColors.bg, minHeight: "100vh", paddingBottom: 100 }}>
       {isPreview && <PreviewBanner name={firstName} />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>
