@@ -144,7 +144,7 @@ export default function TtlSport({ current, programmes, seancesProgress, initial
 
       {programmes.length > 0 && (
         <>
-          <p className="font-body" style={{ color: "#fff", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", margin: "28px 0 4px" }}>CHOISIR SON PROGRAMME</p>
+          <p className="font-body" style={{ color: ttlColors.text, fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", margin: "28px 0 4px" }}>CHOISIR SON PROGRAMME</p>
           <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: "0 0 12px" }}>
             Envie de refaire un programme ? Choisis-le pour tes 4 semaines en cours.
           </p>
@@ -156,7 +156,7 @@ export default function TtlSport({ current, programmes, seancesProgress, initial
                 <button
                   onClick={() => setOpenProgramme(isOpen ? null : p.id)}
                   className="font-body"
-                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: 10, background: "none", border: "none", cursor: "pointer", color: "#fff", fontSize: 14, fontWeight: 600, textAlign: "left" }}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: 10, background: "none", border: "none", cursor: "pointer", color: ttlColors.text, fontSize: 14, fontWeight: 600, textAlign: "left" }}
                 >
                   <span
                     style={{
@@ -230,7 +230,7 @@ function TtlVideoCard({ video, onClick }: { video: TtlProgrammeVideo; onClick: (
         </div>
       </div>
       <div style={{ padding: "12px 14px" }}>
-        <p className="font-body" style={{ color: "#fff", fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>{video.titre}</p>
+        <p className="font-body" style={{ color: ttlColors.text, fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>{video.titre}</p>
         <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: 0 }}>
           {video.materiel.length ? video.materiel.join(", ") : "Aucun matériel"}
         </p>
@@ -273,7 +273,7 @@ function TtlSeanceCard({ video, isValidated, isPending, onOpen, onValidate, onRe
           </div>
         </div>
         <div style={{ padding: "12px 14px 8px" }}>
-          <p className="font-body" style={{ color: "#fff", fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>{video.titre}</p>
+          <p className="font-body" style={{ color: ttlColors.text, fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>{video.titre}</p>
           <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: 0 }}>
             {video.materiel.length ? video.materiel.join(", ") : "Aucun matériel"}
           </p>

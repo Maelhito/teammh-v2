@@ -10,6 +10,50 @@
 
   --font-title: var(--font-bebas);
   --font-body:  var(--font-dm-sans);
+
+  /* Time To Live — mode nuit (par défaut) */
+  --ttl-bg: #0D0D0D;
+  --ttl-card: #1A1414;
+  --ttl-card-border: #2A2020;
+  --ttl-surface: #111111;
+  --ttl-surface-border: #1a1a1a;
+  --ttl-red-bright: #E63946;
+  --ttl-text: #FFFFFF;
+  --ttl-off-white: #F5F5F0;
+  --ttl-text-soft: #CFC8C0;
+  --ttl-muted: #8A8078;
+  --ttl-green: #4ADE80;
+  --ttl-error: #F87171;
+  --ttl-ice: #8EC9E8;
+  --ttl-chip: rgba(0,0,0,0.35);
+  --ttl-chip-border: rgba(255,255,255,0.25);
+  --ttl-veil: rgba(255,255,255,0.06);
+}
+
+/* Time To Live — mode jour, choisi par la cliente dans son profil.
+   Contrastes vérifiés : chaque texte reste au-dessus de 4,5:1 sur son fond. */
+html[data-ttl-theme="light"] {
+  --ttl-bg: #F4F1EC;
+  --ttl-card: #FFFFFF;
+  --ttl-card-border: #E4DDD5;
+  --ttl-surface: #FFFFFF;
+  --ttl-surface-border: #E4DDD5;
+  --ttl-red-bright: #C62828;
+  --ttl-text: #1A1A1A;
+  --ttl-off-white: #2A2522;
+  --ttl-text-soft: #4A423C;
+  --ttl-muted: #6B625B;
+  --ttl-green: #15803D;
+  --ttl-error: #B91C1C;
+  --ttl-ice: #1F6F99;
+  --ttl-chip: #FFFFFF;
+  --ttl-chip-border: #E4DDD5;
+  --ttl-veil: rgba(0,0,0,0.05);
+  color-scheme: light;
+}
+html[data-ttl-theme="light"] body {
+  background-color: var(--ttl-bg);
+  color: var(--ttl-text);
 }
 
 * {

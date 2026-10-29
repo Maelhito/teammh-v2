@@ -161,7 +161,7 @@ function PanneauPlans({ plans }: { plans: TtlPlanAlimentaire[] }) {
       {choisi && (
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-            <p className="font-body" style={{ color: "#fff", fontSize: 16, fontWeight: 700, margin: 0 }}>Plan N°{choisi.numero} · {formatKcal(choisi.calories)}</p>
+            <p className="font-body" style={{ color: ttlColors.text, fontSize: 16, fontWeight: 700, margin: 0 }}>Plan N°{choisi.numero} · {formatKcal(choisi.calories)}</p>
             <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: 0 }}>{choisi.nb_pages} pages</p>
           </div>
 
@@ -208,7 +208,8 @@ function Eventail({ miniatures, onOpen }: { miniatures: string[] | null; onOpen:
   useLayoutEffect(() => {
     const el = conteneur.current;
     if (!el) return;
-    const observer = new ResizeObserver(() => setLargeur(el.clientWidth));
+    // Onglet masqué (display: none) : largeur 0, on garde la dernière connue.
+    const observer = new ResizeObserver(() => { if (el.clientWidth > 0) setLargeur(el.clientWidth); });
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
@@ -317,7 +318,7 @@ function Eventail({ miniatures, onOpen }: { miniatures: string[] | null; onOpen:
       <div style={{ padding: "0 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <button onClick={() => aller(courant - 1)} disabled={courant === 0 || !miniatures} aria-label="Page précédente" style={{ ...flechePetiteStyle, opacity: courant === 0 ? 0.3 : 1 }}>‹</button>
         <div style={{ textAlign: "center" }}>
-          <p className="font-body" style={{ color: "#fff", fontSize: 13, fontWeight: 700, margin: 0 }}>
+          <p className="font-body" style={{ color: ttlColors.text, fontSize: 13, fontWeight: 700, margin: 0 }}>
             {miniatures ? `Page ${courant + 1} / ${total}` : " "}
           </p>
           <p className="font-body" style={{ color: ttlColors.muted, fontSize: 11, margin: "2px 0 0" }}>Glisse pour feuilleter · touche pour agrandir</p>
@@ -329,17 +330,38 @@ function Eventail({ miniatures, onOpen }: { miniatures: string[] | null; onOpen:
 }
 
 const flechePetiteStyle: React.CSSProperties = {
-  width: 38, height: 38, borderRadius: "50%", border: `1px solid ${ttlColors.cardBorder}`, background: ttlColors.card, color: "#fff", fontSize: 20, cursor: "pointer", flexShrink: 0,
+  width: 38, height: 38, borderRadius: "50%", border: `1px solid ${ttlColors.cardBorder}`, background: ttlColors.card, color: ttlColors.text, fontSize: 20, cursor: "pointer", flexShrink: 0,
 };
 
+const ZOOM_MAX = 5;
+const ZOOM_DOUBLE_TOUCHE = 2.5;
+
+type Vue = { s: number; x: number; y: number };
+type Point = { x: number; y: number };
+type Geste =
+  | { type: "pince"; d0: number; s0: number; ancre: Point }
+  | { type: "doigt"; depart: Point; vue0: Vue; debut: number; bouge: boolean };
+
+/**
+ * Lecteur plein écran des pages de plan et des recettes, pensé pour le téléphone :
+ * on pince à deux doigts pour zoomer exactement où l'on veut, on touche deux fois
+ * pour zoomer / dézoomer, on se déplace d'un doigt dans la photo zoomée, et on
+ * glisse pour passer à la suivante quand on n'est pas zoomé. Fond toujours noir,
+ * quel que soit le mode jour / nuit : c'est une visionneuse photo.
+ */
 function LecteurPages({ titre, libelle = "Page", pages, depart, onClose }: { titre: string; libelle?: string; pages: string[]; depart: number; onClose: () => void }) {
   const [page, setPage] = useState(depart);
-  const [zoom, setZoom] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useLayoutEffect(() => {
-    if (ref.current) ref.current.scrollLeft = depart * ref.current.clientWidth;
-  }, [depart]);
+  const [vue, setVueAffichee] = useState<Vue>({ s: 1, x: 0, y: 0 });
+  const [glisse, setGlisseAffiche] = useState(0);
+  const glisseRef = useRef(0);
+  const [anime, setAnime] = useState(false);
+  const scene = useRef<HTMLDivElement>(null);
+  const vueRef = useRef<Vue>({ s: 1, x: 0, y: 0 });
+  const tailles = useRef(new Map<number, { w: number; h: number }>());
+  const pointeurs = useRef(new Map<number, Point>());
+  const geste = useRef<Geste | null>(null);
+  const dernierTap = useRef<{ t: number; p: Point } | null>(null);
+  const pageRef = useRef(depart);
 
   useEffect(() => {
     const precedent = document.body.style.overflow;
@@ -347,65 +369,238 @@ function LecteurPages({ titre, libelle = "Page", pages, depart, onClose }: { tit
     return () => { document.body.style.overflow = precedent; };
   }, []);
 
-  function onScroll() {
-    const el = ref.current;
-    if (!el || zoom) return;
-    setPage(Math.round(el.scrollLeft / el.clientWidth));
+  // Safari zoome toute la page au pincement si on ne l'en empêche pas.
+  useEffect(() => {
+    const el = scene.current;
+    if (!el) return;
+    const bloquer = (e: Event) => e.preventDefault();
+    el.addEventListener("gesturestart", bloquer);
+    el.addEventListener("gesturechange", bloquer);
+    return () => {
+      el.removeEventListener("gesturestart", bloquer);
+      el.removeEventListener("gesturechange", bloquer);
+    };
+  }, []);
+
+  useEffect(() => {
+    function clavier(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft") changerPage(pageRef.current - 1);
+      else if (e.key === "ArrowRight") changerPage(pageRef.current + 1);
+    }
+    window.addEventListener("keydown", clavier);
+    return () => window.removeEventListener("keydown", clavier);
+  });
+
+  /** Repère centré sur la scène : (0, 0) est le milieu de l'écran photo. */
+  function setGlisse(dx: number) {
+    glisseRef.current = dx;
+    setGlisseAffiche(dx);
   }
 
-  function changerPage(delta: number) {
-    const el = ref.current;
-    const cible = page + delta;
-    if (!el || cible < 0 || cible >= pages.length) return;
-    setZoom(false);
-    el.scrollTo({ left: cible * el.clientWidth, behavior: "smooth" });
+  function versScene(clientX: number, clientY: number): Point {
+    const r = scene.current!.getBoundingClientRect();
+    return { x: clientX - r.left - r.width / 2, y: clientY - r.top - r.height / 2 };
   }
+
+  /** Applique un zoom en empêchant la photo de sortir de l'écran. */
+  function poser(v: Vue) {
+    const el = scene.current;
+    const s = Math.min(ZOOM_MAX, Math.max(1, v.s));
+    let { x, y } = v;
+    const taille = tailles.current.get(pageRef.current);
+    if (el && taille) {
+      const W = el.clientWidth, H = el.clientHeight;
+      const k = Math.min(W / taille.w, H / taille.h);
+      const mx = Math.max(0, (taille.w * k * s - W) / 2);
+      const my = Math.max(0, (taille.h * k * s - H) / 2);
+      x = Math.min(mx, Math.max(-mx, x));
+      y = Math.min(my, Math.max(-my, y));
+    }
+    if (s === 1) { x = 0; y = 0; }
+    vueRef.current = { s, x, y };
+    setVueAffichee(vueRef.current);
+  }
+
+  /** Zoome d'un facteur en gardant fixe le point p de l'écran. */
+  function zoomerVers(s: number, p: Point) {
+    const v = vueRef.current;
+    const ancre = { x: (p.x - v.x) / v.s, y: (p.y - v.y) / v.s };
+    poser({ s, x: p.x - ancre.x * s, y: p.y - ancre.y * s });
+  }
+
+  function changerPage(cible: number) {
+    if (cible < 0 || cible >= pages.length) return;
+    setAnime(true);
+    setPage(cible);
+    pageRef.current = cible;
+    poser({ s: 1, x: 0, y: 0 });
+  }
+
+  function onPointerDown(e: React.PointerEvent) {
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* doigt déjà levé */ }
+    pointeurs.current.set(e.pointerId, versScene(e.clientX, e.clientY));
+    setAnime(false);
+    const pts = [...pointeurs.current.values()];
+    const v = vueRef.current;
+    if (pts.length >= 2) {
+      const [a, b] = pts;
+      const milieu = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      setGlisse(0);
+      geste.current = { type: "pince", d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, s0: v.s, ancre: { x: (milieu.x - v.x) / v.s, y: (milieu.y - v.y) / v.s } };
+    } else {
+      geste.current = { type: "doigt", depart: pts[0], vue0: v, debut: Date.now(), bouge: false };
+    }
+  }
+
+  function onPointerMove(e: React.PointerEvent) {
+    if (!pointeurs.current.has(e.pointerId)) return;
+    pointeurs.current.set(e.pointerId, versScene(e.clientX, e.clientY));
+    const g = geste.current;
+    if (!g) return;
+    const pts = [...pointeurs.current.values()];
+
+    if (g.type === "pince" && pts.length >= 2) {
+      const [a, b] = pts;
+      const milieu = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const s = Math.min(ZOOM_MAX, Math.max(1, g.s0 * Math.hypot(a.x - b.x, a.y - b.y) / g.d0));
+      poser({ s, x: milieu.x - g.ancre.x * s, y: milieu.y - g.ancre.y * s });
+    } else if (g.type === "doigt") {
+      const p = pts[0];
+      const dx = p.x - g.depart.x, dy = p.y - g.depart.y;
+      if (Math.hypot(dx, dy) > 8) g.bouge = true;
+      if (!g.bouge) return;
+      if (g.vue0.s > 1) {
+        poser({ s: g.vue0.s, x: g.vue0.x + dx, y: g.vue0.y + dy });
+      } else {
+        // Au bord (première / dernière photo), le glissement résiste.
+        const auBord = (pageRef.current === 0 && dx > 0) || (pageRef.current === pages.length - 1 && dx < 0);
+        setGlisse(auBord ? dx / 3 : dx);
+      }
+    }
+  }
+
+  function onPointerUp(e: React.PointerEvent) {
+    if (!pointeurs.current.delete(e.pointerId)) return;
+    const g = geste.current;
+    const restants = [...pointeurs.current.values()];
+
+    // On lève un doigt d'un pincement : l'autre continue à déplacer la photo.
+    if (restants.length === 1) {
+      geste.current = { type: "doigt", depart: restants[0], vue0: vueRef.current, debut: 0, bouge: true };
+      return;
+    }
+    if (restants.length > 0) return;
+    geste.current = null;
+    setAnime(true);
+
+    if (g?.type === "doigt" && !g.bouge && Date.now() - g.debut < 300) {
+      const p = versScene(e.clientX, e.clientY);
+      const avant = dernierTap.current;
+      if (avant && Date.now() - avant.t < 350 && Math.hypot(p.x - avant.p.x, p.y - avant.p.y) < 40) {
+        dernierTap.current = null;
+        if (vueRef.current.s > 1) poser({ s: 1, x: 0, y: 0 });
+        else zoomerVers(ZOOM_DOUBLE_TOUCHE, p);
+      } else {
+        dernierTap.current = { t: Date.now(), p };
+      }
+      return;
+    }
+
+    if (g?.type === "doigt" && g.vue0.s <= 1 && scene.current) {
+      const seuil = scene.current.clientWidth * 0.15;
+      if (glisseRef.current < -seuil) changerPage(pageRef.current + 1);
+      else if (glisseRef.current > seuil) changerPage(pageRef.current - 1);
+    }
+    setGlisse(0);
+  }
+
+  function onPointerCancel(e: React.PointerEvent) {
+    pointeurs.current.delete(e.pointerId);
+    if (pointeurs.current.size === 0) {
+      geste.current = null;
+      setAnime(true);
+      setGlisse(0);
+    }
+  }
+
+  function zoomBouton(facteur: number) {
+    setAnime(true);
+    zoomerVers(vueRef.current.s * facteur, { x: 0, y: 0 });
+  }
+
+  const zoome = vue.s > 1.01;
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "#000", display: "flex", flexDirection: "column", ...protegeStyle }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", paddingTop: "max(14px, env(safe-area-inset-top))" }}>
-        <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "14px 16px", paddingTop: "max(14px, env(safe-area-inset-top))" }}>
+        <div style={{ minWidth: 0 }}>
           <p className="font-body" style={{ color: "#fff", fontSize: 15, fontWeight: 700, margin: 0 }}>{titre}</p>
-          <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: 0 }}>{libelle} {page + 1} / {pages.length}</p>
+          <p className="font-body" style={{ color: "rgba(255,255,255,0.65)", fontSize: 12, margin: 0 }}>{libelle} {page + 1} / {pages.length}</p>
         </div>
-        <button onClick={onClose} aria-label="Fermer" style={{ width: 40, height: 40, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: 18, cursor: "pointer" }}>✕</button>
+        <button onClick={onClose} aria-label="Fermer" style={{ width: 44, height: 44, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.16)", color: "#fff", fontSize: 18, cursor: "pointer", flexShrink: 0 }}>✕</button>
       </div>
 
       <div
-        ref={ref}
-        onScroll={onScroll}
-        className="ttl-alim-slider"
-        style={{ flex: 1, display: "flex", overflowX: zoom ? "hidden" : "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", minHeight: 0 }}
+        ref={scene}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden", touchAction: "none", cursor: zoome ? "grab" : "zoom-in" }}
       >
-        {pages.map((url, i) => (
-          <div key={url} style={{ flex: "0 0 100%", scrollSnapAlign: "center", overflow: zoom && i === page ? "auto" : "hidden", display: "flex", alignItems: zoom && i === page ? "flex-start" : "center", justifyContent: zoom && i === page ? "flex-start" : "center" }}>
-            <img
-              src={url}
-              alt={`Page ${i + 1}`}
-              onClick={() => setZoom((z) => !z)}
-              loading={Math.abs(i - depart) <= 1 ? "eager" : "lazy"}
-              {...protegeImage}
-              style={zoom && i === page
-                ? { width: "240%", maxWidth: "none", height: "auto", cursor: "zoom-out", ...protegeStyle }
-                : { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", cursor: "zoom-in", ...protegeStyle }}
-            />
-          </div>
-        ))}
+        <div
+          style={{
+            display: "flex", width: "100%", height: "100%",
+            transform: `translateX(calc(${-page * 100}% + ${glisse}px))`,
+            transition: anime ? "transform 0.3s ease" : "none",
+          }}
+        >
+          {pages.map((url, i) => (
+            <div key={url} style={{ flex: "0 0 100%", height: "100%", position: "relative", overflow: "hidden" }}>
+              {Math.abs(i - page) <= 1 && (
+                <div
+                  style={{
+                    position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                    transform: i === page ? `translate(${vue.x}px, ${vue.y}px) scale(${vue.s})` : undefined,
+                    transition: anime ? "transform 0.25s ease" : "none",
+                    willChange: "transform",
+                  }}
+                >
+                  <img
+                    src={url}
+                    alt={`${libelle} ${i + 1}`}
+                    onLoad={(e) => { const im = e.currentTarget; tailles.current.set(i, { w: im.naturalWidth, h: im.naturalHeight }); }}
+                    {...protegeImage}
+                    style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", pointerEvents: "none", ...protegeStyle }}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", paddingBottom: "max(12px, env(safe-area-inset-bottom))", gap: 10 }}>
-        <button onClick={() => changerPage(-1)} disabled={page === 0} style={{ ...flecheStyle, opacity: page === 0 ? 0.3 : 1 }}>‹</button>
-        <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: 0, textAlign: "center" }}>
-          {zoom ? "Touche la page pour dézoomer" : "Glisse pour tourner · touche pour zoomer"}
+      <div style={{ padding: "10px 16px", paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+        <p className="font-body" style={{ color: "rgba(255,255,255,0.75)", fontSize: 12.5, margin: "0 0 10px", textAlign: "center" }}>
+          {zoome ? "Déplace-toi avec un doigt · touche 2 fois pour revenir" : "Pince avec 2 doigts ou touche 2 fois pour zoomer"}
         </p>
-        <button onClick={() => changerPage(1)} disabled={page === pages.length - 1} style={{ ...flecheStyle, opacity: page === pages.length - 1 ? 0.3 : 1 }}>›</button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <button onClick={() => changerPage(page - 1)} disabled={page === 0} aria-label="Précédente" style={{ ...flecheStyle, opacity: page === 0 ? 0.3 : 1 }}>‹</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={() => zoomBouton(1 / 1.6)} disabled={!zoome} aria-label="Dézoomer" style={{ ...flecheStyle, opacity: zoome ? 1 : 0.3 }}>−</button>
+            <span className="font-body" style={{ color: "#fff", fontSize: 13, fontWeight: 700, minWidth: 48, textAlign: "center" }}>{Math.round(vue.s * 100)} %</span>
+            <button onClick={() => zoomBouton(1.6)} disabled={vue.s >= ZOOM_MAX} aria-label="Zoomer" style={{ ...flecheStyle, opacity: vue.s >= ZOOM_MAX ? 0.3 : 1 }}>+</button>
+          </div>
+          <button onClick={() => changerPage(page + 1)} disabled={page === pages.length - 1} aria-label="Suivante" style={{ ...flecheStyle, opacity: page === pages.length - 1 ? 0.3 : 1 }}>›</button>
+        </div>
       </div>
     </div>
   );
 }
 
 const flecheStyle: React.CSSProperties = {
-  width: 44, height: 44, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: 24, cursor: "pointer", flexShrink: 0,
+  width: 44, height: 44, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.16)", color: "#fff", fontSize: 24, lineHeight: 1, cursor: "pointer", flexShrink: 0,
 };
 
 /* ------------------------------------------------------------------ */
@@ -473,7 +668,7 @@ function PanneauRecettes({ recettes, recetteInitiale }: { recettes: TtlRecette[]
             key={r.id}
             onClick={() => setOuverte(i)}
             aria-label={r.titre}
-            style={{ display: "block", width: "100%", padding: 0, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 14, overflow: "hidden", background: ttlColors.card, cursor: "zoom-in", aspectRatio: "1500 / 1054" }}
+            style={{ position: "relative", display: "block", width: "100%", padding: 0, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 14, overflow: "hidden", background: ttlColors.card, cursor: "zoom-in", aspectRatio: "1500 / 1054" }}
           >
             <img
               src={r.miniature_url ?? r.photo_url}
@@ -482,6 +677,13 @@ function PanneauRecettes({ recettes, recetteInitiale }: { recettes: TtlRecette[]
               {...protegeImage}
               style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", ...protegeStyle }}
             />
+            {/* Sans ce repère, les clientes ne devinaient pas qu'on peut ouvrir la recette en grand. */}
+            <span
+              className="font-body"
+              style={{ position: "absolute", right: 10, bottom: 10, display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,0.72)", color: "#fff", fontSize: 12.5, fontWeight: 700, padding: "7px 12px", borderRadius: 20, pointerEvents: "none" }}
+            >
+              🔍 Agrandir
+            </span>
           </button>
         ))}
       </div>

@@ -40,7 +40,7 @@ export default function TtlManageSubscriptionButton() {
           background: ttlColors.card,
           border: `1px solid ${ttlColors.cardBorder}`,
           borderRadius: 16,
-          color: "#fff",
+          color: ttlColors.text,
           fontSize: 14,
           fontWeight: 600,
           cursor: loading ? "not-allowed" : "pointer",

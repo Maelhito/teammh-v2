@@ -54,7 +54,7 @@ export default function TtlVideoModal({
         style={{ backgroundColor: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, maxWidth: 480, width: "100%", maxHeight: "90vh", overflowY: "auto", padding: 16 }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 12 }}>
-          <p className="font-body" style={{ margin: 0, fontWeight: 700, color: "#fff", fontSize: "0.95rem" }}>{titre}</p>
+          <p className="font-body" style={{ margin: 0, fontWeight: 700, color: ttlColors.text, fontSize: "0.95rem" }}>{titre}</p>
           <button onClick={onClose} style={{ background: "none", border: "none", color: ttlColors.muted, fontSize: 20, cursor: "pointer", flexShrink: 0 }}>✕</button>
         </div>
 
@@ -72,13 +72,13 @@ export default function TtlVideoModal({
         )}
 
         {description && (
-          <p className="font-body" style={{ marginTop: 14, fontSize: "0.82rem", color: "rgba(245,245,240,0.75)", lineHeight: 1.5 }}>{description}</p>
+          <p className="font-body" style={{ marginTop: 14, fontSize: "0.82rem", color: ttlColors.textSoft, lineHeight: 1.5 }}>{description}</p>
         )}
 
         {materiel && materiel.length > 0 && (
           <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 6 }}>
             {materiel.map((m, i) => (
-              <span key={i} className="font-body" style={{ fontSize: "0.7rem", color: "#F5F5F0", backgroundColor: ttlColors.bg, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 20, padding: "4px 10px" }}>
+              <span key={i} className="font-body" style={{ fontSize: "0.7rem", color: ttlColors.offWhite, backgroundColor: ttlColors.bg, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 20, padding: "4px 10px" }}>
                 {m}
               </span>
             ))}

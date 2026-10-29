@@ -115,7 +115,7 @@ export default function InstallAppBanner() {
         <div style={{ display: "flex", alignItems: "flex-start", gap: 11 }}>
           <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1.2 }}>📲</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p className="font-body" style={{ color: "#fff", fontSize: 13.5, fontWeight: 700, margin: "0 0 3px", lineHeight: 1.3 }}>
+            <p className="font-body" style={{ color: ttlColors.text, fontSize: 13.5, fontWeight: 700, margin: "0 0 3px", lineHeight: 1.3 }}>
               Garde l&apos;app sur ton écran d&apos;accueil
             </p>
             <p className="font-body" style={{ color: ttlColors.muted, fontSize: 11.5, margin: 0, lineHeight: 1.4 }}>
@@ -188,19 +188,19 @@ export default function InstallAppBanner() {
 
             {contexte === "navigateur-integre" ? (
               <>
-                <p className="font-body" style={{ color: "#fff", fontSize: 16, fontWeight: 700, margin: "0 0 10px" }}>
+                <p className="font-body" style={{ color: ttlColors.text, fontSize: 16, fontWeight: 700, margin: "0 0 10px" }}>
                   Ouvre d&apos;abord dans ton navigateur
                 </p>
                 <p className="font-body" style={{ color: ttlColors.muted, fontSize: 13.5, lineHeight: 1.6, margin: "0 0 18px" }}>
                   Tu es dans le navigateur d&apos;Instagram ou Facebook : l&apos;installation n&apos;y est pas
-                  possible. Appuie sur les trois points <b style={{ color: "#fff" }}>···</b> en haut à droite,
-                  puis sur <b style={{ color: "#fff" }}>« Ouvrir dans le navigateur »</b> (Safari ou Chrome).
+                  possible. Appuie sur les trois points <b style={{ color: ttlColors.text }}>···</b> en haut à droite,
+                  puis sur <b style={{ color: ttlColors.text }}>« Ouvrir dans le navigateur »</b> (Safari ou Chrome).
                   Une fois là-bas, reviens ici et le bouton fonctionnera.
                 </p>
               </>
             ) : contexte === "ios" ? (
               <>
-                <p className="font-body" style={{ color: "#fff", fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>
+                <p className="font-body" style={{ color: ttlColors.text, fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>
                   Deux gestes, et c&apos;est fait
                 </p>
                 <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12.5, margin: "0 0 18px" }}>
@@ -214,29 +214,29 @@ export default function InstallAppBanner() {
                       <path d="M5.5 6.5 10 2l4.5 4.5" />
                       <path d="M4 12v9h12v-9" />
                     </svg>
-                    <b style={{ color: "#fff" }}>Partager</b>
+                    <b style={{ color: ttlColors.text }}>Partager</b>
                   </span>{" "}
                   en bas de Safari.
                 </Etape>
                 <Etape numero="2">
-                  Descends et choisis <b style={{ color: "#fff" }}>« Sur l&apos;écran d&apos;accueil »</b>, puis
-                  <b style={{ color: "#fff" }}> Ajouter</b>.
+                  Descends et choisis <b style={{ color: ttlColors.text }}>« Sur l&apos;écran d&apos;accueil »</b>, puis
+                  <b style={{ color: ttlColors.text }}> Ajouter</b>.
                 </Etape>
               </>
             ) : (
               <>
-                <p className="font-body" style={{ color: "#fff", fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>
+                <p className="font-body" style={{ color: ttlColors.text, fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>
                   Ajoute l&apos;app à ton écran d&apos;accueil
                 </p>
                 <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12.5, margin: "0 0 18px" }}>
                   Depuis le menu de ton navigateur.
                 </p>
                 <Etape numero="1">
-                  Appuie sur les trois points <b style={{ color: "#fff" }}>⋮</b> en haut à droite.
+                  Appuie sur les trois points <b style={{ color: ttlColors.text }}>⋮</b> en haut à droite.
                 </Etape>
                 <Etape numero="2">
-                  Choisis <b style={{ color: "#fff" }}>« Installer l&apos;application »</b> ou
-                  <b style={{ color: "#fff" }}> « Ajouter à l&apos;écran d&apos;accueil »</b>.
+                  Choisis <b style={{ color: ttlColors.text }}>« Installer l&apos;application »</b> ou
+                  <b style={{ color: ttlColors.text }}> « Ajouter à l&apos;écran d&apos;accueil »</b>.
                 </Etape>
               </>
             )}

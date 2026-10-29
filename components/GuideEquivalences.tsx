@@ -26,7 +26,8 @@ interface Theme {
 
 const THEMES: Record<"ttm" | "ttl", Theme> = {
   ttm: { card: "#111111", cardBorder: "#1f1f1f", muted: "#8B8B8B" },
-  ttl: { card: "#1A1414", cardBorder: "#2A2020", muted: "#8A8078" },
+  // Variables Time To Live : suivent le mode jour / nuit choisi par la cliente.
+  ttl: { card: "var(--ttl-card)", cardBorder: "var(--ttl-card-border)", muted: "var(--ttl-muted)" },
 };
 
 type Vue =
@@ -439,4 +440,32 @@ const CSS = `
 .geq-h { font-weight:700; font-size:13px; margin-bottom:4px; }
 .geq-avoid { color:#E63946; }
 .geq-prefer { color:#4ADE80; }
+
+/* Time To Live en mode jour : mêmes blocs, sur fond clair. */
+html[data-ttl-theme="light"] .geq { color:#1A1A1A; }
+html[data-ttl-theme="light"] .geq-h1,
+html[data-ttl-theme="light"] .geq-block-title,
+html[data-ttl-theme="light"] .geq-info h4,
+html[data-ttl-theme="light"] .geq-info-toggle,
+html[data-ttl-theme="light"] .geq-suggestion,
+html[data-ttl-theme="light"] .geq-ref-amt,
+html[data-ttl-theme="light"] .geq-amt { color:#1A1A1A; }
+html[data-ttl-theme="light"] .geq-h1 em,
+html[data-ttl-theme="light"] .geq-avoid { color:#C62828; }
+html[data-ttl-theme="light"] .geq-prefer { color:#15803D; }
+html[data-ttl-theme="light"] .geq-info { color:#4A423C; }
+html[data-ttl-theme="light"] .geq-chip { color:#2A2522; }
+html[data-ttl-theme="light"] .geq-chip.actif { color:#fff; }
+html[data-ttl-theme="light"] .geq input { background:#FFFFFF; border-color:#D9D1C7; color:#1A1A1A; }
+html[data-ttl-theme="light"] .geq input::placeholder { color:#9A9089; }
+html[data-ttl-theme="light"] .geq-suggestions { background:#FFFFFF; border-color:#E4DDD5; }
+html[data-ttl-theme="light"] .geq-suggestion { border-bottom-color:#EEE8E1; }
+html[data-ttl-theme="light"] .geq-suggestion:hover,
+html[data-ttl-theme="light"] .geq-suggestion.actif { background:#F4F1EC; }
+html[data-ttl-theme="light"] .geq-ref { background:#F4F1EC; }
+html[data-ttl-theme="light"] .geq-nomatch { border-color:#D9D1C7; }
+html[data-ttl-theme="light"] .geq .bande-vertfonce:not(.geq-dot) { background:rgba(34,165,89,0.14); }
+html[data-ttl-theme="light"] .geq .bande-vertclair:not(.geq-dot) { background:rgba(120,180,50,0.16); }
+html[data-ttl-theme="light"] .geq .bande-jaune:not(.geq-dot) { background:rgba(234,196,53,0.22); }
+html[data-ttl-theme="light"] .geq .bande-rouge:not(.geq-dot) { background:rgba(210,59,59,0.12); }
 `;

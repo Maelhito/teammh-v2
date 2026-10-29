@@ -16,9 +16,9 @@ export function TtlProgressRing({ progress, size = 76, strokeWidth = 7, children
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={center} cy={center} r={radius} fill="none" stroke={ttlColors.cardBorder} strokeWidth={strokeWidth} />
+        <circle cx={center} cy={center} r={radius} fill="none" style={{ stroke: ttlColors.cardBorder }} strokeWidth={strokeWidth} />
         <circle
-          cx={center} cy={center} r={radius} fill="none" stroke={ttlColors.redBright} strokeWidth={strokeWidth}
+          cx={center} cy={center} r={radius} fill="none" style={{ stroke: ttlColors.redBright }} strokeWidth={strokeWidth}
           strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset}
           transform={`rotate(-90 ${center} ${center})`}
         />
@@ -86,11 +86,11 @@ export function TtlRowCard({ thumbEmoji, thumbVariant = "module", title, subtitl
         {thumbEmoji}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p className="font-body" style={{ color: "#fff", fontSize: "14.5px", fontWeight: 600, margin: "0 0 3px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</p>
+        <p className="font-body" style={{ color: ttlColors.text, fontSize: "14.5px", fontWeight: 600, margin: "0 0 3px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</p>
         <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, margin: 0 }}>{subtitle}</p>
       </div>
       {badge ?? (locked ? (
-        <span className="font-body" style={{ background: "#2A2020", color: ttlColors.muted, fontSize: 10, padding: "3px 8px", borderRadius: 8, flexShrink: 0 }}>Verrouillé</span>
+        <span className="font-body" style={{ background: ttlColors.cardBorder, color: ttlColors.muted, fontSize: 10, padding: "3px 8px", borderRadius: 8, flexShrink: 0 }}>Verrouillé</span>
       ) : (
         <span style={{ color: ttlColors.muted, fontSize: 18, flexShrink: 0 }}>›</span>
       ))}

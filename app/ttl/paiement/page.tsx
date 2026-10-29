@@ -39,7 +39,7 @@ export default async function TtlPaiementPage({ searchParams }: PageProps) {
   const offers = getTtlStripeOffers().filter((o) => o.priceId);
 
   return (
-    <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 60 }}>
+    <div style={{ backgroundColor: ttlColors.bg, minHeight: "100vh", paddingBottom: 60 }}>
       {isPreview && <PreviewBanner name={firstName} />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>

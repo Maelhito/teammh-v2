@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { ttlThemeScript } from "@/lib/ttl-theme";
+import { TtlThemeSync } from "@/components/TtlTheme";
 
 /**
  * Identité propre à Time To Live.
@@ -22,5 +24,12 @@ export const metadata: Metadata = {
 };
 
 export default function TtlLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      {/* Mode jour / nuit choisi dans le profil, appliqué avant le premier affichage. */}
+      <script dangerouslySetInnerHTML={{ __html: ttlThemeScript }} />
+      <TtlThemeSync />
+      {children}
+    </>
+  );
 }

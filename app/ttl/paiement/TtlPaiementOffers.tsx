@@ -37,7 +37,7 @@ export default function TtlPaiementOffers({ offers }: { offers: TtlStripeOffer[]
       )}
       {offers.map((offer) => (
         <div key={offer.slug} style={{ background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, padding: 18 }}>
-          <p className="font-body" style={{ color: "#fff", fontSize: 15, fontWeight: 600, margin: "0 0 14px" }}>{offer.label}</p>
+          <p className="font-body" style={{ color: ttlColors.text, fontSize: 15, fontWeight: 600, margin: "0 0 14px" }}>{offer.label}</p>
           <button
             onClick={() => handlePay(offer.slug)}
             disabled={loadingSlug === offer.slug}

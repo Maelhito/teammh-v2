@@ -69,7 +69,7 @@ export default function TtlParcoursTimeline({ modules, etats }: Props) {
               opacity: unlocked ? 1 : 0.5,
             }}
           >
-            <p className="font-body" style={{ margin: "0 0 3px", color: "#fff", fontSize: "14.5px", fontWeight: 600 }}>{m.titre}</p>
+            <p className="font-body" style={{ margin: "0 0 3px", color: ttlColors.text, fontSize: "14.5px", fontWeight: 600 }}>{m.titre}</p>
             <p className="font-body" style={{ margin: 0, color: ttlColors.muted, fontSize: 12 }}>{subtitle}</p>
           </div>
         );

@@ -36,7 +36,7 @@ export default function TtlWelcomePopup({ firstName, objectifLabel, premierModul
           </h2>
         </div>
         <div style={{ padding: "22px 24px 26px" }}>
-          <p className="font-body" style={{ color: "#fff", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+          <p className="font-body" style={{ color: ttlColors.text, fontSize: 14, lineHeight: 1.6, margin: 0 }}>
             {objectifLabel
               ? <>Ton objectif : <b style={{ color: ttlColors.redBright }}>{objectifLabel}</b>. On te donne les premières clés dès maintenant.</>
               : "On te donne les premières clés dès maintenant."}

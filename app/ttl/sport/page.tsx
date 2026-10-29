@@ -6,6 +6,7 @@ import TtlHeader from "@/components/TtlHeader";
 import TtlBottomNav from "@/components/TtlBottomNav";
 import PreviewBanner from "@/components/PreviewBanner";
 import TtlSport from "./TtlSport";
+import { ttlColors } from "@/lib/ttl-theme";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export default async function TtlSportPage() {
   const tous = [...programmes].sort((a, b) => a.numero_mois - b.numero_mois);
 
   return (
-    <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 100 }}>
+    <div style={{ backgroundColor: ttlColors.bg, minHeight: "100vh", paddingBottom: 100 }}>
       {isPreview && <PreviewBanner name={firstName} />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>

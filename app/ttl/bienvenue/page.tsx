@@ -13,7 +13,7 @@ function Erreur({ titre, texte }: { titre: string; texte: string }) {
     <div style={{ backgroundColor: ttlColors.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ maxWidth: 380, textAlign: "center" }}>
         <div style={{ fontSize: 40, marginBottom: 16 }}>😕</div>
-        <h1 className="font-title" style={{ color: "#fff", fontSize: "1.4rem", letterSpacing: "1px", margin: "0 0 12px" }}>{titre}</h1>
+        <h1 className="font-title" style={{ color: ttlColors.text, fontSize: "1.4rem", letterSpacing: "1px", margin: "0 0 12px" }}>{titre}</h1>
         <p className="font-body" style={{ color: ttlColors.muted, fontSize: 14, lineHeight: 1.6 }}>{texte}</p>
       </div>
     </div>

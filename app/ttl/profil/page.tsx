@@ -12,7 +12,7 @@ import TtlHeader from "@/components/TtlHeader";
 import TtlBottomNav from "@/components/TtlBottomNav";
 import PreviewBanner from "@/components/PreviewBanner";
 import TtlSignOutButton from "./TtlSignOutButton";
-import ChangerMotDePasse from "@/components/ChangerMotDePasse";
+import { TtlApparence, TtlChangerMotDePasse } from "./TtlApparence";
 import TtlManageSubscriptionButton from "./TtlManageSubscriptionButton";
 import TtlStreakFlame from "@/components/TtlStreakFlame";
 import TtlJoursEntrainement from "./TtlJoursEntrainement";
@@ -69,7 +69,7 @@ export default async function TtlProfilPage() {
     .filter((g) => g.items.length > 0);
 
   return (
-    <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 100 }}>
+    <div style={{ backgroundColor: ttlColors.bg, minHeight: "100vh", paddingBottom: 100 }}>
       {isPreview && <PreviewBanner name={firstName} />}
 
       <div className="mx-auto" style={{ maxWidth: 480 }}>
@@ -81,30 +81,33 @@ export default async function TtlProfilPage() {
               {(firstName || "?").charAt(0).toUpperCase()}
             </div>
             <div>
-              <p className="font-body" style={{ margin: 0, color: "#fff", fontSize: 16, fontWeight: 700 }}>{firstName || "Cliente"}</p>
+              <p className="font-body" style={{ margin: 0, color: ttlColors.text, fontSize: 16, fontWeight: 700 }}>{firstName || "Cliente"}</p>
               <span
                 className="font-body"
-                style={{ display: "inline-block", marginTop: 6, background: "rgba(0,0,0,0.35)", border: "1px solid rgba(230,57,70,0.4)", color: ttlColors.redBright, fontSize: 10, letterSpacing: "1px", padding: "3px 9px", borderRadius: 20, fontWeight: 700 }}
+                style={{ display: "inline-block", marginTop: 6, background: ttlColors.chip, border: "1px solid rgba(230,57,70,0.4)", color: ttlColors.redBright, fontSize: 10, letterSpacing: "1px", padding: "3px 9px", borderRadius: 20, fontWeight: 700 }}
               >
                 TIME TO LIVE
               </span>
             </div>
           </div>
 
+          <TtlApparence />
+
+
           <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
             <div style={{ flex: 1, background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, padding: "14px 16px", textAlign: "center" }}>
               <TtlStreakFlame days={streakInfo.streak_current} />
-              <p className="font-body" style={{ margin: "4px 0 0", color: "#fff", fontSize: 18, fontWeight: 700 }}>{streakInfo.streak_current}</p>
+              <p className="font-body" style={{ margin: "4px 0 0", color: ttlColors.text, fontSize: 18, fontWeight: 700 }}>{streakInfo.streak_current}</p>
               <p className="font-body" style={{ margin: 0, color: ttlColors.muted, fontSize: 11 }}>jour{streakInfo.streak_current > 1 ? "s" : ""} de suite</p>
               {!!streakInfo.streak_freezes && (
-                <p className="font-body" style={{ margin: "4px 0 0", color: "#8EC9E8", fontSize: 11 }}>
+                <p className="font-body" style={{ margin: "4px 0 0", color: ttlColors.ice, fontSize: 11 }}>
                   ❄️ {streakInfo.streak_freezes} gel{streakInfo.streak_freezes > 1 ? "s" : ""} en réserve
                 </p>
               )}
             </div>
             <div style={{ flex: 1, background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, padding: "14px 16px", textAlign: "center" }}>
               <p style={{ margin: 0, fontSize: 22 }}>🏋️</p>
-              <p className="font-body" style={{ margin: "4px 0 0", color: "#fff", fontSize: 18, fontWeight: 700 }}>{seancesValidees}</p>
+              <p className="font-body" style={{ margin: "4px 0 0", color: ttlColors.text, fontSize: 18, fontWeight: 700 }}>{seancesValidees}</p>
               <p className="font-body" style={{ margin: 0, color: ttlColors.muted, fontSize: 11 }}>séance{seancesValidees > 1 ? "s" : ""} validée{seancesValidees > 1 ? "s" : ""}</p>
             </div>
           </div>
@@ -112,19 +115,19 @@ export default async function TtlProfilPage() {
           {objectif && (
             <div style={{ background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, padding: "14px 18px", marginTop: 12 }}>
               <p className="font-body" style={{ margin: 0, color: ttlColors.muted, fontSize: 12 }}>Ton objectif</p>
-              <p className="font-body" style={{ margin: "4px 0 0", color: "#fff", fontSize: 14, fontWeight: 600 }}>{ttlObjectifLabel(objectif) ?? objectif}</p>
+              <p className="font-body" style={{ margin: "4px 0 0", color: ttlColors.text, fontSize: 14, fontWeight: 600 }}>{ttlObjectifLabel(objectif) ?? objectif}</p>
             </div>
           )}
 
           {moduleQuestionnaire && (
             <div style={{ background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, padding: "14px 18px", marginTop: 12 }}>
-              <p className="font-body" style={{ margin: 0, color: "#fff", fontSize: 14, fontWeight: 700 }}>📝 Mon questionnaire de départ</p>
+              <p className="font-body" style={{ margin: 0, color: ttlColors.text, fontSize: 14, fontWeight: 700 }}>📝 Mon questionnaire de départ</p>
               {reponsesQuestionnaire.length > 0 ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
                   {reponsesQuestionnaire.map((q) => (
                     <div key={q.field}>
                       <p className="font-body" style={{ margin: 0, color: ttlColors.muted, fontSize: 12 }}>{q.court}</p>
-                      <p className="font-body" style={{ margin: "2px 0 0", color: "#fff", fontSize: 14, fontWeight: 600, whiteSpace: "pre-wrap", lineHeight: 1.4 }}>
+                      <p className="font-body" style={{ margin: "2px 0 0", color: ttlColors.text, fontSize: 14, fontWeight: 600, whiteSpace: "pre-wrap", lineHeight: 1.4 }}>
                         {questionnaire.reponses?.[q.field]}
                         {q.unite ? (q.unite.startsWith("/") ? q.unite : ` ${q.unite}`) : ""}
                       </p>
@@ -147,17 +150,16 @@ export default async function TtlProfilPage() {
               )}
             </div>
           )}
-
           <TtlJoursEntrainement initialJours={joursEntrainement} />
 
           {dateDebutLabel && (
             <div style={{ background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, padding: "14px 18px", marginTop: 12 }}>
               <p className="font-body" style={{ margin: 0, color: ttlColors.muted, fontSize: 12 }}>Date de démarrage</p>
-              <p className="font-body" style={{ margin: "4px 0 0", color: "#fff", fontSize: 14, fontWeight: 600 }}>{dateDebutLabel}</p>
+              <p className="font-body" style={{ margin: "4px 0 0", color: ttlColors.text, fontSize: 14, fontWeight: 600 }}>{dateDebutLabel}</p>
             </div>
           )}
 
-          <p className="font-body" style={{ color: "#fff", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", margin: "24px 0 10px" }}>MES BADGES</p>
+          <p className="font-body" style={{ color: ttlColors.text, fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", margin: "24px 0 10px" }}>MES BADGES</p>
           {earnedBadges.length > 0 ? (
             earnedByCategory.map(({ category, items }) => (
               <div key={category} style={{ marginBottom: 16 }}>
@@ -177,7 +179,7 @@ export default async function TtlProfilPage() {
                       }}
                     >
                       <p style={{ margin: 0, fontSize: 26 }}>{b.emoji}</p>
-                      <p className="font-body" style={{ margin: "6px 0 0", color: "#fff", fontSize: 12, fontWeight: 600 }}>{b.label}</p>
+                      <p className="font-body" style={{ margin: "6px 0 0", color: ttlColors.text, fontSize: 12, fontWeight: 600 }}>{b.label}</p>
                     </div>
                   ))}
                 </div>
@@ -216,7 +218,7 @@ export default async function TtlProfilPage() {
                         }}
                       >
                         <p style={{ margin: 0, fontSize: 26 }}>{b.emoji}</p>
-                        <p className="font-body" style={{ margin: "6px 0 0", color: "#fff", fontSize: 12, fontWeight: 600 }}>{b.label}</p>
+                        <p className="font-body" style={{ margin: "6px 0 0", color: ttlColors.text, fontSize: 12, fontWeight: 600 }}>{b.label}</p>
                       </div>
                     ))}
                   </div>
@@ -231,8 +233,8 @@ export default async function TtlProfilPage() {
           {abonnement && <TtlManageSubscriptionButton />}
 
           <div style={{ background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, padding: "14px 18px", marginTop: 24 }}>
-            <p className="font-body" style={{ margin: "0 0 14px", color: "#fff", fontSize: 14, fontWeight: 700 }}>🔒 Changer mon mot de passe</p>
-            <ChangerMotDePasse />
+            <p className="font-body" style={{ margin: "0 0 14px", color: ttlColors.text, fontSize: 14, fontWeight: 700 }}>🔒 Changer mon mot de passe</p>
+            <TtlChangerMotDePasse />
           </div>
           <TtlSignOutButton />
         </div>

@@ -38,7 +38,7 @@ export default function TtlCelebration({ message, emoji = "🎉", onDone }: Prop
         }}
       >
         <p style={{ fontSize: 40, margin: 0 }}>{emoji}</p>
-        <p className="font-body" style={{ color: "#fff", fontSize: 15, fontWeight: 700, margin: "8px 0 0" }}>{message}</p>
+        <p className="font-body" style={{ color: ttlColors.text, fontSize: 15, fontWeight: 700, margin: "8px 0 0" }}>{message}</p>
       </div>
     </div>
   );

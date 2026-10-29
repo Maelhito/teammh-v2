@@ -104,7 +104,7 @@ export default function TtlModuleVideos({ videos, resteQuestionnaire = false, et
         <button
           onClick={() => setOpenId(v.id)}
           aria-label={`Regarder : ${v.titre}`}
-          style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", cursor: "pointer", background: "#111111", border: "1px solid #1a1a1a", borderRadius: 16, padding: 12, fontFamily: "inherit" }}
+          style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", cursor: "pointer", background: ttlColors.surface, border: `1px solid ${ttlColors.surfaceBorder}`, borderRadius: 16, padding: 12, fontFamily: "inherit" }}
         >
           <Couverture video={v} />
           <div style={{ minWidth: 0, flex: 1 }}>

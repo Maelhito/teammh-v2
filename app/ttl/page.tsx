@@ -119,7 +119,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
   const badgesEarned = badges.filter((b) => b.earned).length;
 
   return (
-    <div style={{ backgroundColor: "#0D0D0D", minHeight: "100vh", paddingBottom: 100 }}>
+    <div style={{ backgroundColor: ttlColors.bg, minHeight: "100vh", paddingBottom: 100 }}>
       {isPreview && <PreviewBanner name={firstName} />}
       {!isPreview && <PushSubscriber />}
       {!isPreview && <TtlWelcomePopup firstName={firstName || "toi"} objectifLabel={ttlObjectifLabel(objectif)} premierModuleHref={premiereVisite && etapeSuivante ? etapeSuivante.href : null} />}
@@ -184,7 +184,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
               <TtlParcoursTimeline modules={modules} etats={etats} />
 
               <div style={{ background: "rgba(178,34,34,0.08)", border: "1px solid rgba(178,34,34,0.3)", borderRadius: 16, padding: 14, marginTop: 4 }}>
-                <p className="font-body" style={{ color: "#cbb", fontSize: 12, margin: 0 }}>
+                <p className="font-body" style={{ color: ttlColors.textSoft, fontSize: 12, margin: 0 }}>
                   Chaque module se débloque automatiquement une fois le précédent terminé.
                 </p>
               </div>
@@ -195,11 +195,11 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
             <Link href={mission.href} style={{ textDecoration: "none", display: "block" }}>
               <div style={{ background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 20, padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
                 <TtlProgressRing progress={mission.progress}>
-                  <span className="font-body" style={{ color: "#fff", fontSize: 15, fontWeight: 700 }}>{Math.round(mission.progress * 100)}%</span>
+                  <span className="font-body" style={{ color: ttlColors.text, fontSize: 15, fontWeight: 700 }}>{Math.round(mission.progress * 100)}%</span>
                 </TtlProgressRing>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p className="font-body" style={{ color: ttlColors.redBright, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", margin: "0 0 4px" }}>{mission.title.toUpperCase()}</p>
-                  <p className="font-body" style={{ color: "#fff", fontSize: 14.5, fontWeight: 600, margin: "0 0 10px", lineHeight: 1.3 }}>{mission.subtitle}</p>
+                  <p className="font-body" style={{ color: ttlColors.text, fontSize: 14.5, fontWeight: 600, margin: "0 0 10px", lineHeight: 1.3 }}>{mission.subtitle}</p>
                   <div style={{ background: ttlColors.red, borderRadius: 10, padding: "8px 0", textAlign: "center" }}>
                     <span className="font-body" style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>Continuer →</span>
                   </div>
@@ -210,7 +210,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
 
           {recetteDuJour && (
             <>
-              <p className="font-body" style={{ color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: "0.03em", margin: "22px 0 10px" }}>
+              <p className="font-body" style={{ color: ttlColors.text, fontSize: 12, fontWeight: 700, letterSpacing: "0.03em", margin: "22px 0 10px" }}>
                 🥗 Recette du jour
               </p>
               <Link href={`/ttl/alimentation?recette=${recetteDuJour.id}`} style={{ display: "block", textDecoration: "none", borderRadius: 16, overflow: "hidden", border: `1px solid ${ttlColors.cardBorder}`, background: ttlColors.card }}>
@@ -232,7 +232,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
 
           {quests.length > 0 && (
             <>
-              <p className="font-body" style={{ color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: "0.03em", margin: "22px 0 10px" }}>
+              <p className="font-body" style={{ color: ttlColors.text, fontSize: 12, fontWeight: 700, letterSpacing: "0.03em", margin: "22px 0 10px" }}>
                 À explorer aujourd&apos;hui
               </p>
               <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
@@ -255,7 +255,7 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
             <div style={{ marginTop: 20, background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 20 }}>🏅</span>
-                <p className="font-body" style={{ fontSize: 12.5, color: "#fff", margin: 0 }}>
+                <p className="font-body" style={{ fontSize: 12.5, color: ttlColors.text, margin: 0 }}>
                   {badgesEarned} badge{badgesEarned > 1 ? "s" : ""} débloqué{badgesEarned > 1 ? "s" : ""} sur {badges.length}
                 </p>
               </div>

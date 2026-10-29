@@ -45,15 +45,15 @@ export default function TtlHeader(props: TtlHeaderProps) {
         <>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <p className="font-body" style={{ color: ttlColors.offWhite, fontSize: 13, opacity: 0.85, marginTop: 14, margin: "14px 0 0" }}>
-              Bonjour, <b style={{ color: "#fff", fontWeight: 700 }}>{props.firstName}</b>
+              Bonjour, <b style={{ color: ttlColors.text, fontWeight: 700 }}>{props.firstName}</b>
             </p>
             {!!props.streak && (
               <div
                 className="font-body"
-                style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 20, padding: "4px 10px", marginTop: 14 }}
+                style={{ display: "flex", alignItems: "center", gap: 4, background: ttlColors.chip, border: `1px solid ${ttlColors.chipBorder}`, borderRadius: 20, padding: "4px 10px", marginTop: 14 }}
               >
                 <TtlStreakFlame days={props.streak} />
-                <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>{props.streak} jour{props.streak > 1 ? "s" : ""}</span>
+                <span style={{ color: ttlColors.text, fontSize: 12, fontWeight: 700 }}>{props.streak} jour{props.streak > 1 ? "s" : ""}</span>
                 {!!props.freezes && (
                   <span style={{ fontSize: 12, marginLeft: 2 }} title={`${props.freezes} gel${props.freezes > 1 ? "s" : ""} de streak`}>
                     ❄️{props.freezes > 1 ? `×${props.freezes}` : ""}
@@ -66,9 +66,9 @@ export default function TtlHeader(props: TtlHeaderProps) {
             className="font-body"
             style={{
               display: "inline-block",
-              background: "rgba(0,0,0,0.35)",
-              border: "1px solid rgba(255,255,255,0.25)",
-              color: "#fff",
+              background: ttlColors.chip,
+              border: `1px solid ${ttlColors.chipBorder}`,
+              color: ttlColors.text,
               fontSize: 11,
               letterSpacing: "1.5px",
               padding: "4px 10px",
@@ -84,9 +84,9 @@ export default function TtlHeader(props: TtlHeaderProps) {
               className="font-body"
               style={{
                 display: "inline-block",
-                background: "rgba(0,0,0,0.35)",
-                border: "1px solid rgba(255,255,255,0.25)",
-                color: "#fff",
+                background: ttlColors.chip,
+                border: `1px solid ${ttlColors.chipBorder}`,
+                color: ttlColors.text,
                 fontSize: 11,
                 padding: "4px 10px",
                 borderRadius: 20,
@@ -101,7 +101,7 @@ export default function TtlHeader(props: TtlHeaderProps) {
         </>
       ) : (
         <>
-          <p className="font-body" style={{ color: "#fff", fontSize: 15, fontWeight: 700, marginTop: 14 }}>{props.title}</p>
+          <p className="font-body" style={{ color: ttlColors.text, fontSize: 15, fontWeight: 700, marginTop: 14 }}>{props.title}</p>
           {props.subtitle && (
             <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12, marginTop: 4 }}>{props.subtitle}</p>
           )}

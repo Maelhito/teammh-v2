@@ -60,9 +60,9 @@ export default function TtlJoursEntrainement({ initialJours }: { initialJours: n
             disabled={saving || jours.size === 0}
             className="font-body"
             style={{
-              background: "rgba(0,0,0,0.35)",
+              background: ttlColors.chip,
               border: `1px solid ${ttlColors.redBright}`,
-              color: "#fff",
+              color: ttlColors.text,
               fontSize: 10,
               fontWeight: 700,
               letterSpacing: "0.3px",
@@ -90,8 +90,8 @@ export default function TtlJoursEntrainement({ initialJours }: { initialJours: n
                 aspectRatio: "1",
                 borderRadius: 10,
                 border: `1px solid ${active ? ttlColors.redBright : ttlColors.cardBorder}`,
-                background: active ? (validated ? "rgba(255,255,255,0.06)" : ttlColors.red) : "transparent",
-                color: validated && active ? ttlColors.muted : "#fff",
+                background: active ? (validated ? ttlColors.veil : ttlColors.red) : "transparent",
+                color: validated && active ? ttlColors.muted : active ? "#fff" : ttlColors.text,
                 opacity: validated && !active ? 0.35 : 1,
                 fontSize: 13,
                 fontWeight: 700,
