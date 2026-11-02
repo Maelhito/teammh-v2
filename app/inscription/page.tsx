@@ -75,9 +75,6 @@ export default function InscriptionPage() {
         setState("idle");
         return;
       }
-      if (!isCoach) {
-        localStorage.setItem("ttm_show_welcome_new", "1");
-      }
       setState("success");
     } catch {
       setError("Impossible de contacter le serveur.");
