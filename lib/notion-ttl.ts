@@ -50,6 +50,8 @@ export interface SuiviTtl {
   actif: boolean;
   debut: string | null;
   fin: string | null;
+  /** résumé du questionnaire d'arrêt, écrit seulement quand l'abonnement s'arrête */
+  motif?: string | null;
 }
 
 export async function synchroniserTtlVersNotion(suivi: SuiviTtl): Promise<void> {
@@ -64,6 +66,9 @@ export async function synchroniserTtlVersNotion(suivi: SuiviTtl): Promise<void> 
       "Statut Détaillé": { status: { name: suivi.actif ? STATUT_TTL_EN_COURS : STATUT_TTL_ARRETE } },
       "Fin TTL": { date: !suivi.actif && suivi.fin ? { start: jourNoumea(suivi.fin) } : null },
     };
+    if (!suivi.actif && suivi.motif) {
+      properties["Motif d'arrêt TTL"] = { rich_text: [{ type: "text", text: { content: suivi.motif.slice(0, 1900) } }] };
+    }
     if (suivi.debut) properties["Début TTL"] = { date: { start: jourNoumea(suivi.debut) } };
     await notion(`/pages/${pageId}`, "PATCH", { properties });
   } catch (err) {

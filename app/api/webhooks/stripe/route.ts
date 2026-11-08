@@ -4,6 +4,7 @@ import { getStripe } from "@/lib/stripe";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getTtlStripeOffers } from "@/lib/ttl-stripe-offers";
 import { synchroniserTtlVersNotion } from "@/lib/notion-ttl";
+import { resumeResiliation, type TtlResiliation } from "@/lib/ttl-resiliation";
 
 /**
  * À quelle cliente appartient cet abonnement ?
@@ -144,7 +145,22 @@ async function enregistrerDatesSuivi(
 
     // Miroir dans Notion (jamais bloquant : la fonction ne lève pas d'erreur).
     const { data: user } = await admin.auth.admin.getUserById(userId);
+
+    // Pourquoi elle part : sa dernière réponse au questionnaire d'arrêt, s'il y en a une.
+    let motif: string | null = null;
+    if (STATUTS_TERMINES.has(subscription.status)) {
+      const { data: rep } = await admin
+        .from("ttl_resiliations")
+        .select("motifs, satisfaction, commentaire, reviendrait")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (rep) motif = resumeResiliation(rep as TtlResiliation) || null;
+    }
+
     await synchroniserTtlVersNotion({
+      motif,
       email: user?.user?.email,
       actif: !STATUTS_TERMINES.has(subscription.status),
       debut: (maj.started_at as string | undefined) ?? (ligne.started_at as string | null),
