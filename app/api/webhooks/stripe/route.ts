@@ -101,6 +101,49 @@ async function estAbonnementTtl(stripe: Stripe, subscription: Stripe.Subscriptio
   });
 }
 
+const STATUTS_TERMINES = new Set(["canceled", "unpaid", "incomplete_expired"]);
+
+/**
+ * Suivi de la durée : début et fin réels de l'abonnement.
+ *
+ * Séparé de l'upsert principal exprès : tant que sql/ttl_suivi_abonnements.sql
+ * n'est pas passé, les colonnes n'existent pas et cet appel échoue en silence,
+ * sans jamais empêcher l'accès de la cliente d'être mis à jour.
+ */
+async function enregistrerDatesSuivi(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  userId: string,
+  subscription: Stripe.Subscription
+) {
+  try {
+    const { data: ligne, error } = await admin
+      .from("ttl_subscriptions")
+      .select("stripe_subscription_id, started_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+    // Une autre ligne (ancien abonnement) ne doit pas toucher aux dates de l'actuel.
+    if (error || !ligne || ligne.stripe_subscription_id !== subscription.id) return;
+
+    const maj: Record<string, unknown> = {
+      cancel_at_period_end: !!subscription.cancel_at_period_end,
+    };
+    if (!ligne.started_at && subscription.start_date) {
+      maj.started_at = new Date(subscription.start_date * 1000).toISOString();
+    }
+    if (STATUTS_TERMINES.has(subscription.status)) {
+      const fin = subscription.ended_at ?? subscription.canceled_at;
+      maj.ended_at = fin ? new Date(fin * 1000).toISOString() : new Date().toISOString();
+    } else if (STATUTS_ACTIFS.has(subscription.status)) {
+      // Elle est revenue (ou le paiement est passé) : plus d'arrêt.
+      maj.ended_at = null;
+    }
+
+    await admin.from("ttl_subscriptions").update(maj).eq("user_id", userId);
+  } catch {
+    // Migration pas encore passée : on ignore.
+  }
+}
+
 export async function POST(request: NextRequest) {
   const stripe = getStripe();
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -180,6 +223,8 @@ export async function POST(request: NextRequest) {
           : null,
         updated_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
+
+      await enregistrerDatesSuivi(admin, userId, subscription);
       break;
     }
   }
