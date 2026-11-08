@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getTtlStripeOffers } from "@/lib/ttl-stripe-offers";
+import { synchroniserTtlVersNotion } from "@/lib/notion-ttl";
 
 /**
  * À quelle cliente appartient cet abonnement ?
@@ -138,7 +139,17 @@ async function enregistrerDatesSuivi(
       maj.ended_at = null;
     }
 
-    await admin.from("ttl_subscriptions").update(maj).eq("user_id", userId);
+    const { error: erreurMaj } = await admin.from("ttl_subscriptions").update(maj).eq("user_id", userId);
+    if (erreurMaj) return;
+
+    // Miroir dans Notion (jamais bloquant : la fonction ne lève pas d'erreur).
+    const { data: user } = await admin.auth.admin.getUserById(userId);
+    await synchroniserTtlVersNotion({
+      email: user?.user?.email,
+      actif: !STATUTS_TERMINES.has(subscription.status),
+      debut: (maj.started_at as string | undefined) ?? (ligne.started_at as string | null),
+      fin: (maj.ended_at as string | null | undefined) ?? null,
+    });
   } catch {
     // Migration pas encore passée : on ignore.
   }
