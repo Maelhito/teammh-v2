@@ -72,7 +72,11 @@ export default function LoginPage() {
       return;
     }
 
-    window.location.href = "/dashboard";
+    // « suite » : page où revenir après connexion (ex. autoriser le connecteur
+    // Claude). Uniquement un chemin de ce site, jamais une adresse extérieure.
+    const suite = new URLSearchParams(window.location.search).get("suite");
+    const suiteSure = suite && suite.startsWith("/") && !suite.startsWith("//") && !suite.includes("\\");
+    window.location.href = suiteSure ? suite : "/dashboard";
   }
 
   return (
