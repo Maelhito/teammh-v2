@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { youtubeThumbnailUrl } from "@/lib/youtube";
 
 interface Replay { id: string; categorie: string; video_url: string; titre: string | null; }
 
@@ -14,10 +15,8 @@ function isVideoFile(url: string) {
   return /\.(mp4|mov|webm)(\?|$)/i.test(url) || url.includes("/storage/v1/object/public/visio-videos/");
 }
 
-function ytThumb(url: string) {
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
-  return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
-}
+// Shorts compris (lib/youtube).
+const ytThumb = (url: string) => youtubeThumbnailUrl(url);
 
 export default function CoachVisiosPage() {
   const [replays, setReplays] = useState<Replay[]>([]);

@@ -5,6 +5,7 @@ import { NIVEAUX, CATEGORIES, defaultBloc, decodeSeance, type SeanceData } from 
 import { normaliseProgCategorie, normaliseAvancement, normaliseCycleProg } from "./constantes";
 import SeanceBuildComp from "../seances/SeanceBuilder";
 import { contientRecherche } from "@/lib/recherche";
+import { youtubeEmbedUrl, youtubeThumbnailUrl } from "@/lib/youtube";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface SeanceRef {
@@ -40,14 +41,9 @@ export function countGridItems(grid: Grid, duree_semaines: number): { visibles: 
 }
 let _k = 0;
 function nk() { return `ci${++_k}_${Date.now()}`; }
-function ytThumb(url: string): string | null {
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
-  return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
-}
-function ytEmbed(url: string): string | null {
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
-  return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=1` : null;
-}
+// Shorts compris (lib/youtube).
+const ytThumb = (url: string) => youtubeThumbnailUrl(url);
+const ytEmbed = (url: string) => youtubeEmbedUrl(url, { autoplay: true });
 function nivLabel(v: string) { return NIVEAUX.find(n => n.value === v)?.label ?? v; }
 
 // ─── Encode / Decode ──────────────────────────────────────────────────────────

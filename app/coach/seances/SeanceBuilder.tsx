@@ -6,6 +6,7 @@ import {
   type Exercise, type TabataItem, type RichExercise, type BlocType, type Bloc, type SeanceData,
 } from "@/lib/seance-format";
 import { normaliserTexte, contientRecherche, comparerNoms } from "@/lib/recherche";
+import { youtubeEmbedUrl } from "@/lib/youtube";
 
 // Le format d'encodage vit dans lib/seance-format.ts (module pur, lisible côté
 // serveur par app/entrainement). On le ré-exporte pour les imports existants.
@@ -61,10 +62,8 @@ const BLOC_LABELS: Record<BlocType, string> = {
   finisher:     "FINISHER",
 };
 
-function ytEmbed(url: string) {
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
-  return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=1` : null;
-}
+// Shorts compris (lib/youtube).
+const ytEmbed = (url: string) => youtubeEmbedUrl(url, { autoplay: true });
 
 /** Modifications d'un bloc. La forme fonction reçoit le bloc À JOUR : c'est la
  *  seule sûre quand la valeur dépend de l'état courant (listes d'exercices),

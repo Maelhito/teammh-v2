@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { contientRecherche } from "@/lib/recherche";
+import { youtubeEmbedUrl, youtubeThumbnailUrl } from "@/lib/youtube";
 import { usePeutModifierBibliotheque } from "../useDroitsCoach";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -36,19 +37,10 @@ const GROUPE_COLORS: Record<string, string> = {
 };
 
 // ─── Utilitaire YouTube ───────────────────────────────────────────────────────
-function extractYouTubeId(url: string): string | null {
-  if (!url) return null;
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
-  return m ? m[1] : null;
-}
-function ytThumb(url: string): string | null {
-  const id = extractYouTubeId(url);
-  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
-}
-function ytEmbed(url: string): string | null {
-  const id = extractYouTubeId(url);
-  return id ? `https://www.youtube.com/embed/${id}?autoplay=1` : null;
-}
+// Passe par lib/youtube : reconnaît aussi les Shorts (/shorts/xxx), comme le
+// lecteur côté cliente.
+const ytThumb = (url: string) => youtubeThumbnailUrl(url);
+const ytEmbed = (url: string) => youtubeEmbedUrl(url, { autoplay: true });
 
 const EMPTY_FORM = {
   nom: "", groupe_musculaire: "", materiel: MATERIELS[0],
@@ -348,7 +340,7 @@ function ExercisePanel({
 
           <div>
             <label style={lbl}>Lien YouTube</label>
-            <input style={inp} type="url" value={form.video_url} onChange={e => handleVideoChange(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
+            <input style={inp} type="url" value={form.video_url} onChange={e => handleVideoChange(e.target.value)} placeholder="Lien YouTube (watch, youtu.be, shorts…)" />
             {preview && (
               <div style={{ marginTop: 8, borderRadius: 8, overflow: "hidden", border: "1px solid #e8e8e8" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}

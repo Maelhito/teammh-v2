@@ -2,6 +2,8 @@
 // Module PUR (pas de "use client") : importable depuis un composant serveur
 // (app/entrainement) comme depuis le builder coach.
 
+import { youtubeThumbnailUrl } from "./youtube";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface Exercise {
   id: string; nom: string; groupe_musculaire: string; materiel: string;
@@ -42,10 +44,9 @@ export interface FlatExercice {
 let _k = 0;
 export function newKey() { return `k${++_k}_${Date.now()}`; }
 
-export function ytThumb(url: string | null) {
-  if (!url) return null;
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
-  return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
+/** Miniature YouTube — Shorts compris (lib/youtube). */
+export function ytThumb(url: string | null | undefined) {
+  return youtubeThumbnailUrl(url);
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
