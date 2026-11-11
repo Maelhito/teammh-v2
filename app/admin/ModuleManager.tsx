@@ -62,63 +62,6 @@ export default function ModuleManager({ modules, initialContent }: Props) {
   );
 }
 
-// ─── Modules avec lien Canva (à la place du PDF principal) ───────────────────
-const MODULE_CANVA_LABEL: Record<string, string> = {
-  "module-3": "🔗 Lien Canva - Guide des équivalences",
-};
-
-// ─── Canva Link Section ───────────────────────────────────────────────────────
-
-function CanvaLinkSection({ label, slug, initialUrl }: { label: string; slug: string; initialUrl: string | null | undefined }) {
-  const [url, setUrl] = useState(initialUrl ?? "");
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  useEffect(() => { setUrl(initialUrl ?? ""); }, [initialUrl]);
-
-  async function save() {
-    setSaving(true); setMsg("");
-    try {
-      const res = await fetch("/api/admin/canva-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, url }),
-      });
-      const data = await res.json();
-      setMsg(res.ok ? "✓ Sauvegardé" : (data.error ?? "Erreur"));
-    } catch {
-      setMsg("Erreur réseau — la sauvegarde n'a pas pu être vérifiée, réessaie.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div style={{ marginBottom: 14 }}>
-      <label style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6, letterSpacing: "0.04em" }}>
-        {label}
-      </label>
-      <div style={{ display: "flex", gap: 8 }}>
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://www.canva.com/..."
-          style={{ flex: 1, minWidth: 0, backgroundColor: "#0D0D0D", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "9px 12px", color: "#FFFFFF", fontSize: 13, outline: "none" }}
-        />
-        <button
-          onClick={save}
-          disabled={saving}
-          style={{ backgroundColor: saving ? "#8B1515" : "#B22222", color: "#fff", border: "none", borderRadius: 8, padding: "0 16px", fontSize: 12, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", flexShrink: 0 }}
-        >
-          {saving ? "…" : "OK"}
-        </button>
-      </div>
-      {msg && <p style={{ fontSize: 11, margin: "4px 0 0", color: msg.startsWith("✓") ? "#4ADE80" : "#F87171" }}>{msg}</p>}
-    </div>
-  );
-}
-
 // ─── Visio Replays Admin (module-8 & module-9) ───────────────────────────────
 
 const VISIO_CATEGORIES_BY_MODULE: Record<string, ReadonlyArray<{ key: string; label: string }>> = {
@@ -782,7 +725,6 @@ function ModuleRow({
 
   const pdf2Label = MODULE_PDF2_LABEL[module.slug];
   const imageLabel = MODULE_IMAGE_LABEL[module.slug];
-  const canvaLabel = MODULE_CANVA_LABEL[module.slug];
   const isVisio = module.slug === "module-8" || module.slug === "module-9";
 
   return (
@@ -945,14 +887,8 @@ function ModuleRow({
             />
           )}
 
-          {/* PDF principal ou lien Canva (pas pour module-8) */}
-          {!isVisio && (canvaLabel ? (
-            <CanvaLinkSection
-              label={canvaLabel}
-              slug={module.slug}
-              initialUrl={initialContent?.lien_canva_equivalences}
-            />
-          ) : (
+          {/* PDF principal (pas pour module-8/9, ni module-3 qui n'en a plus) */}
+          {!isVisio && module.slug !== "module-3" && (
             <PdfSection
               label="PDF"
               slug={module.slug}
@@ -960,7 +896,7 @@ function ModuleRow({
               pdfUrl={initialContent?.pdf_url}
               pdfName={initialContent?.pdf_name}
             />
-          ))}
+          )}
         </div>
       )}
     </div>
