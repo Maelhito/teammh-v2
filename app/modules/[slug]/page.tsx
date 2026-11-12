@@ -87,7 +87,9 @@ function renderMarkdown(content: string, ctx: RenderCtx = { videos: [] }): strin
       }
 
       if (!url || url === "#") {
-        html.push(`<div class="video-block"><p class="video-block-title">${processInline(title)}</p><div class="video-placeholder-box">Vidéo à venir</div></div>`);
+        // Côté cliente, une vidéo sans lien n'existe pas : ni cadre « Vidéo à venir », ni titre.
+        // Si un intertitre (## Épisode 3…) la précède seul, on le retire aussi.
+        if (html.length > 0 && html[html.length - 1].startsWith("<h2>")) html.pop();
       } else {
         html.push(`<div class="video-block"><p class="video-block-title">${processInline(title)}</p><div class="video-wrapper"><iframe src="${url}" frameborder="0" allowfullscreen loading="lazy"></iframe></div></div>`);
       }
