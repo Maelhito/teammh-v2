@@ -32,6 +32,7 @@ export default function MesuresClient() {
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [formOuvert, setFormOuvert] = useState(false);
   const [histoOuvert, setHistoOuvert] = useState(false);
+  const [ficheOuverte, setFicheOuverte] = useState(false);
   /** Saisie en cours de correction (null = nouvelle saisie du jour) */
   const [edition, setEdition] = useState<Mesure | null>(null);
 
@@ -164,6 +165,16 @@ export default function MesuresClient() {
           {/* Boutons : nouvelle saisie, et correction de la dernière saisie */}
           {!formOuvert && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button
+                onClick={() => setFicheOuverte(true)}
+                style={{
+                  padding: "12px 0", borderRadius: 12, border: "1px solid #B22222", backgroundColor: "transparent",
+                  color: "#FFF", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer",
+                  fontFamily: "inherit", letterSpacing: "0.03em",
+                }}
+              >
+                Comment prendre mes mesures
+              </button>
               <button
                 onClick={ouvrirNouvelle}
                 style={{
@@ -325,6 +336,35 @@ export default function MesuresClient() {
             </div>
           )}
         </>
+      )}
+
+      {ficheOuverte && (
+        <div
+          onClick={() => setFicheOuverte(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 100, backgroundColor: "rgba(0,0,0,0.88)",
+            overflowY: "auto", padding: "16px 12px", display: "flex", flexDirection: "column", alignItems: "center",
+          }}
+        >
+          <button
+            onClick={() => setFicheOuverte(false)}
+            aria-label="Fermer"
+            style={{
+              alignSelf: "flex-end", marginBottom: 10, padding: "8px 16px", borderRadius: 10,
+              border: "1px solid #262626", backgroundColor: "#111111", color: "#FFF",
+              fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+            }}
+          >
+            Fermer ✕
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/guides/prise-de-mensurations.webp"
+            alt="Comment prendre mes mesures : tour de poitrine, tour de taille, tour de hanche"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: "100%", maxWidth: 520, height: "auto", borderRadius: 12 }}
+          />
+        </div>
       )}
     </div>
   );
