@@ -1,5 +1,6 @@
 "use client";
 
+import PasswordInput from "@/components/PasswordInput";
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import "../../inscription-ttl/inscription.css";
@@ -68,9 +69,8 @@ export default function DefinirMotDePasse({ sessionId, prenom, email }: { sessio
 
           <div className="vq-field">
             <label className="vq-label">Mot de passe</label>
-            <input
+            <PasswordInput
               className="vq-input"
-              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="8 caractères minimum"
@@ -80,9 +80,8 @@ export default function DefinirMotDePasse({ sessionId, prenom, email }: { sessio
           </div>
           <div className="vq-field">
             <label className="vq-label">Confirmer</label>
-            <input
+            <PasswordInput
               className="vq-input"
-              type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="••••••••"

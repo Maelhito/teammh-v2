@@ -1,5 +1,6 @@
 "use client";
 
+import PasswordInput from "@/components/PasswordInput";
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
@@ -68,8 +69,7 @@ export default function ChangerMotDePasse({ theme = "sombre" }: { theme?: "sombr
     <form onSubmit={handleSubmit}>
       <div style={{ marginBottom: 16 }}>
         <label style={labelStyle}>NOUVEAU MOT DE PASSE</label>
-        <input
-          type="password"
+        <PasswordInput
           value={motDePasse}
           onChange={(e) => setMotDePasse(e.target.value)}
           placeholder="8 caractères minimum"
@@ -78,8 +78,7 @@ export default function ChangerMotDePasse({ theme = "sombre" }: { theme?: "sombr
       </div>
       <div style={{ marginBottom: 16 }}>
         <label style={labelStyle}>CONFIRMER LE MOT DE PASSE</label>
-        <input
-          type="password"
+        <PasswordInput
           value={confirmation}
           onChange={(e) => setConfirmation(e.target.value)}
           placeholder="••••••••"
