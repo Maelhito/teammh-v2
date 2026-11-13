@@ -4,6 +4,8 @@ import { getModules } from "@/lib/modules";
 import AppHeader from "@/components/AppHeader";
 import BottomNav from "@/components/BottomNav";
 import ProfileClient from "./ProfileClient";
+import SupprimerMonCompte from "@/components/SupprimerMonCompte";
+import { LiensLegaux } from "@/components/PageLegale";
 import PreviewBanner from "@/components/PreviewBanner";
 import { getEffectiveUser } from "@/lib/preview";
 
@@ -42,6 +44,12 @@ export default async function ProfilPage() {
         completedCount={completedSlugs.length}
         totalModules={totalModules}
       />
+
+      <div style={{ padding: "0 16px 24px", maxWidth: 480, margin: "0 auto" }}>
+        {/* En aperçu, la personne connectée est un coach : le bouton viserait SON compte. */}
+        {!isPreview && <SupprimerMonCompte theme="ttm" />}
+        <LiensLegaux />
+      </div>
 
       <BottomNav />
     </div>

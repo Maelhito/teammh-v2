@@ -3,6 +3,7 @@
 import PasswordInput from "@/components/PasswordInput";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { LiensLegaux } from "@/components/PageLegale";
 
 type Mode = "login" | "forgot";
 
@@ -200,6 +201,7 @@ export default function LoginPage() {
             </button>
           </div>
         )}
+        <LiensLegaux />
       </div>
     </div>
   );

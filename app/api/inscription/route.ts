@@ -2,10 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { FUSEAU_PAR_DEFAUT, aujourdhuiDans, fuseauOuDefaut } from "@/lib/temps";
 import { rattacherUnCompte } from "@/lib/equipe-comptes";
+import { codeCoachValide } from "@/lib/invitation-coach";
 
 export async function POST(req: NextRequest) {
-  const { prenom, nom, email, password, role = "cliente", timezone } = await req.json();
+  const { prenom, nom, email, password, role = "cliente", timezone, code } = await req.json();
   const safeRole = ["cliente", "coach"].includes(role) ? role : "cliente";
+
+  // Un compte coach ne se crée qu'avec le lien d'invitation fourni par l'admin :
+  // sans ce contrôle, `?role=coach` suffisait à n'importe qui.
+  if (safeRole === "coach" && !codeCoachValide(code)) {
+    return NextResponse.json(
+      { error: "Ce lien d'inscription coach n'est plus valable. Demande un nouveau lien à Maël." },
+      { status: 403 },
+    );
+  }
 
   if (!prenom || !email || !password) {
     return NextResponse.json({ error: "Prénom, email et mot de passe requis." }, { status: 400 });

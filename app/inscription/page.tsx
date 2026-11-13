@@ -3,6 +3,7 @@
 import PasswordInput from "@/components/PasswordInput";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { LiensLegaux } from "@/components/PageLegale";
 
 type State = "idle" | "loading" | "success";
 
@@ -17,9 +18,12 @@ function fuseauAppareil(): string | null {
 
 export default function InscriptionPage() {
   const [isCoach, setIsCoach] = useState(false);
+  // Code d'invitation du lien coach, vérifié par le serveur à l'inscription.
+  const [codeCoach, setCodeCoach] = useState<string | null>(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setIsCoach(params.get("role") === "coach");
+    setCodeCoach(params.get("code"));
   }, []);
 
   const [prenom, setPrenom] = useState("");
@@ -68,7 +72,7 @@ export default function InscriptionPage() {
       const res = await fetch("/api/inscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prenom, nom, email, password, role: isCoach ? "coach" : "cliente" , timezone: fuseauAppareil()}),
+        body: JSON.stringify({ prenom, nom, email, password, role: isCoach ? "coach" : "cliente", timezone: fuseauAppareil(), code: isCoach ? codeCoach : undefined }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -163,6 +167,11 @@ export default function InscriptionPage() {
             Déjà un compte ?{" "}
             <Link href="/login" style={{ color: "#B22222", textDecoration: "none" }}>Se connecter</Link>
           </p>
+
+          <p style={{ textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: 11.5, lineHeight: 1.5, margin: 0 }}>
+            En créant ton compte, tu acceptes les conditions d&apos;utilisation et la politique de confidentialité.
+          </p>
+          <LiensLegaux />
 
         </form>
       </div>

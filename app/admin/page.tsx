@@ -4,6 +4,7 @@ import { FUSEAU_PAR_DEFAUT, semaineDans } from "@/lib/temps";
 import { getFuseau } from "@/lib/temps-serveur";
 import { getModules } from "@/lib/modules";
 import AdminAppLinks from "./AdminAppLinks";
+import { creerCodeCoach, DUREE_INVITATION_COACH_JOURS } from "@/lib/invitation-coach";
 import AdminWeekCalendar from "./AdminWeekCalendar";
 
 export const dynamic = "force-dynamic";
@@ -129,7 +130,9 @@ export default async function AdminDashboardPage() {
 
   const appLinks = [
     { href: "/inscription",            label: "Inscription cliente", desc: "À partager aux clientes",       color: "#B22222" },
-    { href: "/inscription?role=coach", label: "Inscription coach",   desc: "Lien pour un nouveau coach",    color: "#F97316" },
+    // Lien signé, refait à chaque ouverture de cet écran : sans son code,
+    // personne ne peut se créer un compte coach.
+    { href: `/inscription?role=coach&code=${creerCodeCoach() ?? ""}`, label: "Inscription coach", desc: `Lien pour un nouveau coach, valable ${DUREE_INVITATION_COACH_JOURS} jours`, color: "#F97316" },
     { href: "/admin",                  label: "Lien admin",          desc: "Espace administrateur",         color: "#3B82F6" },
     { href: "/coach",                  label: "App coach",           desc: "Portail coach (déjà inscrit)",  color: "#10B981" },
   ];

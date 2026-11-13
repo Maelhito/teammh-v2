@@ -12,6 +12,8 @@ import TtlHeader from "@/components/TtlHeader";
 import TtlBottomNav from "@/components/TtlBottomNav";
 import PreviewBanner from "@/components/PreviewBanner";
 import TtlSignOutButton from "./TtlSignOutButton";
+import SupprimerMonCompte from "@/components/SupprimerMonCompte";
+import { LiensLegaux } from "@/components/PageLegale";
 import { TtlApparence, TtlChangerMotDePasse } from "./TtlApparence";
 import TtlManageSubscriptionButton from "./TtlManageSubscriptionButton";
 import TtlStreakFlame from "@/components/TtlStreakFlame";
@@ -237,6 +239,9 @@ export default async function TtlProfilPage() {
             <TtlChangerMotDePasse />
           </div>
           <TtlSignOutButton />
+          {/* En aperçu, la personne connectée est un coach : le bouton viserait SON compte. */}
+          {!isPreview && <SupprimerMonCompte theme="ttl" abonnement={!!abonnement} />}
+          <LiensLegaux couleur="var(--ttl-muted)" />
         </div>
       </div>
 
