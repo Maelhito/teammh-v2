@@ -261,13 +261,45 @@ export default function QuestionnaireDemarrage() {
                     style={{ ...inputStyle, resize: "vertical" }}
                   />
                 ) : (
-                  <input
-                    type="text"
-                    value={answers[q.field] ?? ""}
-                    onChange={(e) => set(q.field, e.target.value)}
-                    placeholder={q.placeholder}
-                    style={inputStyle}
-                  />
+                  <>
+                    <input
+                      type="text"
+                      value={answers[q.field] ?? ""}
+                      onChange={(e) => set(q.field, e.target.value)}
+                      placeholder={q.placeholder}
+                      style={inputStyle}
+                    />
+                    {q.suggestions && (
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                        {q.suggestions.map((s) => {
+                          const actuel = answers[q.field] ?? "";
+                          const deja = actuel.toLowerCase().includes(s.toLowerCase());
+                          return (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => {
+                                if (deja) return;
+                                set(q.field, actuel.trim() ? `${actuel.trim().replace(/[,;]$/, "")}, ${s.toLowerCase()}` : s);
+                              }}
+                              style={{
+                                padding: "6px 11px",
+                                borderRadius: 999,
+                                border: `1px solid ${deja ? "#B45309" : "#262626"}`,
+                                backgroundColor: deja ? "rgba(180,83,9,0.15)" : "#0D0D0D",
+                                color: deja ? "#F59E0B" : "#9CA3AF",
+                                fontSize: "0.76rem",
+                                cursor: deja ? "default" : "pointer",
+                                fontFamily: "inherit",
+                              }}
+                            >
+                              {s}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ))}

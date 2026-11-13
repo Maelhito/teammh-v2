@@ -70,6 +70,8 @@ export interface QuestionDef {
   kind: FieldKind;
   /** pour "cases" : les choix, l'un sous l'autre */
   options?: QuestionOption[];
+  /** pour "text" : idées cliquables sous le champ (elle peut aussi écrire autre chose) */
+  suggestions?: string[];
   /** pour "chiffres" : de 1 à max */
   max?: number;
   /** question posée seulement si ce champ a cette valeur (ex : le sport si elle répond Oui) */
@@ -137,12 +139,9 @@ export const QUESTIONNAIRE_GROUPS: QuestionGroup[] = [
       {
         field: "sport_intensite",
         label: "Quel sport fais-tu ?",
-        kind: "cases",
-        options: [
-          { value: "Léger", detail: "marche, yoga, étirements, vélo tranquille" },
-          { value: "Modéré", detail: "gymnastique, natation, jogging, sport récréatif, renforcement musculaire à la maison" },
-          { value: "Intense", detail: "HIIT, crossfit, course à pied, sport de compétition, musculation" },
-        ],
+        kind: "text",
+        placeholder: "écris ton ou tes sports",
+        suggestions: ["Marche", "Vélo", "Natation", "Course à pied", "Crossfit", "Sport de compétition", "Renforcement musculaire"],
         siChamp: { field: "sport_actuel", vaut: "oui" },
       },
       {
