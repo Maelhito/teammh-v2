@@ -5,15 +5,15 @@
  * faire apparaître sur les deux pages.
  */
 export const LEGAL = {
-  marque: "Time To Move — Team MJ Coaching",
-  /** Nom légal de l'entreprise (ex. « SARL … »). À compléter. */
-  raisonSociale: "",
-  /** Numéro d'immatriculation (RIDET / SIRET). À compléter. */
-  immatriculation: "",
-  /** Adresse postale du siège. À compléter. */
-  adresse: "",
-  /** Email de contact pour les demandes sur les données. À compléter. */
-  email: "",
+  marque: "Time To Move",
+  /** Nom légal de l'entreprise. */
+  raisonSociale: "Team MJ Coaching",
+  /** Numéro d'immatriculation. */
+  immatriculation: "SIRET 994 200 855 00017",
+  /** Adresse postale du siège. */
+  adresse: "60 rue François 1er, 75008 Paris",
+  /** Email de contact pour les demandes sur les données. */
+  email: "contact@teammjcoaching.fr",
   whatsapp: [
     { pays: "Nouvelle-Calédonie", affiche: "+687 93 33 32", wa: "687933332" },
     { pays: "France", affiche: "+33 6 58 63 00 59", wa: "33658630059" },
