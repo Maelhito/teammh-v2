@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { estCoque } from "@/lib/coque";
 import { getStripe } from "@/lib/stripe";
 import { getTtlStripeOffer } from "@/lib/ttl-stripe-offers";
 
@@ -9,6 +10,11 @@ import { getTtlStripeOffer } from "@/lib/ttl-stripe-offers";
  * voir lib/ttl-inscription.ts pour le pourquoi.
  */
 export async function POST(request: NextRequest) {
+  // Aucun paiement depuis l'app des stores (voir lib/coque.ts).
+  if (estCoque(request.headers.get("user-agent"))) {
+    return NextResponse.json({ error: "Indisponible dans l'application." }, { status: 403 });
+  }
+
   const stripe = getStripe();
   if (!stripe) return NextResponse.json({ error: "Paiement non configuré" }, { status: 500 });
 

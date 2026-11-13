@@ -19,6 +19,7 @@ import TtlManageSubscriptionButton from "./TtlManageSubscriptionButton";
 import TtlStreakFlame from "@/components/TtlStreakFlame";
 import TtlJoursEntrainement from "./TtlJoursEntrainement";
 import { ttlColors } from "@/lib/ttl-theme";
+import { dansLaCoque } from "@/lib/coque-serveur";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export default async function TtlProfilPage() {
   const { userId, firstName, email, isPreview } = await getEffectiveUser(session);
 
   const offre = await requireTtlAccess(userId, isPreview);
+  const coque = await dansLaCoque();
 
   const [modules, watchedIds, seancesProgress, objectif, streakInfo, joursEntrainement, abonnement, questionnaire] = await Promise.all([
     getOnboardingModules(),
@@ -232,7 +234,13 @@ export default async function TtlProfilPage() {
           {/* Ce qui compte, c'est qu'un abonnement existe — pas la façon dont
               l'offre a été attribuée. Une cliente que le coach a abonnée à la
               main dans Stripe doit pouvoir le résilier elle-même. */}
-          {abonnement && <TtlManageSubscriptionButton />}
+          {abonnement && !coque && <TtlManageSubscriptionButton />}
+          {/* App des stores : aucun lien vers le paiement (voir lib/coque.ts). */}
+          {abonnement && coque && (
+            <p className="font-body" style={{ color: ttlColors.muted, fontSize: 12.5, lineHeight: 1.5, margin: "12px 0 0" }}>
+              Ton abonnement se gère depuis le site, dans ton navigateur.
+            </p>
+          )}
 
           <div style={{ background: ttlColors.card, border: `1px solid ${ttlColors.cardBorder}`, borderRadius: 16, padding: "14px 18px", marginTop: 24 }}>
             <p className="font-body" style={{ margin: "0 0 14px", color: ttlColors.text, fontSize: 14, fontWeight: 700 }}>🔒 Changer mon mot de passe</p>

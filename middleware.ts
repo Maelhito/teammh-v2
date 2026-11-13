@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+import { estCoque } from "@/lib/coque";
 
 const ADMIN_EMAIL = "mael.ld@hotmail.fr";
 
@@ -11,6 +12,20 @@ const CLIENT_PROTECTED = ["/dashboard", "/profil", "/modules", "/calendrier", "/
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // App des stores (voir lib/coque.ts) : ni pages de vente, ni espace équipe.
+  if (estCoque(request.headers.get("user-agent"))) {
+    const vers =
+      pathname.startsWith("/vente-ttl") || pathname.startsWith("/inscription-ttl") ? "/login"
+      : pathname.startsWith("/admin") || pathname.startsWith("/coach") ? "/espace-equipe"
+      : null;
+    if (vers) {
+      const url = request.nextUrl.clone();
+      url.pathname = vers;
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+  }
 
   // Admin embed : /coach/* → /admin/coach/* si cookie admin_mode présent
   // (fonctionne en dev et prod, sans appel Supabase)

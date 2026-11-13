@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { estCoque } from "@/lib/coque";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getStripe } from "@/lib/stripe";
 import { getTtlSubscription } from "@/lib/ttl";
 
 export async function POST(request: NextRequest) {
+  // Aucun paiement depuis l'app des stores (voir lib/coque.ts).
+  if (estCoque(request.headers.get("user-agent"))) {
+    return NextResponse.json({ error: "Indisponible dans l'application." }, { status: 403 });
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });

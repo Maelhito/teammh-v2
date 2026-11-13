@@ -8,6 +8,8 @@ import TtlHeader from "@/components/TtlHeader";
 import PreviewBanner from "@/components/PreviewBanner";
 import { ttlColors } from "@/lib/ttl-theme";
 import TtlPaiementOffers from "./TtlPaiementOffers";
+import { dansLaCoque } from "@/lib/coque-serveur";
+import TtlSignOutButton from "../profil/TtlSignOutButton";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +36,23 @@ export default async function TtlPaiementPage({ searchParams }: PageProps) {
     if (accesTtlAccorde(offre, abonnement)) {
       redirect("/ttl");
     }
+  }
+
+  // Dans l'app des stores : ni offre, ni prix, ni lien de paiement.
+  if (await dansLaCoque()) {
+    return (
+      <div style={{ backgroundColor: ttlColors.bg, minHeight: "100vh", paddingBottom: 60 }}>
+        <div className="mx-auto" style={{ maxWidth: 480 }}>
+          <TtlHeader variant="page" title="Time To Live" subtitle="Ton accès n'est pas actif" />
+          <div style={{ padding: "20px 20px 100px" }}>
+            <p className="font-body" style={{ color: ttlColors.muted, fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+              Ton accès à Time To Live n&apos;est pas actif pour le moment. Une question ? Écris à l&apos;équipe.
+            </p>
+            <TtlSignOutButton />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const offers = getTtlStripeOffers().filter((o) => o.priceId);
