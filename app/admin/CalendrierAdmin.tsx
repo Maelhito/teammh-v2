@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { contientRecherche } from "@/lib/recherche";
 import { COULEURS_EVENEMENT, ORDRE_LEGENDE, couleurEvenement, estRendezVous } from "@/lib/couleurs-calendrier";
-import { fuseauAppareil, occurrenceLe } from "@/lib/temps";
+import { formatDateDans, formatHeureDans, fuseauAppareil, occurrenceLe } from "@/lib/temps";
+import FuseauReferenceEvenement, { PAYS_REFERENCE } from "@/components/FuseauReferenceEvenement";
 
 interface Client {
   id: string;
@@ -27,6 +28,10 @@ interface CalEvent {
   titre: string;
   date: string;
   heure: string | null;
+  /** L'instant de l'événement — fait foi pour le jour et l'heure affichés. */
+  starts_at?: string | null;
+  /** Le fuseau dans lequel l'heure a été tapée : celui où elle reste fixe. */
+  timezone?: string | null;
   recurrence: string;
   target_user_id: string | null;
   event_type: string | null;
@@ -66,7 +71,11 @@ function toLocalDate(d: Date): string {
  * comparant des dates murales sans fuseau.
  */
 function isEventOnDay(event: CalEvent, day: Date, fuseauLecteur: string | null): boolean {
-  return occurrenceLe(event, toLocalDate(day), fuseauLecteur).tombe;
+  // La grille place l'événement au jour où il a été posé, dans son pays de
+  // référence (comme avant) : la fiche détail donne ensuite l'heure dans
+  // chaque pays. Sans ça, une visio de 7h à Nouméa glisserait à la veille
+  // dans l'agenda de l'admin à Paris, loin de la date qu'elle a tapée.
+  return occurrenceLe({ ...event, starts_at: null }, toLocalDate(day), fuseauLecteur).tombe;
 }
 
 const DEFAULT_FORM = {
@@ -92,6 +101,9 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClientId, setSelectedClientId] = useState("");
   const [form, setForm] = useState(DEFAULT_FORM);
+  // Le pays dont l'heure reste fixe. Choisi à chaque événement : une visio de
+  // groupe France + Calédonie fait forcément bouger l'heure d'un des deux pays.
+  const [fuseauReference, setFuseauReference] = useState<string>(PAYS_REFERENCE[0].tz);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
@@ -129,6 +141,9 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
 
   function openModal(date?: string) {
     setForm({ ...DEFAULT_FORM, date: date ?? "" });
+    // Par défaut, l'heure de qui remplit le formulaire : c'est celle qu'on a en
+    // tête. Le choix reste visible juste sous l'heure.
+    setFuseauReference(fuseauLecteur ?? PAYS_REFERENCE[0].tz);
     setTargetMode("all");
     setClientSearch("");
     setSelectedClientId("");
@@ -188,6 +203,7 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
       body: JSON.stringify({
         ...form,
         heure: form.heure || null,
+        timezone: fuseauReference,
         target_user_id: targetMode === "specific" ? selectedClientId : null,
       }),
     });
@@ -418,6 +434,16 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
                 </select>
               </div>
 
+              {/* Pays dont l'heure reste fixe + aperçu pour les deux pays */}
+              <FuseauReferenceEvenement
+                date={form.date}
+                heure={form.heure}
+                recurrence={form.recurrence}
+                fuseau={fuseauReference}
+                onChange={setFuseauReference}
+                fuseauAuteur={fuseauLecteur}
+              />
+
               {/* Type d'événement */}
               <div style={{ marginBottom: 14 }}>
                 <label style={lbl}>Type</label>
@@ -496,8 +522,23 @@ export default function CalendrierAdmin({ clients, teamMembers }: Props) {
                 <span style={{ fontSize: 11, color: "#F5F5F0", fontFamily: "system-ui" }}>
                   {new Date(detail.date + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
                   {detail.heure ? ` à ${detail.heure.slice(0,5)}` : ""}
+                  {detail.starts_at && detail.timezone ? ` (heure de ${PAYS_REFERENCE.find(p => p.tz === detail.timezone)?.pays ?? detail.timezone})` : ""}
                 </span>
               </div>
+              {/* Le même moment lu dans chaque pays des clientes. */}
+              {detail.starts_at && PAYS_REFERENCE.filter(p => p.tz !== detail.timezone).map(p => {
+                const jour = formatDateDans(detail.starts_at!, p.tz);
+                return (
+                  <div key={p.tz} style={{ display: "flex", gap: 8 }}>
+                    <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui", minWidth: 60 }}>{p.pays}</span>
+                    <span style={{ fontSize: 11, color: "#bbb", fontFamily: "system-ui" }}>
+                      {formatHeureDans(detail.starts_at!, p.tz)}
+                      {jour !== detail.date ? (jour < detail.date ? " (la veille)" : " (le lendemain)") : ""}
+                      {detail.recurrence !== "none" && p.tz === "Europe/Paris" ? " — bouge d'1h au changement d'heure" : ""}
+                    </span>
+                  </div>
+                );
+              })}
               {detail.recurrence !== "none" && (
                 <div style={{ display: "flex", gap: 8 }}>
                   <span style={{ fontSize: 11, color: "#555", fontFamily: "system-ui", minWidth: 60 }}>Récurrence</span>

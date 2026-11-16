@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("calendar_events")
-    .select("id, titre, date, heure, recurrence, rappel, target_user_id, event_type, lien, message, created_by")
+    .select("id, titre, date, heure, starts_at, timezone, recurrence, rappel, target_user_id, event_type, lien, message, created_by")
     .neq("event_type", "seance")
     .order("date", { ascending: true });
 

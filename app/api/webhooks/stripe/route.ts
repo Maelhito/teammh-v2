@@ -4,6 +4,7 @@ import { getStripe } from "@/lib/stripe";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getTtlStripeOffers } from "@/lib/ttl-stripe-offers";
 import { synchroniserTtlVersNotion } from "@/lib/notion-ttl";
+import { getFuseau } from "@/lib/temps-serveur";
 import { resumeResiliation, type TtlResiliation } from "@/lib/ttl-resiliation";
 
 /**
@@ -161,6 +162,7 @@ async function enregistrerDatesSuivi(
 
     await synchroniserTtlVersNotion({
       motif,
+      fuseau: await getFuseau(userId),
       email: user?.user?.email,
       actif: !STATUTS_TERMINES.has(subscription.status),
       debut: (maj.started_at as string | undefined) ?? (ligne.started_at as string | null),

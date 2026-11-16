@@ -7,15 +7,20 @@
  * cliente. Sans NOTION_API_KEY, ne fait rien.
  */
 
+import { formatDateDans, fuseauOuDefaut } from "@/lib/temps";
+
 const NOTION_VERSION = "2022-06-28";
 const BASE_CLIENTES_TTM = "30b6b6b920ae81fe9dbefafe9cb8bc06";
 
 export const STATUT_TTL_EN_COURS = "Time To Live";
 export const STATUT_TTL_ARRETE = "Time To Live arrêté";
 
-/** Jour calendaire (AAAA-MM-JJ) à Nouméa, comme le reste de l'app. */
-function jourNoumea(iso: string): string {
-  return new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Pacific/Noumea" });
+/**
+ * Jour calendaire (AAAA-MM-JJ) chez la cliente. Avant, toujours à Nouméa :
+ * un abonnement pris le soir en France s'inscrivait au lendemain dans Notion.
+ */
+function jourChezElle(iso: string, fuseau: string | null | undefined): string {
+  return formatDateDans(iso, fuseauOuDefaut(fuseau));
 }
 
 async function notion(chemin: string, method: "POST" | "PATCH", body: unknown) {
@@ -52,6 +57,8 @@ export interface SuiviTtl {
   fin: string | null;
   /** résumé du questionnaire d'arrêt, écrit seulement quand l'abonnement s'arrête */
   motif?: string | null;
+  /** fuseau de la cliente : décide du jour inscrit dans Notion */
+  fuseau?: string | null;
 }
 
 export async function synchroniserTtlVersNotion(suivi: SuiviTtl): Promise<void> {
@@ -64,12 +71,12 @@ export async function synchroniserTtlVersNotion(suivi: SuiviTtl): Promise<void> 
     }
     const properties: Record<string, unknown> = {
       "Statut Détaillé": { status: { name: suivi.actif ? STATUT_TTL_EN_COURS : STATUT_TTL_ARRETE } },
-      "Fin TTL": { date: !suivi.actif && suivi.fin ? { start: jourNoumea(suivi.fin) } : null },
+      "Fin TTL": { date: !suivi.actif && suivi.fin ? { start: jourChezElle(suivi.fin, suivi.fuseau) } : null },
     };
     if (!suivi.actif && suivi.motif) {
       properties["Motif d'arrêt TTL"] = { rich_text: [{ type: "text", text: { content: suivi.motif.slice(0, 1900) } }] };
     }
-    if (suivi.debut) properties["Début TTL"] = { date: { start: jourNoumea(suivi.debut) } };
+    if (suivi.debut) properties["Début TTL"] = { date: { start: jourChezElle(suivi.debut, suivi.fuseau) } };
     await notion(`/pages/${pageId}`, "PATCH", { properties });
   } catch (err) {
     console.error("[notion-ttl] synchro échouée", err);

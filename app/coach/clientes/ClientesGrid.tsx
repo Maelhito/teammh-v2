@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { clientLabel, normaliser } from "@/lib/tri-clientes";
+// Une date de démarrage est un jour nu : `new Date("AAAA-MM-JJ")` la lit à
+// minuit UTC, soit la veille au soir pour tout appareil à l'ouest de Londres
+// (Antilles, Guyane).
+import { parseLocalDate } from "@/lib/programme-planning";
 
 const STATUT_LABEL: Record<string, string> = { active: "Active", pause: "Pause", terminee: "Terminée" };
 const STATUT_COLOR: Record<string, string> = { active: "#22C55E", pause: "#F97316", terminee: "#aaa" };
@@ -162,7 +166,7 @@ export default function ClientesGrid({ clients }: { clients: ClienteCarte[] }) {
                 </p>
                 <p style={{ fontSize: 11, color: "#aaa", margin: 0, fontFamily: "system-ui" }}>
                   {c.dateDemarrage
-                    ? `Démarrage : ${new Date(c.dateDemarrage).toLocaleDateString("fr-FR")}`
+                    ? `Démarrage : ${parseLocalDate(c.dateDemarrage.slice(0, 10)).toLocaleDateString("fr-FR")}`
                     : "Pas de date de démarrage"}
                 </p>
                 {/* L'accès révoqué n'a rien à voir avec le statut : une cliente

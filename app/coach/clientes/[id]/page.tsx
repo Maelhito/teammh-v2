@@ -1827,7 +1827,7 @@ export default function ClienteFichePage() {
             <div style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #e8e8e8", backgroundColor: "#fafafa", textAlign: "center" }}>
               <p style={{ fontSize: 9, fontWeight: 700, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 2px", fontFamily: "system-ui" }}>Démarrage</p>
               <p style={{ fontSize: 13, fontWeight: 800, color: "#1a1a1a", margin: 0, fontFamily: "system-ui" }}>
-                {new Date(cliente.date_demarrage).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+                {parseLocalDate(cliente.date_demarrage.slice(0, 10)).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
               </p>
             </div>
           )}

@@ -16,7 +16,11 @@ const FUSEAUX_COURANTS = [
   { tz: "Australia/Sydney", libelle: "Australie — Sydney" },
   { tz: "Australia/Perth", libelle: "Australie — Perth" },
   { tz: "Europe/Paris", libelle: "France — Paris" },
+  { tz: "America/Martinique", libelle: "Martinique" },
+  { tz: "America/Guadeloupe", libelle: "Guadeloupe" },
+  { tz: "America/Cayenne", libelle: "Guyane — Cayenne" },
   { tz: "Indian/Reunion", libelle: "La Réunion" },
+  { tz: "Indian/Mayotte", libelle: "Mayotte" },
   { tz: "Pacific/Tahiti", libelle: "Polynésie — Tahiti" },
 ];
 
