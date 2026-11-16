@@ -456,7 +456,21 @@ async function checkAndSendVisioDuJour(
   return 1;
 }
 
-// ─── RDV coach (matin, sans heure précise ou avec heure > 1h) ─────────────────
+// ─── Types de rendez-vous notifiés ────────────────────────────────────────────
+/**
+ * Les rendez-vous individuels qui donnent lieu à une notification. La
+ * nutrition en était absente : un RDV diète ne prévenait jamais la cliente,
+ * ni le matin ni une heure avant, contrairement au RDV coach.
+ */
+const TYPES_RDV = ["coach", "nutrition"] as const;
+
+function libellesRdv(type: string | null | undefined): { emoji: string; nom: string; parDefaut: string } {
+  return type === "nutrition"
+    ? { emoji: "🥗", nom: "RDV nutrition", parDefaut: "Rendez-vous nutrition" }
+    : { emoji: "📅", nom: "RDV coach", parDefaut: "Rendez-vous avec ton coach" };
+}
+
+// ─── RDV coach ou nutrition (matin, sans heure précise) ──────────────────────
 async function checkAndSendRdvDuJour(
   admin: Admin,
   userId: string,
@@ -467,9 +481,9 @@ async function checkAndSendRdvDuJour(
   // On envoie ici seulement pour les RDV sans heure (ou avec heure mais on informe le matin quand même)
   const { data: events } = await admin
     .from("calendar_events")
-    .select("id, titre, heure, date, recurrence, recurrence_intervalle")
+    .select("id, titre, heure, date, recurrence, recurrence_intervalle, event_type")
     .or(`target_user_id.is.null,target_user_id.eq.${userId},user_id.eq.${userId}`)
-    .eq("event_type", "coach")
+    .in("event_type", [...TYPES_RDV])
     .lte("date", dateStr)
     .is("heure", null);    // sans heure → notif matin seulement
 
@@ -477,9 +491,10 @@ async function checkAndSendRdvDuJour(
   if (!duJour.length) return 0;
 
   const ev = duJour[0];
+  const l = libellesRdv(ev.event_type);
   await sendPushToUser(userId, {
-    title: "📅 RDV coach aujourd'hui",
-    body: `${ev.titre ?? "Rendez-vous avec ton coach"} — prépare-toi !`,
+    title: `${l.emoji} ${l.nom} aujourd'hui`,
+    body: `${ev.titre ?? l.parDefaut} — prépare-toi !`,
     url: `/calendrier`,
   });
   logs.push(`[rdv] notif matin envoyée → ${userId}`);
@@ -536,7 +551,7 @@ async function sendRappelSeance(
   return 1;
 }
 
-// ─── 3. RDV coach 1h avant (heure précise) ────────────────────────────────────
+// ─── 3. RDV coach ou nutrition 1h avant (heure précise) ──────────────────────
 async function sendRdvCoachAvant(
   admin: Admin,
   userId: string,
@@ -557,9 +572,9 @@ async function sendRdvCoachAvant(
   // départ en base, et c'est la récurrence qui dit s'il tombe aujourd'hui.
   const { data: events } = await admin
     .from("calendar_events")
-    .select("id, titre, heure, starts_at, date, timezone, recurrence, recurrence_intervalle")
+    .select("id, titre, heure, starts_at, date, timezone, recurrence, recurrence_intervalle, event_type")
     .or(`target_user_id.is.null,target_user_id.eq.${userId},user_id.eq.${userId}`)
-    .eq("event_type", "coach")
+    .in("event_type", [...TYPES_RDV])
     .lte("date", lendemain)
     .not("heure", "is", null);
 
@@ -596,9 +611,10 @@ async function sendRdvCoachAvant(
       // L'heure annoncée est celle que la cliente lit sur son propre calendrier.
       const heureLue = instant ? formatHeureDans(instant, timezone) : (ev.heure as string).slice(0, 5);
 
+      const l = libellesRdv(ev.event_type);
       await sendPushToUser(userId, {
-        title: "📅 RDV coach dans 1h",
-        body: `${ev.titre ?? "Rendez-vous avec ton coach"} à ${heureLue} — prépare-toi !`,
+        title: `${l.emoji} ${l.nom} dans 1h`,
+        body: `${ev.titre ?? l.parDefaut} à ${heureLue} — prépare-toi !`,
         url: `/calendrier`,
       });
       logs.push(`[rdv-1h] notif envoyée → ${userId} (${heureLue} chez elle)`);
