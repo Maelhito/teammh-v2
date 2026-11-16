@@ -3,12 +3,22 @@ import { executerCronNotifications } from "@/lib/notifications/cron";
 import { cronAutorise } from "@/lib/notifications/auth";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// Marge large : le passage balaie toutes les personnes une par une, et un
+// passage coupé en route laisserait les dernières sans notification.
+export const maxDuration = 120;
 
 /**
- * LE point d'entrée des notifications. À déclencher au moins toutes les heures
- * (idéalement tous les quarts d'heure, pour que le rappel « 1h avant un
- * rendez-vous » tombe juste).
+ * LE point d'entrée des notifications, déclenché par Vercel tous les quarts
+ * d'heure (vercel.json, offre Pro).
+ *
+ * Le quart d'heure n'est pas un confort : le rappel « 1h avant un rendez-vous »
+ * cherche les RDV entre 50 et 70 min, et le rappel de tâche ceux entre −15 et
+ * +5 min. Avec un passage par heure, un RDV ou une tâche à 10h30 ne recevait
+ * jamais son rappel. Les notifications du matin (7h) et du soir (19h) se
+ * déclenchent, elles, sur l'heure locale de chaque personne.
+ *
+ * Avant le 16 nov. 2026, Vercel ne passait qu'une fois par jour (20h UTC, soit
+ * 7h à Nouméa) : le reste reposait sur un déclencheur externe toutes les heures.
  *
  * Sans danger à relancer : `notif_log` empêche tout doublon.
  */
