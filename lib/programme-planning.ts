@@ -59,6 +59,22 @@ export function toLocalDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * Nombre de jours calendaires entre deux dates, lues dans le fuseau de
+ * l'appareil (b − a).
+ *
+ * On compare les jours (année, mois, jour) et non les millisecondes : le jour
+ * du passage à l'heure d'été ne dure que 23 heures en France. Diviser l'écart
+ * en millisecondes par 24 h donnait 27,96 jours au lieu de 28 entre deux lundis
+ * de part et d'autre du changement, et `Math.floor` le ramenait à 27 — chaque
+ * lundi d'après fin mars affichait alors la séance de la semaine précédente.
+ */
+export function joursCalendairesEntre(a: Date, b: Date): number {
+  const ua = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const ub = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((ub - ua) / 86_400_000);
+}
+
 function safeParse(src: string | null | undefined): Record<string, unknown> {
   if (!src || !src.startsWith("{")) return {};
   try {
@@ -118,11 +134,7 @@ export function decodeAssignments(rows: AssignmentRow[] | null | undefined): Dec
  */
 export function dateToGridKey(date: Date, dateDebut: Date, dureeSemaines?: number): string | null {
   const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const start = new Date(dateDebut);
-  start.setHours(0, 0, 0, 0);
-
-  const diffDays = Math.floor((d.getTime() - start.getTime()) / 86_400_000);
+  const diffDays = joursCalendairesEntre(dateDebut, d);
   if (diffDays < 0) return null;
 
   const semaine = Math.floor(diffDays / 7) + 1;
@@ -262,11 +274,7 @@ export function itemsForDate<T = unknown>(programmes: DecodedProgramme[], date: 
 /** Numéro de semaine courant d'un programme (borné à sa durée). */
 export function semaineCourante(programme: DecodedProgramme, now: Date = new Date()): number {
   if (!programme.date_debut) return 1;
-  const start = parseLocalDate(programme.date_debut);
-  start.setHours(0, 0, 0, 0);
-  const ref = new Date(now);
-  ref.setHours(0, 0, 0, 0);
-  const diffDays = Math.floor((ref.getTime() - start.getTime()) / 86_400_000);
+  const diffDays = joursCalendairesEntre(parseLocalDate(programme.date_debut), now);
   return Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), programme.duree_semaines);
 }
 

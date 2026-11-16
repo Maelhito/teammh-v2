@@ -3,11 +3,13 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { updateTtlStreak, grantStreakFreezeIfEligible } from "@/lib/ttl-streak";
 import { computeCurrentPeriode, getOffreCliente } from "@/lib/ttl";
+import { aujourdhuiDans } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 
 /** La période se calcule ici, jamais côté téléphone : c'est la date de démarrage qui fait foi. */
 async function periodeEnCours(userId: string): Promise<number> {
-  const offre = await getOffreCliente(userId);
-  return offre?.date_debut ? computeCurrentPeriode(offre.date_debut) : 1;
+  const [offre, fuseau] = await Promise.all([getOffreCliente(userId), getFuseau(userId)]);
+  return offre?.date_debut ? computeCurrentPeriode(offre.date_debut, aujourdhuiDans(fuseau)) : 1;
 }
 
 function parseBody(videoId: unknown, semaine: unknown) {

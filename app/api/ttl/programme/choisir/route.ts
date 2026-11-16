@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { computeCurrentPeriode, getOffreCliente } from "@/lib/ttl";
+import { aujourdhuiDans } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 
 /**
  * La cliente choisit le programme de sa période en cours (4 semaines). Le choix ne vaut
@@ -17,9 +19,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "programmeId requis" }, { status: 400 });
   }
 
-  const offre = await getOffreCliente(user.id);
+  const [offre, fuseau] = await Promise.all([getOffreCliente(user.id), getFuseau(user.id)]);
   if (offre?.offre !== "TTL") return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
-  const periode = offre.date_debut ? computeCurrentPeriode(offre.date_debut) : 1;
+  const periode = offre.date_debut ? computeCurrentPeriode(offre.date_debut, aujourdhuiDans(fuseau)) : 1;
 
   const admin = createSupabaseAdminClient();
   const { data: programme } = await admin.from("ttl_programmes").select("id").eq("id", programmeId).maybeSingle();

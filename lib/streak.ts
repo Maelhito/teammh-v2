@@ -10,7 +10,7 @@
  * requête échoue et la fonction renvoie 0 quoi qu'il arrive.
  */
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
-import { aujourdhuiDans } from "@/lib/temps";
+import { aujourdhuiDans, decalerJour } from "@/lib/temps";
 import { getFuseau } from "@/lib/temps-serveur";
 
 export interface StreakInfo {
@@ -52,7 +52,9 @@ export async function updateStreak(userId: string): Promise<number> {
 
   if (last === today) return current;
 
-  const yesterdayStr = aujourdhuiDans(fuseau, new Date(Date.now() - 86400000));
+  // La veille du jour de la cliente, pas « il y a 24 h » : le lendemain du
+  // passage à l'heure d'été, entre minuit et 1h, il y a 24 h c'était l'avant-veille.
+  const yesterdayStr = decalerJour(today, -1);
   const newStreak = last === yesterdayStr ? current + 1 : 1;
 
   await admin

@@ -217,7 +217,7 @@ export default function EntrainementClient({
       const res = await fetch("/api/calendrier", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...addForm, heure: addForm.heure || null, event_type: "coach" }),
+        body: JSON.stringify({ ...addForm, heure: addForm.heure || null, event_type: "coach", timezone: fuseauAppareil() }),
       });
       if (res.ok) {
         const { event } = await res.json();

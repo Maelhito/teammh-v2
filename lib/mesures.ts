@@ -102,9 +102,13 @@ export function prochaineMesure(mesures: Mesure[]): { date: Date; joursRestants:
   const date = new Date(derniere);
   date.setDate(date.getDate() + INTERVALLE_JOURS);
 
+  // Écart en jours calendaires, pas en millisecondes : autour d'un changement
+  // d'heure, un jour dure 23 ou 25 heures et l'arrondi ajoutait un jour.
   const aujourdhui = new Date();
-  aujourdhui.setHours(0, 0, 0, 0);
-  const joursRestants = Math.ceil((date.getTime() - aujourdhui.getTime()) / (1000 * 60 * 60 * 24));
+  const joursRestants = Math.round(
+    (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+      - Date.UTC(aujourdhui.getFullYear(), aujourdhui.getMonth(), aujourdhui.getDate())) / 86_400_000
+  );
 
   return { date, joursRestants };
 }

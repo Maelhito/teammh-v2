@@ -10,6 +10,7 @@ import {
   getChoixProgramme,
   programmeDeLaPeriode,
   computeCurrentSemaine,
+  joursDepuisDebut,
   getRecettes,
   recetteDuJour as tirerRecetteDuJour,
   getObjectif,
@@ -50,10 +51,16 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
   const { data: { session } } = await supabase.auth.getSession();
   const { userId, firstName, isPreview } = await getEffectiveUser(session);
 
-  const offre = await requireTtlAccess(userId, isPreview);
-  const periode = offre?.date_debut ? computeCurrentPeriode(offre.date_debut) : 1;
+  // Le fuseau est lu en même temps que l'accès : la période et la semaine se
+  // comptent en jours DE LA CLIENTE, pas sur l'horloge du serveur.
+  const [offre, fuseau] = await Promise.all([
+    requireTtlAccess(userId, isPreview),
+    userId ? getFuseau(userId) : Promise.resolve(FUSEAU_PAR_DEFAUT),
+  ]);
+  const aujourdhui = aujourdhuiDans(fuseau);
+  const periode = offre?.date_debut ? computeCurrentPeriode(offre.date_debut, aujourdhui) : 1;
 
-  const [modules, watchedIds, programmes, recettes, streakInfo, objectif, seancesProgress, fuseau, questionnaire, choixId] = await Promise.all([
+  const [modules, watchedIds, programmes, recettes, streakInfo, objectif, seancesProgress, questionnaire, choixId] = await Promise.all([
     getOnboardingModules(),
     userId ? getWatchedVideoIds(userId) : Promise.resolve(new Set<string>()),
     getProgrammes(),
@@ -61,7 +68,6 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
     userId ? getStreak(userId) : Promise.resolve({ streak_current: 0, streak_last_activity: null, streak_freezes: 0 }),
     userId ? getObjectif(userId) : Promise.resolve(null),
     userId ? getSeancesProgress(userId) : Promise.resolve([]),
-    userId ? getFuseau(userId) : Promise.resolve(undefined),
     userId ? getTtlQuestionnaire(userId) : Promise.resolve({ reponses: null, complet: false }),
     userId ? getChoixProgramme(userId, periode) : Promise.resolve(null),
   ]);
@@ -74,10 +80,10 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
   const currentModule = currentModuleIndex >= 0 ? modules[currentModuleIndex] : null;
   const onboardingDone = ttlParcoursTermine(etats);
 
-  const currentSemaine = offre?.date_debut ? computeCurrentSemaine(offre.date_debut) : 1;
+  const currentSemaine = offre?.date_debut ? computeCurrentSemaine(offre.date_debut, aujourdhui) : 1;
   const currentProgramme = programmeDeLaPeriode(programmes, periode, choixId);
 
-  const recetteDuJour = tirerRecetteDuJour(recettes, aujourdhuiDans(fuseau ?? FUSEAU_PAR_DEFAUT));
+  const recetteDuJour = tirerRecetteDuJour(recettes, aujourdhui);
   const seancesValidees = seancesProgress.length;
 
   // Tant que le parcours de démarrage n'est pas fini, c'est LA chose à faire : une grosse
@@ -107,14 +113,12 @@ export default async function TtlAccueilPage({ searchParams }: PageProps) {
     currentProgramme && currentProgramme.videos.length > 0 ? "seance" : null,
   ].filter(Boolean) as (keyof typeof QUEST_STYLES)[];
 
-  const joursDepuisDebut = offre?.date_debut ? Math.floor((Date.now() - new Date(offre.date_debut).getTime()) / 86400000) : 0;
-
   const badges = computeTtlBadges({
     hasWatchedAny: watchedIds.size > 0,
     onboardingDone,
     seancesValidees,
     streakCurrent: streakInfo.streak_current,
-    joursDepuisDebut,
+    joursDepuisDebut: offre?.date_debut ? joursDepuisDebut(offre.date_debut, aujourdhui) : 0,
   });
   const badgesEarned = badges.filter((b) => b.earned).length;
 

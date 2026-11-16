@@ -99,10 +99,24 @@ export async function PATCH(request: NextRequest) {
 
   if (!id || !date) return NextResponse.json({ error: "id et date requis" }, { status: 400 });
 
+  // L'instant doit suivre la nouvelle date et la nouvelle heure. Avant, seules
+  // `date` et `heure` changeaient : `starts_at`, qui fait foi à l'affichage,
+  // gardait l'ancien moment, et le rendez-vous déplacé restait à sa place.
+  const fuseauSaisie = estFuseauValide(body.timezone) ? body.timezone : await getFuseau(session.user.id);
+  const instant = heure ? instantDepuis(date, heure, fuseauSaisie) : null;
+  if (heure && !instant) {
+    return NextResponse.json({ error: "Date ou heure invalide" }, { status: 400 });
+  }
+
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("calendar_events")
-    .update({ date, heure: heure || null })
+    .update({
+      date,
+      heure: heure || null,
+      starts_at: instant ? instant.toISOString() : null,
+      timezone: instant ? fuseauSaisie : null,
+    })
     .eq("id", id)
     .eq("user_id", session.user.id)
     .eq("created_by", "cliente")

@@ -6,6 +6,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 import ReglageFuseau from "@/components/ReglageFuseau";
 import ChangerMotDePasse from "@/components/ChangerMotDePasse";
 import { FUSEAU_PAR_DEFAUT } from "@/lib/temps";
+import { joursCalendairesEntre, parseLocalDate } from "@/lib/programme-planning";
 
 interface TeamMember {
   id: string;
@@ -398,9 +399,11 @@ export default function ProfileClient({ initialProfile, email, completedCount, t
   // calculés qu'une fois le composant monté côté client, pour que le premier rendu
   // (serveur + client pré-hydratation) reste identique dans les deux cas.
   if (dateDemarrage && mounted) {
-    const start = new Date(dateDemarrage);
-    const now = new Date();
-    const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    // Date de démarrage lue comme un jour local (minuit chez la cliente), et
+    // écart compté en jours calendaires : la semaine change à minuit chez elle,
+    // et le changement d'heure ne décale plus le compte.
+    const start = parseLocalDate(dateDemarrage.slice(0, 10));
+    const diffDays = joursCalendairesEntre(start, new Date());
     const semaine = Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), cfg.weeks);
     semaineLabel = `Semaine ${semaine} / ${cfg.weeks}`;
     timeProgress = Math.min(Math.max(diffDays / cfg.days, 0), 1) * 100;

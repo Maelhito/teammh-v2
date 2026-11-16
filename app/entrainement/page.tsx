@@ -59,7 +59,8 @@ export default async function EntrainementPage({
 
     programmes = decodes
       .filter((p) => statuts.get(p.id) === "en_cours")
-      .map((p) => ({ ...p, semaine_courante: semaineCourante(p) }));
+      // Semaine comptée depuis le jour DE LA CLIENTE, pas celui du serveur.
+      .map((p) => ({ ...p, semaine_courante: semaineCourante(p, parseLocalDate(todayIso)) }));
 
     // Séances jamais validées d'un programme clos (récent) : le programme peut
     // se fermer avant que la cliente ait tout fait, et ses séances manquées

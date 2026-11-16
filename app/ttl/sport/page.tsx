@@ -2,6 +2,8 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getEffectiveUser } from "@/lib/preview";
 import { requireTtlAccess } from "@/lib/ttl-access";
 import { getProgrammes, computeCurrentPeriode, computeCurrentSemaine, getSeancesProgress, getChoixProgramme, programmeDeLaPeriode } from "@/lib/ttl";
+import { FUSEAU_PAR_DEFAUT, aujourdhuiDans } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 import TtlHeader from "@/components/TtlHeader";
 import TtlBottomNav from "@/components/TtlBottomNav";
 import PreviewBanner from "@/components/PreviewBanner";
@@ -15,10 +17,15 @@ export default async function TtlSportPage() {
   const { data: { session } } = await supabase.auth.getSession();
   const { userId, firstName, isPreview } = await getEffectiveUser(session);
 
-  const offre = await requireTtlAccess(userId, isPreview);
+  const [offre, fuseau] = await Promise.all([
+    requireTtlAccess(userId, isPreview),
+    userId ? getFuseau(userId) : Promise.resolve(FUSEAU_PAR_DEFAUT),
+  ]);
 
-  const periode = offre?.date_debut ? computeCurrentPeriode(offre.date_debut) : 1;
-  const currentSemaine = offre?.date_debut ? computeCurrentSemaine(offre.date_debut) : 1;
+  // Comptées en jours DE LA CLIENTE : la semaine change à minuit chez elle.
+  const aujourdhui = aujourdhuiDans(fuseau);
+  const periode = offre?.date_debut ? computeCurrentPeriode(offre.date_debut, aujourdhui) : 1;
+  const currentSemaine = offre?.date_debut ? computeCurrentSemaine(offre.date_debut, aujourdhui) : 1;
 
   const [programmes, seancesProgress, choixId] = await Promise.all([
     getProgrammes(),

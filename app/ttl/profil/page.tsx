@@ -2,7 +2,9 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getEffectiveUser } from "@/lib/preview";
 import { requireTtlAccess } from "@/lib/ttl-access";
 import Link from "next/link";
-import { getOnboardingModules, getWatchedVideoIds, getSeancesProgress, getObjectif, getJoursEntrainement, getTtlSubscription, getTtlQuestionnaire } from "@/lib/ttl";
+import { getOnboardingModules, getWatchedVideoIds, getSeancesProgress, getObjectif, getJoursEntrainement, getTtlSubscription, getTtlQuestionnaire, joursDepuisDebut as joursDepuisDebutTtl } from "@/lib/ttl";
+import { FUSEAU_PAR_DEFAUT, aujourdhuiDans } from "@/lib/temps";
+import { getFuseau } from "@/lib/temps-serveur";
 import { computeTtlParcours, ttlParcoursTermine } from "@/lib/ttl-unlock";
 import { TTL_QUESTIONS } from "@/lib/ttl-questionnaire";
 import { ttlObjectifLabel } from "@/lib/ttl-objectifs";
@@ -28,8 +30,11 @@ export default async function TtlProfilPage() {
   const { data: { session } } = await supabase.auth.getSession();
   const { userId, firstName, email, isPreview } = await getEffectiveUser(session);
 
-  const offre = await requireTtlAccess(userId, isPreview);
-  const coque = await dansLaCoque();
+  const [offre, coque, fuseau] = await Promise.all([
+    requireTtlAccess(userId, isPreview),
+    dansLaCoque(),
+    userId ? getFuseau(userId) : Promise.resolve(FUSEAU_PAR_DEFAUT),
+  ]);
 
   const [modules, watchedIds, seancesProgress, objectif, streakInfo, joursEntrainement, abonnement, questionnaire] = await Promise.all([
     getOnboardingModules(),
@@ -48,7 +53,7 @@ export default async function TtlProfilPage() {
 
   const etats = computeTtlParcours(modules, watchedIds, questionnaire.complet);
   const seancesValidees = seancesProgress.length;
-  const joursDepuisDebut = offre?.date_debut ? Math.floor((Date.now() - new Date(offre.date_debut).getTime()) / 86400000) : 0;
+  const joursDepuisDebut = offre?.date_debut ? joursDepuisDebutTtl(offre.date_debut, aujourdhuiDans(fuseau)) : 0;
 
   // Le questionnaire vit dans le module 1 : c'est là qu'elle le remplit ou le modifie
   const moduleQuestionnaire = modules[0] ?? null;

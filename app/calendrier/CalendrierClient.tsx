@@ -7,7 +7,7 @@ import {
   teinteEvenement, estRendezVous,
 } from "@/lib/couleurs-calendrier";
 import LegendeCalendrier from "@/components/LegendeCalendrier";
-import { fuseauAppareil, heureAffichee, occurrenceLe } from "@/lib/temps";
+import { dateAffichee, fuseauAppareil, heureAffichee, occurrenceLe } from "@/lib/temps";
 import { estSeanceValidee } from "@/lib/seances-validees";
 
 interface CalendarEvent {
@@ -181,7 +181,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
       const res = await fetch("/api/calendrier", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, heure: form.heure || null }),
+        body: JSON.stringify({ ...form, heure: form.heure || null, timezone: fuseauAppareil() }),
       });
       if (res.ok) {
         const { event } = await res.json();
@@ -214,8 +214,11 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
 
   function openReschedule(evt: CalendarEvent) {
     setRescheduleEvent(evt);
-    setRescheduleDate(evt.date);
-    setRescheduleHeure(evt.heure?.slice(0, 5) ?? "");
+    // Pré-rempli à l'heure de la cliente, là où elle est maintenant : c'est
+    // dans ce fuseau que la nouvelle heure sera enregistrée.
+    const fuseau = fuseauAppareil();
+    setRescheduleDate(dateAffichee(evt, fuseau) ?? evt.date);
+    setRescheduleHeure(heureAffichee(evt, fuseau) ?? "");
     setRescheduleError(null);
   }
 
@@ -228,7 +231,7 @@ export default function CalendrierClient({ userId, initialEvents, completedSeanc
       const res = await fetch("/api/calendrier", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: rescheduleEvent.id, date: rescheduleDate, heure: rescheduleHeure || null }),
+        body: JSON.stringify({ id: rescheduleEvent.id, date: rescheduleDate, heure: rescheduleHeure || null, timezone: fuseauAppareil() }),
       });
       if (res.ok) {
         const { event } = await res.json();

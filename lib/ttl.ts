@@ -2,6 +2,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { couvertureVideo } from "@/lib/youtube";
 import { isMissingTableError } from "@/lib/questionnaire-missing-table";
 import type { TtlReponses } from "@/lib/ttl-questionnaire";
+import { joursEntre } from "@/lib/temps";
 
 export interface TtlModuleVideo {
   id: string;
@@ -211,22 +212,29 @@ export async function getTtlQuestionnaire(userId: string): Promise<TtlQuestionna
 /** Durée d'une période de programme sport : 4 semaines. */
 const JOURS_PAR_PERIODE = 28;
 
-function joursDepuis(dateDebut: string): number {
-  const start = new Date(dateDebut + "T00:00:00");
-  return Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24));
+/**
+ * Jours écoulés depuis le démarrage, comptés en jours DE LA CLIENTE.
+ *
+ * `aujourdhui` est la date du jour chez elle (`aujourdhuiDans(fuseau)`). Avant,
+ * l'écart se mesurait sur l'horloge du serveur (UTC) : la journée changeait à
+ * 11h du matin à Nouméa et à 1h du matin à Paris.
+ */
+export function joursDepuisDebut(dateDebut: string, aujourdhui: string): number {
+  const n = joursEntre(dateDebut.slice(0, 10), aujourdhui);
+  return n < 0 ? 0 : n;
 }
 
 /**
  * Période de programme sport en cours (1-indexée) : une période = 4 semaines à partir
  * de la date de démarrage de la cliente. Chaque période a son programme.
  */
-export function computeCurrentPeriode(dateDebut: string): number {
-  return Math.max(Math.floor(joursDepuis(dateDebut) / JOURS_PAR_PERIODE) + 1, 1);
+export function computeCurrentPeriode(dateDebut: string, aujourdhui: string): number {
+  return Math.max(Math.floor(joursDepuisDebut(dateDebut, aujourdhui) / JOURS_PAR_PERIODE) + 1, 1);
 }
 
 /** Semaine en cours (1-4) à l'intérieur de la période en cours. */
-export function computeCurrentSemaine(dateDebut: string): number {
-  const jours = ((joursDepuis(dateDebut) % JOURS_PAR_PERIODE) + JOURS_PAR_PERIODE) % JOURS_PAR_PERIODE;
+export function computeCurrentSemaine(dateDebut: string, aujourdhui: string): number {
+  const jours = joursDepuisDebut(dateDebut, aujourdhui) % JOURS_PAR_PERIODE;
   return Math.min(Math.max(Math.floor(jours / 7) + 1, 1), 4);
 }
 

@@ -433,8 +433,12 @@ function tombeSurMotif(ancrage: string, jour: string, recurrence: string, interv
   }
 }
 
-/** Nombre de jours entiers entre deux dates nues. */
-function joursEntre(a: string, b: string): number {
+/**
+ * Nombre de jours entiers entre deux dates nues "AAAA-MM-JJ" (b − a).
+ * -1 si l'une des deux est invalide. Insensible au changement d'heure : seules
+ * les dates comptent, jamais les heures.
+ */
+export function joursEntre(a: string, b: string): number {
   const pa = /^(\d{4})-(\d{2})-(\d{2})$/.exec(a);
   const pb = /^(\d{4})-(\d{2})-(\d{2})$/.exec(b);
   if (!pa || !pb) return -1;
