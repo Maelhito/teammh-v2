@@ -7,7 +7,7 @@ export async function PATCH(req: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  const { assignmentId, fromKey, toKey, toAssignmentId } = await req.json();
+  const { assignmentId, fromKey, toKey, toAssignmentId, itemIndex } = await req.json();
   if (!assignmentId || !fromKey || !toKey) {
     return NextResponse.json({ error: "assignmentId, fromKey et toKey requis" }, { status: 400 });
   }
@@ -41,8 +41,17 @@ export async function PATCH(req: NextRequest) {
   }
 
   const grid = parsed.grid ?? {};
-  const fromItems = grid[fromKey] ?? [];
+  const toutesFrom = grid[fromKey] ?? [];
   const toItems = grid[toKey] ?? [];
+
+  // Plusieurs séances le même jour : la cliente choisit celle qu'elle décale.
+  // Sans `itemIndex`, tout le jour part (comportement historique, rattrapages).
+  const choisie = Number.isInteger(itemIndex);
+  if (choisie && (itemIndex < 0 || itemIndex >= toutesFrom.length)) {
+    return NextResponse.json({ error: "Séance introuvable" }, { status: 404 });
+  }
+  const fromItems = choisie ? [toutesFrom[itemIndex]] : toutesFrom;
+  const resteFrom = choisie ? toutesFrom.filter((_, i) => i !== itemIndex) : [];
 
   // Rattrapage : la séance passe d'un programme clos vers un programme en cours.
   if (toAssignmentId && toAssignmentId !== assignmentId) {
@@ -63,7 +72,7 @@ export async function PATCH(req: NextRequest) {
     }
     const cibleGrid = cibleParsed.grid ?? {};
     cibleGrid[toKey] = [...(cibleGrid[toKey] ?? []), ...fromItems];
-    grid[fromKey] = [];
+    grid[fromKey] = resteFrom;
 
     // Cible d'abord : si la seconde écriture échoue, la séance existe en double
     // plutôt que de disparaître.
@@ -85,7 +94,7 @@ export async function PATCH(req: NextRequest) {
 
   // Déplacer les items de fromKey vers toKey
   grid[toKey] = [...toItems, ...fromItems];
-  grid[fromKey] = [];
+  grid[fromKey] = resteFrom;
 
   const { error: updateErr } = await admin
     .from("client_programmes")

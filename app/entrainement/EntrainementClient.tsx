@@ -121,7 +121,7 @@ export default function EntrainementClient({
   const [decalerMode, setDecalerMode] = useState(false);
   // Décaler s'applique à une case d'un programme précis (plusieurs peuvent
   // proposer une séance le même jour).
-  const [decalerFrom, setDecalerFrom] = useState<{ assignmentId: string; gridKey: string; rattrapage?: boolean } | null>(null);
+  const [decalerFrom, setDecalerFrom] = useState<{ assignmentId: string; gridKey: string; itemIndex?: number; rattrapage?: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Modal ajout event
@@ -198,6 +198,7 @@ export default function EntrainementClient({
         body: JSON.stringify({
           assignmentId: decalerFrom.assignmentId,
           fromKey: decalerFrom.gridKey,
+          ...(decalerFrom.itemIndex !== undefined ? { itemIndex: decalerFrom.itemIndex } : {}),
           toKey,
           ...(decalerFrom.rattrapage ? { toAssignmentId: cible.prog.id } : {}),
         }),
@@ -560,22 +561,23 @@ export default function EntrainementClient({
                       >
                         {isTerm ? "↺" : "▶"}
                       </Link>
+                      {!isTerm && (
+                        <button
+                          onClick={() => {
+                            setDecalerFrom({ assignmentId: programme.id, gridKey, itemIndex });
+                            setDecalerMode(true);
+                            setSelectedDay(null);
+                          }}
+                          aria-label={`Décaler ${itemNom(item)}`}
+                          style={{ padding: "7px 10px", backgroundColor: "transparent", border: "1px solid #2a2a2a", borderRadius: 8, color: "#888", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+                        >
+                          Décaler
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
-                {/* Pas de limite de date : une séance non validée se décale à tout moment, même passée. */}
-                {!isTerm && (
-                <button
-                  onClick={() => {
-                    setDecalerFrom({ assignmentId: programme.id, gridKey });
-                    setDecalerMode(true);
-                    setSelectedDay(null);
-                  }}
-                  style={{ marginTop: 8, width: "100%", padding: "9px", backgroundColor: "transparent", border: "1px solid #2a2a2a", borderRadius: 9, color: "#555", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", letterSpacing: "0.04em" }}
-                >
-                  Décaler {groupItems.length > 1 ? "ces séances" : "cette séance"} →
-                </button>
-                )}
+                {/* Pas de limite de date : une séance non validée se décale à tout moment, même passée. Chaque séance a son propre bouton « Décaler ». */}
               </div>
             );
           })}
