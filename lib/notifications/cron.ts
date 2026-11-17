@@ -306,7 +306,7 @@ async function envoyerTachesDuMatin(
   logs: string[]
 ): Promise<number> {
   const sansHeure = (await lireTachesBrutes(admin, userId))
-    .filter((t) => !t.starts_at && !t.heure)
+    .filter((t) => !t.starts_at) // y compris les anciennes tâches à simple `heure` : sans instant exact, elles sonnent le matin
     .filter((t) => occurrenceLe(t, dateStr, timezone).tombe);
   if (!sansHeure.length) return 0;
 
