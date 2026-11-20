@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { estCoque } from "@/lib/coque";
 
@@ -46,6 +46,9 @@ export async function middleware(request: NextRequest) {
   }
 
   let response = NextResponse.next({ request });
+  // Cookies de session renouvelés par Supabase, avec leurs options (durée de
+  // vie, chemin…). Ils doivent repartir tels quels sur une redirection.
+  let cookiesRenouveles: { name: string; value: string; options: CookieOptions }[] = [];
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,6 +59,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          cookiesRenouveles = cookiesToSet;
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
@@ -75,7 +79,13 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = to;
     const r = NextResponse.redirect(url);
-    response.cookies.getAll().forEach((c) => r.cookies.set(c.name, c.value));
+    // Recopier AVEC les options. Sans elles, les cookies de session perdaient
+    // leur durée de vie et devenaient des cookies « de navigation », effacés à
+    // la fermeture de l'app. Les clientes TTL passaient par là à chaque
+    // ouverture (l'app démarre sur /dashboard → redirigée vers /ttl) : dès que
+    // le jeton était renouvelé à ce moment-là, la session sautait à la
+    // fermeture suivante, et il fallait remettre email et mot de passe.
+    cookiesRenouveles.forEach(({ name, value, options }) => r.cookies.set(name, value, options));
     return r;
   }
 
