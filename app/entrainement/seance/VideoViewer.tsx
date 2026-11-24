@@ -32,6 +32,7 @@ export default function VideoViewer({
   const startTimeRef = useRef<number>(Date.now());
 
   const [finishing, setFinishing] = useState(false);
+  const [erreurFin, setErreurFin] = useState(false);
   const [done, setDone] = useState(false);
   const [elapsedMin, setElapsedMin] = useState(0);
   const [serieResult, setSerieResult] = useState<number | null>(null);
@@ -51,12 +52,18 @@ export default function VideoViewer({
         body: JSON.stringify({ assignmentId, gridKey }),
       });
       const data = await res.json().catch(() => ({}));
+      // Ne jamais afficher « séance terminée » si le serveur n'a rien enregistré
+      // (session expirée, coupure réseau) : la cliente croirait avoir validé.
+      if (!res.ok || data.success !== true) throw new Error("enregistrement refusé");
+      setErreurFin(false);
       if (typeof data.serie === "number") setSerieResult(data.serie);
       if (data.palierAtteint) setPalierAtteint(data.palierAtteint);
       if (data.programmeTermine) setProgrammeTermine(true);
       if (typeof data.logId === "string") setLogId(data.logId);
-    } catch {}
-    setDone(true);
+      setDone(true);
+    } catch {
+      setErreurFin(true);
+    }
     setFinishing(false);
   }
 
@@ -129,6 +136,7 @@ export default function VideoViewer({
           comptera dans ta semaine et dans ta flamme. 🔥
         </p>
 
+        {erreurFin && (<p role="alert" style={{ color: "#FF6B6B", fontSize: "0.85rem", textAlign: "center", margin: "0 0 10px" }}>Ta séance n'a pas été enregistrée (connexion coupée ou session expirée). Reste sur cet écran, vérifie ta connexion puis appuie de nouveau sur le bouton. Si ça persiste, reconnecte-toi.</p>)}
         <button
           onClick={finirSeance}
           disabled={finishing}

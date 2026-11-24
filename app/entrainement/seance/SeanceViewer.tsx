@@ -808,6 +808,7 @@ export default function SeanceViewer({
   const [openBlocs, setOpenBlocs] = useState<Set<number>>(new Set());
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [erreurFin, setErreurFin] = useState(false);
   const [done, setDone] = useState(false);
   const [serieResult, setSerieResult] = useState<number | null>(null);
   const [palierAtteint, setPalierAtteint] = useState<{ emoji: string; label: string } | null>(null);
@@ -850,12 +851,18 @@ export default function SeanceViewer({
         body: JSON.stringify({ assignmentId, gridKey }),
       });
       const data = await res.json().catch(() => ({}));
+      // Ne jamais afficher « séance terminée » si le serveur n'a rien enregistré
+      // (session expirée, coupure réseau) : la cliente croirait avoir validé.
+      if (!res.ok || data.success !== true) throw new Error("enregistrement refusé");
+      setErreurFin(false);
       if (typeof data.serie === "number") setSerieResult(data.serie);
       if (data.palierAtteint) setPalierAtteint(data.palierAtteint);
       if (data.programmeTermine) setProgrammeTermine(true);
       if (typeof data.logId === "string") setLogId(data.logId);
-    } catch {}
-    setDone(true);
+      setDone(true);
+    } catch {
+      setErreurFin(true);
+    }
     setFinishing(false);
   }
 
@@ -1013,6 +1020,7 @@ export default function SeanceViewer({
         {/* Bouton bas */}
         <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, backgroundColor: "#0D0D0D", borderTop: "1px solid #1a1a1a", padding: "16px", paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))", zIndex: 50 }}>
           <div style={{ maxWidth: 480, margin: "0 auto" }}>
+            {erreurFin && (<p role="alert" style={{ color: "#FF6B6B", fontSize: "0.85rem", textAlign: "center", margin: "0 0 10px" }}>Ta séance n'a pas été enregistrée (connexion coupée ou session expirée). Reste sur cet écran, vérifie ta connexion puis appuie de nouveau sur le bouton. Si ça persiste, reconnecte-toi.</p>)}
             {isLastBloc ? (
               <button onClick={finirSeance} disabled={finishing} style={{ width: "100%", padding: "16px", backgroundColor: finishing ? "#333" : "#4ADE80", color: finishing ? "#FFFFFF" : "#000", border: "none", borderRadius: 14, fontSize: "1rem", fontWeight: 700, cursor: finishing ? "not-allowed" : "pointer", letterSpacing: "0.06em", animation: blocFini && !finishing ? "pulseFinBloc 1.5s ease-in-out infinite" : undefined }}>
                 {finishing ? "Enregistrement…" : "✓ TERMINER LA SÉANCE"}
